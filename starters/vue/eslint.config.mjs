@@ -16,6 +16,15 @@ export default [
         ecmaVersion: 'latest',
       },
     },
+    rules: {
+      'prettier/prettier': [
+        'error',
+        {
+          endOfLine: 'lf',
+        },
+      ],
+      'linebreak-style': ['error', 'unix'],
+    },
   },
   {
     files: ['src/types/auto-imports.d.ts'],
