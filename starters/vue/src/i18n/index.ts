@@ -32,7 +32,7 @@ export const useLocale = () => {
 };
 
 // Function to add i18n globally to the app
-export const setupI18n = (app: any) => {
+export const setupI18n = (app) => {
   // Add $t and t to global properties for use in templates and Options API
   Object.assign(app.config.globalProperties, {
     t: i18n.global.t,
