@@ -1,0 +1,26 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "include": [
+    "src/types/env.d.ts",
+    "src/**/*",
+    "src/**/*.vue",
+    "src/**/*.d.ts",
+    "types/**/*.d.ts",
+    "uno.config.ts",
+    "vite.config.ts"
+  ],
+  "exclude": ["./node_modules", "./dist", "./.output", "./.data"],
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "lib": ["ES2021", "DOM"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "typeRoots": ["node_modules/@types", "node_modules/vue-macros"],
+    "types": ["node"]
+  },
+  "vueCompilerOptions": {
+    "globalTypesPath": "./src/types/auto-imports.d.ts"
+  }
+}
