@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import './muyu/muyu_page.dart';
 
 void main() {
   runApp(const MainPage());
@@ -176,7 +177,7 @@ class MainPage extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text('My App')),
-        body: Container(child: ScrollPage()),
+        body: Container(child: MuyuPage()),
         bottomNavigationBar: Text(
           'Bottom Navigation Bar Data',
           textAlign: TextAlign.center,
