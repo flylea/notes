@@ -9,18 +9,29 @@ class MuyuController {
 
   AudioPool? pool;
   final Random random = Random();
+  int minValue = 1;
+  int maxValue = 3;
 
   Future<void> init() async {
     pool = await FlameAudio.createPool('muyu_1.mp3', maxPlayers: 4);
   }
 
   void click() {
-    pool?.start();
+    final p = pool;
+    if (p != null) {
+      p.start();
+    }
 
-    final v = 1 + random.nextInt(3);
+    final range = (maxValue - minValue + 1);
+    final v = range <= 0 ? minValue : (minValue + random.nextInt(range));
 
     addValue.value = v;
     counter.value += v;
+  }
+
+  void setRange({required int min, required int max}) {
+    minValue = min;
+    maxValue = max;
   }
 
   void dispose() {
