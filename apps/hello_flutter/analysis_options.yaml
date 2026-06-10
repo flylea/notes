@@ -1,0 +1,27 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # 代码风格
+    - always_declare_return_types
+    - prefer_const_constructors          # 优先使用 const，提升性能
+    - prefer_const_declarations
+    - prefer_const_literals_to_create_immutables
+    - require_trailing_commas            # 尾随逗号 → 自动格式化更好看
+    - sort_constructors_first
+    - unawaited_futures
+    - use_key_in_widget_constructors
+
+    # 避免常见错误
+    - avoid_print                       # 使用 debugPrint 或 Logger
+    - avoid_empty_else
+    - avoid_relative_lib_imports
+    - avoid_types_on_closure_parameters
+
+analyzer:
+  errors:
+    missing_return: error
+    missing_enum_constant_in_switch: error
+  exclude:
+    - "**/*.g.dart"                      # 排除代码生成文件
+    - "**/*.freezed.dart"
