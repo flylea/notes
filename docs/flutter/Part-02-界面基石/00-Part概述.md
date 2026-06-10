@@ -41,10 +41,7 @@ library_app/
 │   ├── app.dart                          # MaterialApp 配置
 │   ├── models/
 │   │   ├── book.dart                     # Book 数据模型
-│   │   ├── user.dart                     # User 数据模型
-│   │   ├── borrow_record.dart            # BorrowRecord 数据模型
-│   │   ├── api_result.dart               # ApiResult sealed class
-│   │   └── user_role.dart                # UserRole 增强枚举
+│   │   └── api_result.dart               # ApiResult sealed class
 │   ├── data/
 │   │   └── sample_books.dart             # 测试图书数据
 │   ├── screens/
