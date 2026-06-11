@@ -1,6 +1,6 @@
 > **Part**: Part I — 起航：环境与 Dart 语言
 > **上一章**: [Chapter 01 — 环境搭建与 Flutter 架构初探](./Chapter-01-环境搭建与Flutter架构初探.md)
-> **下一章**: [Chapter 03 — Dart 核心语法速通（下）：面向对象与集合](./Chapter-03-Dart核心语法速通-下.md)
+> **下一章**: [Chapter 04 — Dart 核心语法速通（下）：面向对象与集合](./Chapter-04-Dart核心语法速通-下.md)
 > **官方文档**: [dart.cn/language](https://dart.cn/language)
 
 ---
@@ -9,7 +9,53 @@
 
 > 如果你之前使用 TypeScript，可先浏览[附录 D](../../Appendix-D-TypeScript开发者Dart速查.md) 快速了解 Dart 与 TS 的差异。其他语言背景的读者请直接开始学习。
 
-## 0. 本章目标
+## 0. 本章目标与写代码前的准备
+
+在写第一行 Dart 代码之前，你需要先了解几个最基本的规则。花 3 分钟读完，后面所有代码你就能看懂了。
+
+### 0.1 Dart 代码的基本规则
+
+**① 类型写在前面，变量名写在后面**
+
+Dart 是强类型语言，这一点和 Java、Go、Swift、C# 一样：
+
+```
+TypeScript:  let name: string = 'Dart';    // 类型在变量名后面，用冒号隔开
+Dart:        String name = 'Dart';          // 类型在变量名前面，用空格隔开
+Java:        String name = "Dart";          // 同样：类型在前
+Go:          var name string = "Dart"       // Go 的类型也在后面（但写法不同）
+```
+
+> 如果你来自 Java/Kotlin/Swift 等语言，Dart 的类型声明方式你非常熟悉。如果你来自 TypeScript，最重要的是**把类型从冒号后面移到变量名前面，去掉冒号**。
+
+**② 每行语句以分号结尾**（和 Java/JS/C 一样，和 Python/Kotlin 不同）
+
+**③ `print()` 是 Dart 内置的打印函数**，作用是把内容输出到控制台（终端窗口）。这一章我们会大量使用它来查看变量的值：
+```dart
+print('Hello Dart');   // 控制台中看到：Hello Dart
+print(42);             // 控制台中看到：42
+```
+
+**④ `void main() { }` 是程序的入口**——Dart 从这里开始执行你的代码。每个 `.dart` 文件都可以有自己的 `main()` 函数。
+
+**⑤ `import` 语句用来引入其他库的代码**。Dart 自带一套标准库，以 `dart:` 开头：
+- `dart:core` — 最基础的功能（**自动引入，不需要写 import**）。`String`、`int`、`List`、`print()`、`DateTime` 都来自这里
+- `dart:math` — 数学工具，比如生成随机数的 `Random` 类
+- `dart:convert` — 数据格式转换，比如 JSON 编解码
+
+```dart
+import 'dart:math';     // 引入数学库，之后就能使用 Random()
+// DateTime 不需要 import，它来自 dart:core（自动引入）
+final now = DateTime.now();
+```
+
+> 简单说：`dart:core` 像手机的内置 App（开机就有），`dart:math` 和 `dart:convert` 像需要手动下载的 App（需要 `import` 才能用）。
+
+**⑥ Dart 文件以 `.dart` 为扩展名**，用 `dart run 文件名.dart` 命令运行。
+
+---
+
+### 本章目标
 
 - 掌握 Dart 变量声明体系（`var` / `final` / `const` / `late`）
 - 熟练使用 Dart 内置类型（`int` / `double` / `String` / `bool` / `List` / `Map`）
@@ -17,7 +63,7 @@
 - 掌握 `async` / `await` 异步编程——Flutter 中最常用的模式
 - 熟练使用控制流与异常处理
 
-> 🎯 **本章产出**：在 `lib/utils/dart_syntax_practice.dart` 中完成所有语法练习，覆盖变量、类型、函数、异步、控制流和异常处理。
+> 🎯 **本章产出**：在 `lib/utils/dart_syntax_practice.dart` 中完成所有语法练习。
 
 ---
 
@@ -28,18 +74,22 @@ Dart 提供四种变量声明方式：
 ### 1.1 var — 类型推断
 
 ```dart
-var name = 'Dart';        // 推断为 String，之后不可更改类型
+var name = 'Dart';        // 编译器看到右边的 'Dart' 是字符串，自动推断 name 为 String
 var year = 2026;           // 推断为 int
 var fruits = ['apple'];    // 推断为 List<String>
 
 name = 'Flutter';          // ✅ 值可变（类型不变）
-// name = 42;              // ❌ 编译错误：类型锁定后不可变更
+// name = 42;              // ❌ 编译错误：Dart 是静态类型语言，变量类型编译时确定后就永远不变
 ```
+
+> 编译器如何"推断"？就像你看到有人手里拿着篮球，推断他可能在打篮球。编译器看到 `'Dart'` 就知道这是字符串，所以 `name` 就是 String。类型一旦确定，就像出生证明上的性别——之后绝不能改。
 
 ### 1.2 final — 运行时常量
 
 ```dart
-final now = DateTime.now();       // 运行时才能确定值，用 final
+// DateTime 来自 dart:core（自动引入），now() 返回"此刻"的时间
+// 因为每次运行 App 时"此刻"都不同，所以只能在运行时确定值
+final now = DateTime.now();
 final name = fetchUserName();     // 引用不可变，但对象内容可修改
 
 final List<String> tags = ['Flutter'];
@@ -61,18 +111,14 @@ const numbers = [1, 2, 3];        // 列表本身和内容都不可变
 // const 的核心价值：相同值的 const 在内存中只有一份
 const a = [1, 2, 3];
 const b = [1, 2, 3];
-print(identical(a, b));           // true — 指向同一个对象
+print(identical(a, b));           // true — a 和 b 指向内存中同一个对象！
+// identical(x, y) 是 Dart 内置函数，判断两个变量是否指向同一个内存位置（类似 JS 的 Object.is）
 
 // ❌ 编译时不确定的值不能用 const
 // const now = DateTime.now();    // 错误！now() 是运行时值
 ```
 
-**Flutter 性能关键**：`const` Widget 在 rebuild 时会被完全跳过。大量使用 `const` 构造是 Flutter UI 优化的第一原则。
-
-```dart
-// ✅ 编译时确定，每次 build 复用同一个实例
-const Padding(padding: EdgeInsets.all(16), child: Text('Hello'));
-```
+**`const` 在 Flutter 中的工程价值**：当你学到 Flutter Widget 时，`const` Widget 在页面重建时会被完全跳过——因为 Framework 知道它的所有属性都不会变。大量使用 `const` 是 Flutter 性能优化的第一原则。（Widget 和 const 构造的结合会在 Part-02 详解。）
 
 ### 1.4 late — 延迟初始化
 
@@ -93,17 +139,26 @@ void use() {
 late final int result = expensiveComputation();
 ```
 
-`late` 最常用于 Flutter 中——在 `initState` 中初始化，在 `build` 中使用：
+`late` 的一个常见场景是**延迟计算**——不希望在声明变量时就执行昂贵的计算：
 
 ```dart
-late final TextEditingController _controller;
+// 模拟一个耗时的配置加载
+String _loadAppConfig() {
+  print('正在从文件读取配置...');
+  return 'loaded';
+}
 
-@override
-void initState() {
-  super.initState();
-  _controller = TextEditingController();
+late final String config = _loadAppConfig();
+
+void main() {
+  print('程序启动');
+  print(config);  // 第一次访问 config 时才执行 _loadAppConfig()
+  print(config);  // 第二次访问直接返回缓存值，不会重新加载
+  // 输出顺序：程序启动 → 正在从文件读取配置... → loaded → loaded
 }
 ```
+
+> `late` 在 Flutter 中还会用于 Widget 级别的延迟初始化（如 `TextEditingController`），那会在 Part-02 中讲到。
 
 ### 1.5 选择指南
 
@@ -123,12 +178,14 @@ void initState() {
 ```dart
 int count = 42;
 double price = 19.99;
-num total = count + price;        // num 是 int 和 double 的父类
+// num 是一种通用的数字类型，既可以存整数也可以存小数
+// （严格来说 num 是 int 和 double 共同的"祖先类型"，但这个概念到 Ch04 学了类之后再理解）
+num total = count + price;        // int + double → 自动升级为 num
 
 // 字符串 ↔ 数字
 int.parse('42');                   // 42
 double.parse('3.14');              // 3.14
-42.toString();                     // '42'
+42.toString();                     // '42'（在 Dart 中一切都是对象，数字 42 也是对象，所以可以调用方法）
 3.14159.toStringAsFixed(2);        // '3.14'
 
 // Dart 3.x：数字下划线分隔
@@ -140,9 +197,13 @@ int million = 1_000_000;           // 更易读
 ```dart
 String name = 'Flutter';
 
-// 字符串模板
-String greeting = 'Hello, $name!';
-String info = 'Version: ${getVersion()}';  // {} 内可以是表达式
+// 字符串插值（String Interpolation）——在字符串中嵌入变量或表达式的值
+// $变量名  →  把变量的值放入字符串
+// ${表达式} → 把表达式的结果放入字符串（表达式复杂时用花括号包裹）
+String greeting = 'Hello, $name!';           // 变量 name 的值会替换 $name → "Hello, Flutter!"
+int a = 10, b = 20;
+String math = '$a + $b = ${a + b}';          // → "10 + 20 = 30"
+//            ↑ 简单变量用 $变量名   ↑ 表达式用 ${ }
 
 // 多行字符串
 String multiline = '''
@@ -162,7 +223,7 @@ String path = r'C:\Users\admin\dev\flutter';
 
 ### 2.3 bool 与条件判断
 
-**Dart 没有 truthy/falsy——这是与 JS/Python 最大的区别之一：**
+**Dart 的条件判断必须是 `bool` 类型——这是与 JS/Python 最大的区别之一：**
 
 ```dart
 bool isValid = true;
@@ -178,21 +239,26 @@ if (count > 0) { ... }
 if (name != null) { ... }
 ```
 
-### 2.4 List（数组）
+> 有些语言中 `if (1)`、`if ('hello')` 可以运行（因为它们把非零值/非空字符串当作 `true`），Dart 不允许这种做法——`if` 的括号里必须是明确的 `true` 或 `false`。
+
+### 2.4 List（列表，即其他语言中的"数组"）
+
+> `List` 就是你在其他语言里叫"数组（Array）"的东西——Java 的 `ArrayList`、TS/JS 的 `Array`、Python 的 `list`，在 Dart 里统一叫 `List`。
 
 ```dart
-var list = [1, 2, 3];                    // List<int>
-var typed = <String>['a', 'b'];          // 显式泛型
+var list = [1, 2, 3];                    // 类型推断为 List<int>
+// <String> 是泛型标注——"这个列表只能放字符串"
+var typed = <String>['a', 'b'];          // 尖括号里的类型约束了列表能装什么
 
 // 常用操作
 list.add(4);                              // [1, 2, 3, 4]
 list.addAll([5, 6]);                      // [1, 2, 3, 4, 5, 6]
 list.remove(3);                           // [1, 2, 4, 5, 6]
 
-// 展开操作符
-var combined = [...list, 7, 8, ...[9, 10]];
+// `...` 展开操作符 — 把列表"拆开"成独立元素，放入新列表
+var combined = [...list, 7, 8, ...[9, 10]];  // [1,2,3,4,5,6,7,8,9,10]
 
-// 集合 if / 集合 for — 声明式构建列表
+// 集合 if / 集合 for — 声明式构建列表（在列表字面量中直接写条件和循环）
 var hasHeader = true;
 var items = [
   if (hasHeader) 'Header',
@@ -200,12 +266,15 @@ var items = [
   'Footer',
 ];
 
-// 函数式操作（返回 Iterable，需要时 toList()）
-
+// 函数式操作
+// where/map/firstWhere 返回 Iterable——一种"还没真正计算的懒序列"
+// 调用 .toList() 后才真正执行计算，把结果存入内存
 var numbers = [3, 1, 4, 1, 5, 9, 2, 6];
 var evens = numbers.where((n) => n.isEven).toList(); // [4, 2, 6]
-var sorted = [...numbers]..sort();                    // 不修改原列表的排序
-var mapped = numbers.map((n) => n * 2).toList();      // 每个 × 2
+// `..` 是级联操作符——"先对前面的对象执行方法，然后返回对象本身"
+// [...numbers]..sort() = 复制一份 → 对复制品原地排序 → 返回排序好的复制品
+var sorted = [...numbers]..sort();                    // [1, 1, 2, 3, 4, 5, 6, 9]
+var mapped = numbers.map((n) => n * 2).toList();      // [2, 4, 8, 2, 10, 18, 4, 12]
 var first = numbers.firstWhere((n) => n > 5);         // 9
 var hasLarge = numbers.any((n) => n > 8);             // true
 ```
@@ -266,10 +335,11 @@ String greet(String name, int age) {
   return 'Hello, $name! You are $age years old.';
 }
 
-// 箭头函数 — 仅单表达式可用
+// Dart 的 => 是"单表达式函数体"的简写——等价于 { return 表达式; }
 bool isEven(int n) => n % 2 == 0;
-// 等价于 { return n % 2 == 0; }
 ```
+
+> 注意：Dart 的 `=>` 和 JS 的箭头函数不同。Dart 的 `=>` 只能用于函数体是单个表达式的情况，它仅仅是 `{ return ...; }` 的语法糖——不创建闭包、不改 `this`。
 
 ### 3.2 四种参数类型
 
@@ -281,6 +351,8 @@ String fullName(String first, String last) => '$first $last';
 fullName('Ada', 'Lovelace');
 
 // ② 可选位置参数 — 用 [] 包裹
+//    类型后面的 ? 表示这个参数可以为 null（不传时默认就是 null）
+//    空安全（Null Safety）的完整讲解在 Ch05，这里先记住语法即可
 String greet(String from, String msg, [String? device, int? priority]) {
   var result = '$from says $msg';
   if (device != null) result += ' with $device';
@@ -303,7 +375,7 @@ void createUser({
 createUser(name: 'Alice', email: 'alice@example.com', age: 30);
 ```
 
-**Flutter Widget 的参数几乎全是必填命名参数模式。**
+**Flutter Widget 的参数几乎全是必填命名参数模式。** 你会在 Part-02 大量见到这种写法。
 
 ### 3.3 匿名函数与闭包
 
@@ -316,6 +388,7 @@ var multiply = (int a, int b) => a * b;
   .map((n) => n * 2);            // 匿名函数传给 map
 
 // 闭包——捕获外部变量
+// Function 是 Dart 的内置类型，表示"一个函数"（就像 String 表示"一个字符串"）
 Function makeAdder(int addBy) => (int i) => addBy + i;
 
 var add2 = makeAdder(2);
@@ -356,6 +429,7 @@ Future<String> fetchUserName() {
 ```dart
 // async — 声明函数包含异步操作
 // await — 等待 Future 完成，取出结果
+// Future<void> 表示"将来会完成但不产生有意义结果的异步操作"
 Future<void> loadUserData() async {
   print('加载中...');
 
@@ -383,6 +457,8 @@ Future<void> loadAllData() async {
     fetchAvatar(),      // 同时启动
   ]);
 
+  // as 是类型转换操作符，告诉编译器"我确定这个值是 String 类型"
+  // Future.wait 返回 List<dynamic>（因为等待的 Future 可能不同类型），取出后需要 as 转换
   final name = results[0] as String;
   final avatar = results[1] as String;
   print('$name: $avatar');
@@ -462,7 +538,7 @@ while (tokens.isNotEmpty) {
 // break — 跳出循环 / continue — 跳过本次迭代
 ```
 
-`assert` 用于开发调试，仅在 Debug 模式生效：`assert(age >= 0, 'Age cannot be negative');`
+> `assert` 用于开发调试，仅在 Debug 模式生效：`assert(age >= 0, 'Age cannot be negative');`
 
 > 📖 **延伸阅读**：[dart.cn/language/loops](https://dart.cn/language/loops) | [dart.cn/language/branches](https://dart.cn/language/branches)
 
@@ -526,7 +602,9 @@ try {
 // lib/utils/dart_syntax_practice.dart
 // 运行：dart run lib/utils/dart_syntax_practice.dart
 
-import 'dart:convert';
+// dart:math 提供 Random 随机数生成器
+// dart:convert 提供 JSON 编解码函数
+// dart:core 自动引入，不需要写 import
 import 'dart:math';
 
 // ──── 1. 变量声明 ────
@@ -537,7 +615,9 @@ void practiceVariables() {
   var version = 1;
   print('$title v$version');
 
+  // DateTime 来自 dart:core（自动引入），now() 返回当前时刻
   final now = DateTime.now();
+  // Random 来自 dart:math（需手动 import），nextInt(100) 生成 0~99 的随机数
   final random = Random().nextInt(100);
   print('Generated at $now, random seed: $random');
 
@@ -573,9 +653,9 @@ void practiceTypes() {
   var isbnMap = {'Clean Code': '978-0132350884', 'Refactoring': '978-0201485677'};
   print('ISBN: ${isbnMap['Clean Code']}');
 
-  // Dart 没有 truthy/falsy！
+  // Dart 的 if 条件必须是 bool 表达式
   bool hasBooks = bookCount > 0;
-  if (hasBooks) print('Library has books ✓');
+  if (hasBooks) print('Library has books');
 
   print('✅ Types done');
 }
@@ -590,24 +670,13 @@ String createEntry(String title, [String? subtitle, int? edition]) {
   return entry;
 }
 
-// 命名参数模式——Flutter 中最常用
-BookInfo createBookInfo({
+// 返回一个 Map 来表示图书信息（类的用法在 Ch04 才讲）
+Map<String, dynamic> createBookInfo({
   required String title,
   required String author,
   int? year,
-  List<String> tags = const [],
 }) {
-  return BookInfo(title: title, author: author, year: year, tags: tags);
-}
-
-class BookInfo {
-  final String title;
-  final String author;
-  final int? year;
-  final List<String> tags;
-  const BookInfo({required this.title, required this.author, this.year, this.tags = const []});
-  @override
-  String toString() => 'BookInfo(title: $title, author: $author, year: $year, tags: $tags)';
+  return {'title': title, 'author': author, 'year': year};
 }
 
 typedef StringValidator = String? Function(String value);
@@ -623,7 +692,12 @@ void practiceFunctions() {
   print(info);
 
   StringValidator notEmpty = (s) => s.isEmpty ? 'Cannot be empty' : null;
-  print(notEmpty('Dart') ?? 'Validation passed');
+  final result = notEmpty('Dart');
+  if (result != null) {
+    print(result);
+  } else {
+    print('Validation passed');
+  }
 
   // 闭包
   Function counter() {
@@ -702,6 +776,8 @@ void practiceControlFlow() {
 }
 
 // ──── 6. 异常处理 ────
+// 自定义异常：定义一个类，用 implements Exception 声明它实现了 Exception 接口
+// （class 和 implements 会在 Ch04 详解，这里先照写即可）
 class LibraryException implements Exception {
   final String message;
   const LibraryException(this.message);
@@ -818,6 +894,22 @@ Future<void> good() async {
 | async/await 异步编程 | 模拟网络请求加载图书 |
 | switch 表达式 + 控制流 | 借阅状态判断、库存统计 |
 | 异常处理 on-catch-finally-rethrow | 借阅操作的错误处理 |
+
+---
+
+## 10. 本章练习
+
+1. **用 Dart 建模图书馆数据**：在 `lib/utils/dart_syntax_practice.dart` 中，用 `Map<String, dynamic>` 创建 3 条图书记录（包含 `title`、`author`、`year`、`isBorrowed` 字段）。用 `List<Map<String, dynamic>>` 存储所有记录。实现两个函数：`getAvailableBooks(List<Map<String, dynamic>> books)` 用 `where` 过滤出 `isBorrowed == false` 的图书；`getBookSummaries(List<Map<String, dynamic>> books)` 用 `map` 将每条记录转换为 `"《${title}》by ${author} (${year})"` 格式的字符串列表。使用 `const` 定义借阅期限常量 `borrowDays = 14`。
+
+   验证：打印 `getAvailableBooks` 结果，确认只包含未借出的图书；打印 `getBookSummaries` 结果，确认格式为 "《书名》by 作者 (年份)"。
+
+2. **异步加载 + 异常处理**：在 `dart_syntax_practice.dart` 中，用 `Future.delayed` 模拟 `fetchBookInfo(String bookId)` 函数（延迟 1 秒后返回图书信息）。实现 `safeLoadBook(String bookId)` 函数：调用 `fetchBookInfo`，用 `try-catch` 捕获所有异常并返回默认图书信息；如果 `bookId` 为空字符串，用 `throw FormatException('bookId 不能为空')` 抛出异常。使用 `async/await` 语法。
+
+   验证：传入有效 bookId 能在 1 秒后获取到图书信息；传入空字符串抛出 `FormatException`；mock 网络异常时 catch 生效返回默认值。
+
+3. **控制流实现借阅状态判断**：实现 `getBorrowStatus(int daysUntilDue)` 函数，使用 `switch` 表达式（非 `switch` 语句）返回中文状态字符串：`<= 0` → "已逾期"；`== 1` → "明天到期"；`<= 3` → "即将到期（N天）"；`>= 14` → "刚刚借阅"；`_` → "借阅中"。再实现 `batchUpdateStatus(List<int> daysList)` 用 for 循环 + 展开运算符（`...`）批量调用 `getBorrowStatus` 并返回结果列表。
+
+   验证：传入 `[0, 1, 2, 5, 14]` 得到 `["已逾期", "明天到期", "即将到期（2天）", "借阅中", "刚刚借阅"]`。
 
 ---
 
