@@ -15,7 +15,13 @@
 | 可空类型 | `String? x;` | `string \| null` |
 | 动态类型 | `dynamic x;` | `any` |
 
-**关键区别**：Dart 的 `var` 比 TS 的 `let` 更严格——类型一旦推断就锁定。Dart 的 `const` 是递归不可变，类似 `Object.freeze()` 深度冻结。Dart 的库级私有（`_` 前缀）与 TS 的 `#` 真私有更接近，但隔离粒度是文件级别。
+> **关键区别**：
+>
+> Dart 的 `var` 比 TS 的 `let` 更严格——类型一旦推断就锁定。
+>
+> Dart 的 `const` 是递归不可变，类似 `Object.freeze()` 深度冻结。
+>
+> Dart 的库级私有（`_` 前缀）与 TS 的 `#` 真私有更接近，但隔离粒度是文件级别。
 
 ---
 
@@ -30,7 +36,11 @@
 | **truthy/falsy** | **不存在！条件必须是 bool 表达式** | 存在（0、''、null 等均为 falsy） |
 | Set | `var s = <String>{};` | `new Set<string>()` |
 
-**关键区别**：Dart 没有 truthy/falsy——`if (value)` 是编译错误，必须写成 `if (value != null)` 或 `if (list.isNotEmpty)`。Dart 的整数和浮点数分开（`int`/`double` 都继承 `num`），而 TS 统一为 `number`。
+**关键区别**：
+
+Dart 没有 truthy/falsy——`if (value)` 是编译错误，必须写成 `if (value != null)` 或 `if (list.isNotEmpty)`。
+
+Dart 的整数和浮点数分开（`int`/`double` 都继承 `num`），而 TS 统一为 `number`。
 
 ---
 
@@ -44,7 +54,13 @@
 | 命名参数 | `fn({bool? x, required int y})` | `fn({x, y}: {x?: boolean, y: number})` |
 | typedef | `typedef F = int Function(int, int);` | `type F = (a: number, b: number) => number;` |
 
-**关键区别**：Dart 的命名参数用 `{}` 包裹，调用时直接 `fn(x: 1, y: 2)`（不需要传对象）。TS 则需要传对象 `fn({x: 1, y: 2})`。Dart 的 `=>` 不是"箭头函数"——它只是单行返回的简写，不创建闭包。
+**关键区别**：
+
+Dart 的命名参数用 `{}` 包裹，调用时直接 `fn(x: 1, y: 2)`（不需要传对象）。
+
+TS 则需要传对象 `fn({x: 1, y: 2})`。
+
+Dart 的 `=>` 不是"箭头函数"——它只是单行返回的简写，不创建闭包。
 
 ---
 
@@ -64,7 +80,15 @@
 | 泛型 | `class Box<T> {}` | `class Box<T> {}` |
 | 扩展方法 | `extension E on String {}` | 无原生对应 |
 
-**关键区别**：Dart 没有 `interface` 关键字——任何类都可以作为接口被实现（`implements`）。Dart 的命名构造和 factory 构造是 TS 没有的特性。Dart 的 Mixin（`with`）是语言级特性，比 TS 的 HOC/组合模式更直接。Dart 3 的 `sealed class` + switch 表达式 ≈ TS 的 discriminated union + 穷举检查。
+**关键区别**：
+
+Dart 没有 `interface` 关键字——任何类都可以作为接口被实现（`implements`）。
+
+Dart 的命名构造和 factory 构造是 TS 没有的特性。
+
+Dart 的 Mixin（`with`）是语言级特性，比 TS 的 HOC/组合模式更直接。
+
+Dart 3 的 `sealed class` + switch 表达式 ≈ TS 的 discriminated union + 穷举检查。
 
 ---
 
@@ -95,7 +119,11 @@
 | 非空断言 | `x!` | `x!` (non-null assertion) |
 | 健全性 | **健全空安全**——运行时绝不可能是 null | 编译时检查，运行时仍可能 null |
 
-**关键区别**：Dart 的空安全是健全的（Sound）——如果类型系统说变量不可为 null，它在运行时绝不可能是 null。TS 的 `strictNullChecks` 只是编译时检查，运行时仍可能遇到 null 值。
+**关键区别**：
+
+Dart 的空安全是健全的（Sound）——如果类型系统说变量不可为 null，它在运行时绝不可能是 null。
+
+TS 的 `strictNullChecks` 只是编译时检查，运行时仍可能遇到 null 值。
 
 ---
 
