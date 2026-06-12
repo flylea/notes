@@ -1,6 +1,8 @@
 # Part I — 起航：环境与 Dart 语言
 
-> **Part 总览**：本阶段是 Flutter 学习的起航阶段——搭建开发环境，掌握 Dart 语言核心语法，建立现代 Dart 工程化基础。完成本阶段后，你将拥有一个配置完成的 Library App 项目骨架、扎实的 Dart 语法功底、以及严格的代码质量基线。
+> **前置**: [Part 00 — Flutter 概述](../Part-00-Flutter概述/)
+>
+> **本 Part 总览**：搭建 Flutter 开发环境，掌握 Dart 语言核心语法，建立调试能力和工程化基础。完成本阶段后，你将拥有一个配置完整的 Library App 项目骨架和扎实的 Dart 语法功底。
 
 ---
 
@@ -8,50 +10,33 @@
 
 | 章节 | 标题 | 核心内容 | Library App 产出 |
 |------|------|---------|-----------------|
-| [Chapter 01](./Chapter-01-环境搭建与Flutter架构初探.md) | 环境搭建与 Flutter 架构初探 | SDK 安装 / flutter doctor / 四层架构 / 三棵树 / Hot Reload | `flutter create library_app` + Hello World |
-| [Chapter 02](./Chapter-02-Dart核心语法速通-上.md) | Dart 核心语法速通（上） | 变量声明 / 内置类型 / 函数参数 / async-await 异步编程 / 控制流 / 异常处理 | `lib/utils/dart_syntax_practice.dart` |
-| [Chapter 02b](./Chapter-02b-Dart-Stream流式编程.md) | Dart Stream — 异步流式编程 | async*+yield / StreamBuilder / 内存管理 / 图书馆应用场景 | Stream 概念理解 + UI 连接准备 |
-| [Chapter 03](./Chapter-03-Dart核心语法速通-下.md) | Dart 核心语法速通（下） | 类与构造 / 继承与 Mixin / 增强枚举 / 泛型 / 扩展方法 | `lib/models/book.dart` |
-| [Chapter 04](./Chapter-04-Dart3新特性与工程化基础.md) | Dart 3 新特性与工程化 | sealed class / Switch 表达式 / 模式匹配 / 空安全 / 工具链 | `lib/models/api_result.dart` / `analysis_options.yaml` |
+| [Ch01](./Chapter-01-环境搭建与Flutter架构初探.md) | 环境搭建 + 调试速通 + 项目最佳实践 | SDK安装/四层架构/三棵树/断点调试/项目初始化 | `flutter create library_app` + 调试能力 + lint配置 |
+| [Ch02](./Chapter-02-Dart核心语法速通-上.md) | Dart 语法速通（上） | 变量/类型/函数/async-await/控制流/异常 | `lib/utils/dart_syntax_practice.dart` |
+| [Ch03](./Chapter-03-Dart-Stream流式编程.md) | Dart Stream 流式编程 | async*+yield/StreamBuilder/内存管理 | Stream 概念 + UI 连接 |
+| [Ch04](./Chapter-04-Dart核心语法速通-下.md) | Dart 语法速通（下） | 类/构造/继承/Mixin/枚举/泛型/扩展 | `lib/models/book.dart` |
+| [Ch05](./Chapter-05-Dart3新特性与工程化基础.md) | Dart 3 新特性 | sealed class/模式匹配/空安全/dart analyze | `lib/models/api_result.dart` + `analysis_options.yaml` |
 
 ---
 
 ## Part I 学习目标检查清单
 
-完成本阶段后，你应该能回答以下问题：
+- [ ] 你能独立完成 `flutter create` 并配置好 lint、调试环境、目录结构吗？
+- [ ] 你能用 VS Code 断点调试 Flutter App，解读红屏错误信息吗？
+- [ ] 你能解释 `var`/`final`/`const`/`late` 的区别和选择场景吗？
+- [ ] 你能写一个 `async/await` 函数并用 `try-catch` 处理错误吗？
+- [ ] 你能定义一个包含构造函数、getter、fromJson/toJson 的 Dart 类吗？
+- [ ] 你能用 sealed class + switch 表达式实现编译时安全的结果处理吗？
 
-- [ ] Flutter 的四层架构分别是什么？每层用什么语言编写？
-- [ ] Widget/Element/RenderObject 三棵树各自的职责是什么？
-- [ ] Hot Reload 和 Hot Restart 的区别是什么？
-- [ ] `var` / `final` / `const` / `late` 四种声明的区别和使用场景？
-- [ ] Dart 函数四种参数类型分别是什么语法？
-- [ ] `async` / `await` 如何工作？`Future.wait` 用于什么场景？
-- [ ] 命名构造方法 `Book.fromJson()` 和 const 构造的区别？
-- [ ] Dart 的 Mixin（`with`）如何实现代码复用？
-- [ ] sealed class + switch 表达式如何实现编译时完备性检查？
-- [ ] `analysis_options.yaml` 中的 `strict-casts: true` 有什么作用？
+### Part I 独立练习
 
----
+**用纯 Dart 编写一个命令行图书管理程序**——不接受任何 Flutter Widget 代码，纯 Dart：
 
-## Part I 完成后的 Library App 状态
-
-```
-library_app/
-├── lib/
-│   ├── main.dart                         # App 入口（Chapter 1）
-│   ├── models/
-│   │   ├── book.dart                     # Book 数据模型（Chapter 3）
-│   │   └── api_result.dart               # ApiResult sealed class（Chapter 4）
-│   └── utils/
-│       └── dart_syntax_practice.dart      # Dart 语法练习脚本（Chapter 2）
-├── analysis_options.yaml                 # 严格静态分析配置（Chapter 4）
-├── pubspec.yaml                          # 项目配置
-└── test/
-    └── widget_test.dart                  # 默认测试文件
-```
-
-> 📌 **此时 App 还没有 UI**——它只有数据模型和分析配置。Chapter 5 开始，我们将把这套数据模型连接到屏幕上，让图书馆 App 真正"可见"。
+1. 定义 Book 类（id/title/author/category/publishYear）
+2. 实现内存中的图书 CRUD（List\<Book\> 存储）
+3. 支持按分类筛选、按书名搜索
+4. 支持 JSON 导入/导出（读取/写入本地文件）
+5. 所有操作通过命令行菜单交互（print + stdin.readLineSync）
 
 ---
 
-> **下一步**: [Part II — 界面基石：Widget 与布局](../Part-02-界面基石/)
+> **下一步**: [Part II — 界面基石：Widget、布局、表单、主题](../Part-02-界面基石/)

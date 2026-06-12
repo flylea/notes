@@ -1,15 +1,32 @@
 # Part IX — 高级 UI 与体验
 
-| 章节 | 核心内容 |
-|------|---------|
-| [Ch 36](./Chapter-36-动画系统.md) | 隐式/显式/Hero/交错动画 + CSS/Framer Motion 对照 |
-| [Ch 37](./Chapter-37-CustomPainter.md) | Canvas API / CustomPainter / 评分星/条形码/环形进度 |
-| [Ch 38](./Chapter-38-Material3主题.md) | ColorScheme.fromSeed / Dark Mode / ThemeMode 切换 |
-| [Ch 39](./Chapter-39-响应式设计.md) | 断点系统 / Master-Detail / 自适应网格 |
-| [Ch 40](./Chapter-40-国际化.md) | ARB + gen_l10n / RTL / 中英阿三语 |
-| [Ch 41](./Chapter-41-无障碍.md) | Semantics / TalkBack / WCAG 对比度 / 键盘导航 |
-| [Ch 42](./Chapter-42-高级UI效果.md) | BackdropFilter / ShaderMask / Transform 3D |
+> **前置**: [Part VIII — 本地持久化](../Part-08-本地持久化与离线/)
 
 ---
 
-> **下一步**: [Part X](../Part-10-平台集成与设备能力/)
+## Part IX 章节导航
+
+| 章节 | 标题 | 核心内容 |
+|------|------|---------|
+| [Ch42](./Chapter-42-动画系统.md) | 动画系统 | 隐式/显式/Hero/交错动画 |
+| [Ch43](./Chapter-43-CustomPainter.md) | CustomPainter | Canvas API/评分星/环形进度 |
+| [Ch44](./Chapter-44-响应式设计.md) | 响应式设计 | 断点系统/Master-Detail/自适应网格 |
+| [Ch45](./Chapter-45-国际化.md) | 国际化 | ARB+gen_l10n/复数规则/ICU MessageFormat/日期数字本地化/语言切换 |
+| [Ch46](./Chapter-46-无障碍.md) | 无障碍 | Semantics/动态内容通知/TalkBack+VoiceOver测试/键盘导航 |
+| [Ch47](./Chapter-47-高级UI效果.md) | 高级 UI 效果 | BackdropFilter/ShaderMask/Transform 3D |
+
+---
+
+## Part IX 学习目标检查清单
+
+- [ ] 你能区分隐式动画和显式动画的适用场景吗？
+- [ ] 你能实现中英双语 + 运行时语言切换吗？
+- [ ] 你能让 App 通过 TalkBack/VoiceOver 的基础可用性测试吗？
+
+### Part IX 独立练习
+
+**给名片 App 添加动画 + 国际化 + 响应式布局**：至少 3 种语言、1 个入场动画、手机平板双布局。
+
+---
+
+> **下一步**: [Part X — 平台集成与设备能力](../Part-10-平台集成与设备能力/)

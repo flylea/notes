@@ -1,5 +1,6 @@
 > **Part**: Part I — 起航：环境与 Dart 语言
-> **下一章**: [Chapter 02 — Dart 核心语法速通（上）：变量、类型、函数、控制流](./Chapter-02-Dart核心语法速通-上.md)
+> **上一章**: [Chapter 00 — Flutter 是什么？为什么要学 Flutter？](../Part-00-Flutter概述/Chapter-00-Flutter概述.md)
+> **下一章**: [Chapter 02 — Dart 核心语法速通（上）](./Chapter-02-Dart核心语法速通-上.md)
 > **官方文档**: [Flutter 安装指南](https://docs.flutter.cn/get-started/install) | [Flutter 架构概览](https://docs.flutter.cn/resources/architectural-overview) | [Flutter 工作原理](https://docs.flutter.cn/resources/inside-flutter)
 
 ---
@@ -288,8 +289,13 @@ library_app/
 
 打开 `lib/main.dart`，用以下代码替换全部内容：
 
+> ⚠️ **初学者注意**：下面这段代码你现在不需要完全理解每一行的含义——本章重点是让项目跑起来，后面的章节会逐一拆解。暂时把它当作"咒语"，先复制运行即可。你只需要关注：1. 这段代码创建了一个 App 2. 它显示了一个简单的界面。
+
+> 📦 **关于第一行 `import`**：`import` 是 Dart 的导入语句，相当于 TypeScript/JavaScript 的 `import ... from '...'`，用来从其他文件中引入代码。`package:` 是 Dart 特有的协议，指向当前项目 `pubspec.yaml` 中声明的依赖包（类似于 `node_modules`），`flutter/material.dart` 就是 Flutter 框架自带的 Material Design 组件库文件——它包含了 AppBar、Button、Text 等所有常用的 UI 控件。
+
 ```dart
-// ① Dart 标准库导入 — 类似 TS 的 import ... from 'react'
+// ① Dart 标准库导入 — import 关键字导入外部代码，package: 协议指向项目依赖包
+//    flutter/material.dart 是 Flutter Material Design 组件库的入口文件
 import 'package:flutter/material.dart';
 
 // ② 应用入口函数 — 类似 React 的 ReactDOM.createRoot().render()
@@ -626,6 +632,8 @@ flutter run
 
 ### 8.1 常见错误
 
+> ⚠️ **本章之后的内容，初学者可跳过**：下面的错误示例涉及 `initState`、`setState`、`Padding` 等 Flutter API，这些概念在 Part-02 中才会系统讲解。如果现在看不懂，完全正常——建议先跳过，学到 Part-02 后再回来看。
+
 ```dart
 // ❌ 错误 1: 在 build() 中执行耗时操作
 @override
@@ -671,7 +679,201 @@ Widget build(BuildContext context) {
 
 ---
 
-## 9. 本章小结
+## 9. Flutter 调试速通
+
+在开始写大量代码之前，先掌握最基础的调试技能。你可能已经遇到了红屏（或者即将遇到）——别慌，这节教你如何高效排查问题。
+
+> 📖 [Flutter 调试官方文档](https://docs.flutter.dev/testing/debugging)
+
+### 9.1 VS Code 断点调试
+
+Flutter 项目中 VS Code 调试面板默认会自动激活。如果没看到，按 `Ctrl+Shift+D`（Mac: `Cmd+Shift+D`）打开。
+
+| 操作 | 快捷键 | 说明 |
+|------|--------|------|
+| 设置断点 | 点击行号左侧 | 红色圆点出现，代码执行到此处会暂停 |
+| 条件断点 | 右键断点 → Edit Breakpoint → Expression | 只在条件为 true 时暂停 |
+| 单步跳过 | `F10` | 执行当前行，不进入函数内部 |
+| 单步进入 | `F11` | 进入当前行的函数内部 |
+| 单步跳出 | `Shift+F11` | 跳出当前函数 |
+| 继续执行 | `F5` | 继续运行直到下一个断点 |
+
+**实战流程**：遇到 Bug → 在可疑位置设断点 → 触发 Bug 重现 → 检查变量值是否正确 → 单步追踪逻辑 → 定位根因 → 修复。
+
+### 9.2 变量监视与调试控制台
+
+暂停在断点时，左侧 **VARIABLES** 面板可以直接查看所有局部变量和字段的值。在 **DEBUG CONSOLE** 中可以执行 Dart 表达式：
+
+```
+> book.title           // 查看对象属性
+> list.length          // 查看列表长度
+> someFunction(42)     // 调用函数看返回值
+```
+
+### 9.3 红屏错误解读
+
+Flutter 的红屏是开发者最好的朋友——它精确告诉你哪里出错了：
+
+```dart
+// 典型红屏信息：
+// ══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞══════════════════
+// The following assertion was thrown building BookCard(dirty):
+// A value of type 'int' can't be assigned to a variable of type 'String'.
+// 
+// When the exception was thrown, this was the stack:
+// #0      BookCard.build (package:library_app/widgets/book_card.dart:15)
+```
+
+解读要点：
+1. **异常类型** — 第 1 行告诉你出了什么问题（类型错误 / null 错误 / 断言失败）
+2. **错误位置** — stack trace 第 1 行指向你代码中的具体文件和行号
+3. **上下文** — 错误信息会告诉你在哪个 Widget 的 build 过程中出错
+
+### 9.4 调试工具速查
+
+| 工具 | 用途 | 打开方式 |
+|------|------|---------|
+| `debugPrint()` | 打印输出到调试控制台 | 代码中直接调用 |
+| `debugPaintSizeEnabled = true` | 显示每个 Widget 的边界和尺寸 | `main.dart` 中设置 |
+| `debugDumpApp()` | 打印整个 Widget 树 | 代码中调用 |
+| Flutter DevTools | 可视化性能分析、Widget 检查 | `flutter pub global activate devtools` 或 VS Code 集成 |
+| Widget Inspector | 可视化查看 Widget 树和属性 | DevTools 中的 Inspector 标签 |
+
+### 9.5 常见错误快速诊断表
+
+| 现象 | 可能原因 | 排查方法 |
+|------|---------|---------|
+| 红屏 | 代码抛出异常 | 读红屏错误信息，定位文件和行号 |
+| 白屏/灰屏 | Widget 树没有内容 | 检查 build 方法是否返回了 Container/空 SizedBox vs 预期内容 |
+| 溢出（黄色条纹） | 内容超出可用空间 | 用 `debugPaintSizeEnabled` 检查布局边界 |
+| 无响应 | 主线程阻塞 | 检查是否有同步耗时操作、死循环 |
+| Hot Reload 无效 | 改动不能被热重载 | Hot Restart 重试 |
+
+---
+
+## 10. 项目初始化最佳实践
+
+`flutter create` 只是一个起点。以下是你应该在项目第一天就完成的事项。
+
+### 10.1 analysis_options.yaml — 代码质量守护
+
+项目根目录已有默认配置，建议升级为生产级：
+
+```yaml
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true              # 禁止隐式类型转换
+    strict-inference: true          # 类型推断缺失时报错
+    strict-raw-types: true          # 禁止省略泛型参数
+  errors:
+    missing_return: error
+    dead_code: error
+    unused_import: error
+    unused_local_variable: error
+
+linter:
+  rules:
+    - always_declare_return_types
+    - avoid_print                     # 用 debugPrint
+    - prefer_const_constructors       # 性能关键
+    - require_trailing_commas         # 格式化友好
+    - use_super_parameters
+```
+
+运行验证：
+```bash
+flutter analyze    # 应该 0 error
+```
+
+### 10.2 .gitignore — 区分跟踪与忽略
+
+确认 `.gitignore` 包含以下关键项：
+
+```gitignore
+# Flutter
+.dart_tool/
+build/
+*.iml
+.gradle/
+android/.gradle/
+ios/Pods/
+ios/.symlinks/
+.metadata
+*.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+```
+
+### 10.3 推荐初始目录结构
+
+```
+library_app/
+├── lib/
+│   ├── main.dart                    # App 入口
+│   ├── core/                        # 公共层（theme, network, utils）
+│   │   ├── theme/
+│   │   ├── network/
+│   │   └── utils/
+│   ├── features/                    # 功能模块（每个 feature 独立目录）
+│   │   ├── books/
+│   │   ├── auth/
+│   │   └── settings/
+│   ├── models/                      # 数据模型
+│   └── widgets/                     # 共享组件
+├── test/                            # 测试文件
+├── assets/                          # 图片、字体、JSON
+│   ├── images/
+│   └── fonts/
+├── analysis_options.yaml
+└── pubspec.yaml
+```
+
+不一定要全部预创建——随着教程推进逐步添加。但保持"功能模块化 + 公共层"的思想。
+
+### 10.4 环境变量管理
+
+不应在代码中硬编码 API 地址、密钥等。推荐做法：
+
+```dart
+// lib/core/config/env_config.dart
+class EnvConfig {
+  // 通过 --dart-define 传递，默认值为本地开发
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000',
+  );
+  static const String envName = String.fromEnvironment(
+    'ENV',
+    defaultValue: 'dev',
+  );
+  static bool get isProduction => envName == 'prod';
+}
+```
+
+运行指定环境：
+```bash
+flutter run --dart-define=ENV=staging --dart-define=API_BASE_URL=https://staging-api.example.com
+```
+
+### 10.5 项目初始化检查清单
+
+- [ ] `flutter analyze` 通过（0 error, 0 warning）
+- [ ] `analysis_options.yaml` 配置了 strict-casts/strict-inference/strict-raw-types
+- [ ] `.gitignore` 已补充 IDE 和 Build 文件
+- [ ] 初始目录结构已创建
+- [ ] `pubspec.yaml` 中项目名、描述已修改（不是默认的 `library_app`）
+- [ ] 已运行 `git init` 并完成首次提交（如果还没做的话）
+- [ ] 环境变量通过 `--dart-define` 管理，没有硬编码的 URL 或密钥
+
+---
+
+## 11. 本章小结
 
 | 你学到了什么 | 在图书馆 App 中的体现 |
 |-------------|---------------------|
@@ -682,6 +884,22 @@ Widget build(BuildContext context) {
 | Hot Reload 原理 | 日常开发的核心工具 |
 | Impeller AOT Shader 编译 | Release 模式性能保证 |
 | VS Code 配置与 Flutter 快捷操作 | 开发环境就绪 |
+
+---
+
+## 12. 本章练习
+
+1. **验证 Flutter 开发环境**：运行 `flutter doctor -v`，确保所有检查项（Flutter SDK、Android Toolchain、Android Studio、VS Code）均为 ✅ 状态。如果任一检查项未通过，根据提示修复。新建一个 Flutter 项目 `library_app`，修改 `pubspec.yaml` 中的项目名称为 `library_app`、description 为 "A personal library management app built with Flutter"。运行 `flutter analyze` 确认新项目无静态分析错误。
+
+   验证：`flutter doctor` 输出无 ❌ 标记；`library_app` 目录结构完整（`lib/`、`test/`、`android/`、`ios/` 等目录齐全）；`flutter analyze` 输出 "No issues found!"
+
+2. **配置 VS Code Flutter 开发环境**：安装 Flutter 和 Dart 两个 VS Code 扩展。打开 `library_app/lib/main.dart`，用 `stless` 代码片段快速生成一个 StatelessWidget。修改 `primarySwatch` 为 `Colors.blue`，添加一个 `AppBar`（用 `ctrl+.` 或 `cmd+.` 快速修复菜单包裹 `Center` → `Scaffold` → 添加 `appBar`）。配置 `settings.json` 中的 `"dart.lineLength": 120` 和 `"editor.formatOnSave": true`。
+
+   验证：代码片段 `stless`/`stful` 可正常展开；`ctrl+.` 快速修复菜单可用；保存文件时自动格式化。
+
+3. **理解 Flutter 三棵树模型**：在 `main.dart` 中创建一个由 `Scaffold > AppBar > Text` 组成的三层 Widget 树。使用 `flutter run` 运行 App，用 VS Code 的 "Flutter Inspector"（`ctrl+shift+p` → "Flutter: Inspect Widget"）查看 Widget 树结构，确认三棵树（Widget/Element/RenderObject）的层次关系。尝试修改 AppBar 的 `title` 文字，按 `r` 或保存触发 Hot Reload，观察 App 界面变化但 Widget 树位置不变的效果。
+
+   验证：Flutter Inspector 中能看到完整的 Widget 树；Hot Reload 后文字变化但无需重新启动 App；理解 `build()` 方法在 Hot Reload 期间被重新调用但 State 保留。
 
 ---
 

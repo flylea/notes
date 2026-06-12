@@ -2,25 +2,22 @@ include: package:flutter_lints/flutter.yaml
 
 linter:
   rules:
-    # 代码风格
     - always_declare_return_types
-    - prefer_const_constructors          # 优先使用 const，提升性能
-    - prefer_const_declarations
-    - prefer_const_literals_to_create_immutables
-    - require_trailing_commas            # 尾随逗号 → 自动格式化更好看
-    - sort_constructors_first
-    - unawaited_futures
-    - use_key_in_widget_constructors
-
-    # 避免常见错误
-    - avoid_print                       # 使用 debugPrint 或 Logger
-    - avoid_empty_else
-    - avoid_relative_lib_imports
-    - avoid_types_on_closure_parameters
+    - avoid_print                     # 用 debugPrint
+    - prefer_const_constructors       # 性能关键
+    - require_trailing_commas         # 格式化友好
+    - use_super_parameters
 
 analyzer:
+  language:
+    strict-casts: true              # 禁止隐式类型转换
+    strict-inference: true          # 类型推断缺失时报错
+    strict-raw-types: true          # 禁止省略泛型参数
   errors:
     missing_return: error
+    dead_code: error
+    unused_import: error
+    unused_local_variable: error
     missing_enum_constant_in_switch: error
   exclude:
     - "**/*.g.dart"                      # 排除代码生成文件
