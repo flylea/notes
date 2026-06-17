@@ -171,13 +171,38 @@ class BookList extends _$BookList {
 
 ---
 
-## 6. 本章小结
+## 6. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误描述 | 后果 | 正确做法 |
+|---------|------|----------|
+| 忘记添加 `part 'xxx.g.dart'` | 生成器跳过该文件，无 `.g.dart` 输出 | 在类文件顶部紧跟 import 后添加 `part 'book_api.g.dart';` |
+| `baseUrl` 末尾带 `/`，`@GET` 路径也以 `/` 开头 | URL 被拼接为 `//books`，请求 404 | 统一约定：`baseUrl` 不带末尾 `/`，路径以 `/` 开头 |
+| 接口方法返回类型写 `Future<dynamic>` 或 `Future<Map>` | 失去类型安全，需要手动 `fromJson` | 始终声明精确返回类型 `Future<Book>` 或 `Future<PaginatedResponse<Book>>` |
+| `@Path('id')` 参数名与 `@GET('/books/{id}')` 中的占位符不一致 | 编译无报错，但运行时参数不代入 URL | 确保 `@Path('name')` 与 `{name}` 字面一致 |
+| 忘记运行 `build_runner` 就使用 API 接口 | 工厂构造 `_BookApi` 不存在，编译失败 | 开发期用 `dart run build_runner watch` 监听文件变化自动生成 |
+
+### 最佳实践
+
+- `part` 指令紧跟在 import 之后，放在类定义之前
+- 统一在 `@RestApi(baseUrl:)` 中配置基础地址，不在 `factory` 构造中重复传入
+- 使用 `@Headers({...})` 统一设置公共请求头（如 `Content-Type`、`Accept`）
+- 按业务域拆分 API 接口文件：`BookApi`、`AuthApi`、`BorrowApi`，避免单文件膨胀
+- 配合 Riverpod `Provider` 注入 API 实例，便于测试时替换为 mock
+- 错误处理统一在 Dio `Interceptor` 层完成（如 401 自动刷新 Token），Retrofit 接口保持纯粹
+- 返回类型使用 freezed 生成的数据类（`Future<Book>`），从源头保证类型安全
+- 接口方法参数使用命名参数 + 默认值（`int page = 1`），减少调用方心智负担
+
+---
+
+## 7. 本章小结
 
 Retrofit 在手写 Dio 之上提供了类型安全的声明式 API 层——定义抽象接口，build_runner 生成实现代码。10+ 端点的大型项目可减少数千行样板代码。与 tRPC/GraphQL codegen 思路一致。
 
 ---
 
-## 7. 本章练习
+## 8. 本章练习
 
 1. 为 Library App 定义 `BookApi` 接口，包含 `getBooks`（分页）、`getBookById`、`searchBooks` 三个端点，运行 `build_runner` 生成代码
 2. 添加一个带 `@Header` 的认证端点 `refreshToken`，验证生成的 `_BookApi` 正确附加自定义 Header

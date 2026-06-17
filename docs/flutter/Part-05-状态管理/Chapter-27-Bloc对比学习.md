@@ -225,7 +225,30 @@ class BorrowPage extends StatelessWidget {
 
 ---
 
-## 5. 本章小结
+## 5. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| 直接在 UI 中修改 Bloc/Cubit 的 State | 绕过单向数据流，状态变化不可追溯 | 只能通过 `add(Event)`（Bloc）或直接调方法 → `emit()`（Cubit）修改状态 |
+| 忘记在 `dispose` 中 `close` Bloc/Cubit | 内存泄漏，Stream 未关闭 | 使用 `BlocProvider` 自动管理生命周期，或手动在 `dispose` 中 `close()` |
+| Event handler 中用 `await` 未处理并发 | 多次事件触发导致竞态条件 | 使用 `EventTransformer`（`sequential`/`restartable`/`droppable`）控制处理顺序 |
+| Cubit 中直接修改 state 字段而不 `emit` 新状态 | UI 不更新 | 始终通过 `emit(state.copyWith(...))` 产出不可变新 State |
+| `BlocListener` 和 `BlocBuilder` 分开写重复处理同一 state | 代码冗余、逻辑分散 | 用 `BlocConsumer` 合并 `listener` 和 `builder` |
+
+**最佳实践**：
+
+- 简单状态/小功能优先用 Cubit，减少 Event 类样板代码
+- 需要事件溯源、审计日志的场景使用完整 Bloc（Event + State + Bloc）
+- State 类使用 `freezed` 或 `Equatable` 支持值比较，避免不必要的 UI 重建
+- 搜索输入等高频操作务必使用 `debounce` transformer，延迟 300ms 触发请求
+- `BlocProvider` 的 `create` 中做初始化，`BlocProvider.value` 用于传递已有 Bloc 实例
+- 用 Dart 3 的 `sealed class` 定义 Event 层级，利用 exhaustive check 确保所有事件都有处理
+- 单元测试时直接 `new Bloc()` 并 `emit` 特定 State，无需构建 Widget 树
+- 复杂状态机（如审批流程、多步骤表单）优先选 Bloc，Event 天然适合建模状态转移
+
+---
+
+## 6. 本章小结
 
 | 你学到了什么 | 核心要点 |
 |-------------|---------|
@@ -237,7 +260,7 @@ class BorrowPage extends StatelessWidget {
 
 ---
 
-## 6. 本章练习
+## 7. 本章练习
 
 1. 用 Cubit 实现借阅页面的借还操作：创建 `BorrowCubit`，包含 `loadRecords()` / `borrowBook(String bookId)` / `returnBook(String recordId)` 三个方法，用 `emit()` 更新 `BorrowState`。在 `BorrowPage` 中分别用 `BlocBuilder` 渲染列表、`BlocListener` 监听操作失败并弹出 SnackBar。验证标准：借书后列表新增记录，还书后记录状态变为"已还"。
 

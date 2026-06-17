@@ -233,7 +233,32 @@ final webSocketProvider = Provider.autoDispose<WebSocketClient>((ref) {
 
 ---
 
-## 4. 本章练习
+## 4. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误描述 | 后果 | 正确做法 |
+|---------|------|----------|
+| `MultipartFile.fromFile()` 未指定 `contentType` | 服务端无法识别文件类型，存储后的文件损坏或无扩展名 | 显式传入 `contentType: MediaType('image', 'jpeg')`，匹配实际文件格式 |
+| `CancelToken` 被多次上传复用 | 第二次上传立即被取消，提示 "用户取消了上传" | 每次上传前新建 `CancelToken`：`_cancelToken = CancelToken()` |
+| WebSocket 未实现心跳机制 | 中间代理/NAT 闲置超时（通常 60s）后断开连接，无明显报错 | 用 `Timer.periodic(Duration(seconds: 30), ...)` 每 30s 发送 ping |
+| `Dio.download()` 目标路径的父目录不存在 | 抛出 `FileSystemException`：No such file or directory | 下载前用 `Directory(dirPath).createSync(recursive: true)` 确保路径存在 |
+| 大图片直接上传不分片或压缩 | 移动网络下超时、内存暴涨、用户流量消耗大 | 上传前用 `image` package 压缩到 maxWidth: 1024, quality: 85 |
+
+### 最佳实践
+
+- 图片上传前强制压缩（`image` package：`copyResize` + `encodeJpg`），宽高不超过 1024px，质量 85%
+- 上传进度通过 `onSendProgress` 回调更新 UI，搭配 `LinearProgressIndicator` 显示进度条
+- `CancelToken` 每次上传新建，`cancel()` 后立即重置，避免状态残留
+- WebSocket 断线重连用指数退避（初始 3s，每次翻倍，上限 30s），避免重连风暴
+- WebSocket 的 `onMessage` 回调中避免耗时解析（JSON decode 大对象），复杂数据结构交给 Isolate 处理
+- `Dio.download()` 前确保目标目录存在，下载失败时清理残留文件
+- 上传/下载 Service 配合 Riverpod `autoDispose` 在 Provider 销毁时自动取消进行中的传输
+- 大文件（>100MB）不通过 Dio 上传，改用 Supabase Storage SDK 或分片上传（`MultipartFile` 单文件限制约 50MB）
+
+---
+
+## 5. 本章练习
 
 1. 实现 `UploadService` 上传图书封面，显示上传进度条
 2. 在详情页增加「更换封面」按钮，上传成功后更新封面图
@@ -244,4 +269,5 @@ final webSocketProvider = Provider.autoDispose<WebSocketClient>((ref) {
 
 ---
 
+> **下一步**: [Part V — 状态管理（Chapter 23）](../Part-05-状态管理/Chapter-23-setState局部状态管理.md)
 > 📖 **延伸阅读**: [Dio 文档](https://pub.dev/packages/dio) | [WebSocket API](https://api.dart.dev/dart-io/WebSocket-class.html) | [Supabase Realtime](https://supabase.com/docs/guides/realtime)

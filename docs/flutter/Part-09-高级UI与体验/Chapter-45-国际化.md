@@ -356,7 +356,32 @@ Row(
 
 ---
 
-## 10. 本章练习
+## 10. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| 新增 key 只在中文 ARB 添加 | 英文/其他语言 ARB 缺少 key，切换语言后显示中文 fallback | 每次 `flutter gen-l10n` 后检查所有语言 ARB 是否包含全部 key |
+| UI 中硬编码中文文本 | 切换语言后页面文本不变，国际化形同虚设 | 用 lint 规则禁止硬编码字符串，所有文本走 `AppLocalizations.of(context)!` |
+| 语言切换后不重建 `MaterialApp` | `locale` 变更但 Widget 树未刷新，只有重启生效 | `locale` 存在 Riverpod `StateProvider`，`MaterialApp` 读取后整体重建 |
+| 忘记注册 `localizationsDelegates` | 运行时报错 `No AppLocalizations found` | `MaterialApp` 同时配置 `localizationsDelegates` 和 `supportedLocales` |
+| 复数规则用中文逻辑套英文 | `other` 分支覆盖 `single`，英文显示 "1 books" | ARB 中为每种语言独立定义 =0/=1/other 分支 |
+
+### 最佳实践
+
+- 以中文 ARB 为模板文件（`template-arb-file: app_zh.arb`），翻译平台以中文为源语言
+- 每次新增 key 后运行 `flutter gen-l10n` 检查生成代码是否编译通过
+- 使用 `EdgeInsetsDirectional` 和 `start`/`end` 替代 `left`/`right`，自动适配 RTL 布局
+- 日期/数字/货币格式化始终传入 `locale` 参数：`DateFormat.yMMMd(locale.languageCode)`
+- 语言选择持久化到 `SharedPreferences`，App 启动时 `getSavedLocale()` 恢复
+- ARB 中用 ICU `{variable, select, ...}` 处理状态文本，替代 Dart 层的 `if-else`
+- 复杂消息用 `@placeholders` 声明参数类型，gen_l10n 自动生成类型安全的调用方法
+- 测试 RTL：临时设置 `locale: const Locale('ar')` 验证布局是否镜像翻转
+
+---
+
+## 11. 本章练习
 
 1. 配置 Library App 的中英双语支持，至少包含 appTitle、searchHint、borrow、returnBook、noBooks 5 个 key
 2. 实现 bookCount 的复数翻译（中英文各有一套复数规则）
@@ -368,4 +393,5 @@ Row(
 
 ---
 
+> **下一步**: [Chapter 46 — 无障碍](./Chapter-46-无障碍.md)
 > 📖 **延伸阅读**: [Flutter 国际化](https://docs.flutter.dev/ui/accessibility-and-internationalization/internationalization) | [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) | [ARB 规范](https://github.com/google/app-resource-bundle/wiki/ApplicationResourceBundleSpecification)

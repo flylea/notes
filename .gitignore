@@ -38,6 +38,9 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# agent instructions
+AGENTS.md
+
 # IDE
 .idea/
 *.swp

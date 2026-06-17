@@ -229,13 +229,38 @@ final goRouter = GoRouter(
 
 ---
 
-## 4. 本章小结
+## 4. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误描述 | 后果 | 正确做法 |
+|---------|------|----------|
+| Realtime 订阅后未在 dispose 时 `unsubscribe()` | 页面销毁后仍接收事件，导致 setState 在已销毁 Widget 上调用 | 在 `State.dispose()` 或 Riverpod `ref.onDispose()` 中调用 `channel.unsubscribe()` |
+| Edge Function 环境变量未在 Dashboard 设置 | 函数运行时 `Deno.env.get('KEY')` 返回 undefined，调用第三方 API 失败 | 部署后在 Dashboard → Edge Functions → 函数详情 → Settings 中添加环境变量 |
+| OAuth 登录的 `redirectTo` 未在 Supabase Dashboard 配置 | 登录后浏览器打不开 App，OAuth 流程中断 | 在 Dashboard → Authentication → URL Configuration 添加 redirect URL scheme（如 `io.library.app://**`） |
+| `.stream(primaryKey: ['id'])` 指定的 key 与表主键不一致 | 增量更新匹配错误：新增被误认为更新，删除被忽略 | `primaryKey` 参数必须与数据库表的主键列名严格一致 |
+| Edge Function 中硬编码 `service_role key` 或 API key | 代码泄露后密钥暴露，所有数据不安全 | 始终通过 `Deno.env.get()` 读取，禁止字符串硬编码 |
+
+### 最佳实践
+
+- Realtime 频道在 `ref.onDispose()` 或 `State.dispose()` 中取消订阅，防止内存泄漏和无效更新
+- `.stream(primaryKey: ['id'])` 必须与表主键一致，否则增量更新匹配错乱
+- Edge Function 通过 `Deno.env.get()` 读取所有密钥，开发期用 `supabase secrets set` 本地注入
+- OAuth 深度链接配合 `app_links` package 统一处理回调，Android/iOS 各自配置 scheme
+- GoRouter 使用 `refreshListenable` 监听 `Supabase.instance.client.auth.onAuthStateChange`，实现登录状态变化自动跳转
+- Broadcast 消息体使用 JSON 格式（`jsonEncode`/`jsonDecode`），统一序列化规范
+- Auth state 通过 `StreamProvider<AuthState>` 全局分发，避免各处重复订阅
+- Edge Function 冷启动有 200-500ms 延迟，高频调用可改为 PostgreSQL `pg_cron` + DB Function 定时任务模式
+
+---
+
+## 5. 本章小结
 
 Supabase Realtime 提供三种模式：Postgres Changes（表变更）/ Broadcast（客户端消息）/ Presence（在线追踪）。Edge Functions 保护第三方 API Key，Hub 模式规避函数数量限制。Auth 完整支持邮箱/OAuth/Magic Link + AuthGuard 路由守卫。
 
 ---
 
-## 5. 本章练习
+## 6. 本章练习
 
 1. 为 `books` 表开启 Supabase Realtime，在 Library App 中订阅 `books` 变更——管理员新增图书后，所有在线用户即时看到新书
 2. 创建一个 Supabase Edge Function `hello-world`，从 Flutter App 调用并在控制台打印返回值
@@ -243,5 +268,5 @@ Supabase Realtime 提供三种模式：Postgres Changes（表变更）/ Broadcas
 
 验证标准：在两个设备/模拟器上同时打开 App，一个添加图书后另一个即时显示；Edge Function 调用成功返回 `{ "message": "Hello from Edge!" }`。
 
-> **下一步**: [Part VI — 应用架构（Chapter 28）](../Part-06-应用架构/)
+> **下一步**: [Part V — 状态管理（Chapter 23）](../Part-05-状态管理/Chapter-23-setState局部状态管理.md)
 > **原始文档**: [supabase.com/docs](https://supabase.com/docs)

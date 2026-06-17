@@ -127,13 +127,38 @@ class _State extends ConsumerState<PrivacyLockWidget> with WidgetsBindingObserve
 
 ---
 
-## 5. 本章小结
+## 5. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| Token 存入 `SharedPreferences` | 明文存储，root 设备可直接读取，安全性为 0 | Token 类敏感数据只用 `flutter_secure_storage` |
+| `biometricOnly: false` | 用户可用设备 PIN/图案绕过生物识别认证 | 高安全场景设置 `biometricOnly: true` |
+| 隐私锁屏超时硬编码 30 秒 | 用户无法调整，频繁解锁或安全性不足 | 超时时长通过 `SharedPreferences` 持久化，提供多档选项 |
+| 未检查 `canCheckBiometrics` | 不支持生物识别的设备直接崩溃 | 使用前调用 `isAvailable` getter 兜底 |
+| `SecureStorage` 读写无异常处理 | 部分 Android 设备 KeyStore 不可用导致崩溃 | `write`/`read` 包裹 `try-catch`，失败时降级到 `SharedPreferences`（加密） |
+
+### 最佳实践
+
+- 敏感数据分级：Token → `SecureStorage`，偏好 → `SharedPreferences`，缓存 → 数据库，文件 → 私有目录
+- `SecureStorage` 初始化时设置 `aOptions: AndroidOptions(encryptedSharedPreferences: true)` 和 `iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock)`
+- 生物识别测试必须在真机上验证（模拟器不支持），开启 TalkBack/VoiceOver 验证无障碍
+- 隐私锁屏通过 `WidgetsBindingObserver` 监听 `AppLifecycleState`，记录 `_backgroundTime`
+- 生物识别失败时提供"使用密码登录"的 fallback 选项，而非直接退出
+- `SecureStorage.clearAll()` 在 `signOut()` 时调用，确保敏感数据完全清除
+- 生物识别开关状态存放在 `SharedPreferences`（非 `SecureStorage`——属于偏好类数据）
+- `stickyAuth: true` 允许切后台回来后保持认证状态，避免重复解锁
+
+---
+
+## 6. 本章小结
 
 Token → SecureStorage（加密），偏好 → SharedPreferences（明文），生物识别 → local_auth。隐私锁屏通过 `WidgetsBindingObserver` 监听生命周期 + 生物识别重新验证实现。
 
 ---
 
-## 6. 本章练习
+## 7. 本章练习
 
 1. **扩展 SecureStorageService**：在 `SecureStorageService` 中添加 `saveApiKey(String key, String value)` 和 `getApiKey(String key)` 方法，用于存储第三方 API Key（如 Google Books API Key）。在设置页面增加一个"API 配置"入口，允许用户输入并保存 API Key。验证标准：保存后重启 App，通过 `getApiKey` 能正确读取，且 Key 存储在 Keychain/EncryptedSharedPreferences 中而非明文。
 

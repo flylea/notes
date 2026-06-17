@@ -122,7 +122,32 @@ RepaintBoundary(child: CustomPaint(painter: ExpensivePainter(), size: const Size
 
 ---
 
-## 6. 本章练习
+## 6. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| `shouldRepaint` 永远返回 `true` | 每次父 Widget `build` 都触发完整重绘，帧率严重下降 | 精确比较影响绘制的属性：`o.rating != rating` |
+| 在 `paint()` 方法内创建对象 | 每帧 `new Paint()`/`new Path()` 产生大量 GC，造成卡顿 | 将 `Paint`/`Path` 提升为成员变量或复用 `paint` 参数 |
+| 忽略 `Size` 参数使用硬编码 | 在不同容器尺寸下绘制变形或溢出 | 使用 `size.width`/`size.height` 按比例计算坐标 |
+| `canvas.clipRect()` 后忘记 `restore()` | 裁剪状态污染后续所有绘制操作 | `canvas.save()` 和 `canvas.restore()` 严格成对使用 |
+| `CustomPaint` 未设置 `size` 或 `child` | 绘制区域为 `Size.zero`，图形完全不可见 | 显式指定 `size` 或通过 `child` 约束尺寸 |
+
+### 最佳实践
+
+- `shouldRepaint` 中精确比较属性：`o.rating != rating || o.color != color`，避免不必要的重绘
+- `paint()` 方法内复用的 `Paint` 对象在 `CustomPainter` 构造时创建并缓存
+- 用 `RepaintBoundary` 包裹 `CustomPaint`，阻止父 Widget 重建触发子级重绘
+- 复杂路径提取为独立方法（如 `_starPath()`），既复用又便于测试
+- `TextPainter` 先 `layout()` 再 `paint(canvas, offset)`，textDirection 必须指定
+- 涉及透明度的绘制使用 `canvas.saveLayer()` 而非 `save()`，避免叠加色差
+- 在 `shouldRepaint` 中返回 `false` 的 Painter 可作为静态背景，性能最优
+- 使用 `ClipPath` + `CustomClipper<Path>` 而非 `CustomPainter` 做裁剪，更符合语义
+
+---
+
+## 7. 本章练习
 
 1. 为 Library App 实现五星级评分 CustomPainter：`canvas.drawPath` 绘制标准五角星路径，完整星用金色填充，半星用 `canvas.clipRect` 截取左半部分填充金色、右半部分灰色，支持 0.5 精度（如 3.5 星），用 `shouldRepaint` 正确判断是否需要重绘
 2. 为 Library App 实现借阅到期倒计时环形进度条：`canvas.drawArc` 先画灰色背景圆环（sweepAngle 360），再画主题色前景圆弧（sweepAngle = 剩余天数/总天数 * 360），圆心处用 `TextPainter` 绘制剩余天数文字，剩余 <= 3 天时前景色变红，用 `RepaintBoundary` 包裹避免不必要重绘

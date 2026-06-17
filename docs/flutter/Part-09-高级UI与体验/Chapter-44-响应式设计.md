@@ -180,7 +180,32 @@ flutter run -d "iPad (10th generation)"  # medium/expanded
 
 ---
 
-## 6. 本章练习
+## 6. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| 用 `MediaQuery.of(context).size` 而非 `LayoutBuilder` | 获取的是屏幕尺寸而非父容器约束，Split View 下布局错误 | `LayoutBuilder(builder: (_, constraints) { final width = constraints.maxWidth; })` |
+| 断点值硬编码散落各文件 | 多页面各自定义 600/900/1200，修改断点需全局搜索 | 集中在 `AppBreakpoints` 类用静态常量 + `typeOf()` 方法 |
+| 平板横屏未处理键盘弹出 | 键盘弹出后可用高度骤减，布局塌陷或溢出 | 用 `MediaQuery.of(context).viewInsets.bottom` 动态调整 padding |
+| NavigationRail 状态与页面不同步 | 切换页面后侧栏高亮项不变，用户迷惑 | `NavigationRail` 的 `selectedIndex` 与路由状态同步管理 |
+| 响应式网格 childAspectRatio 固定 | 封面、横版图、竖版图混排时变形 | 根据内容类型动态设置 `childAspectRatio` |
+
+### 最佳实践
+
+- `LayoutBuilder` 获取父容器约束，`MediaQuery` 获取系统级信息（文本缩放、暗黑模式）
+- `AppBreakpoints.typeOf()` 返回 `ScreenType` enum，UI 层 `switch` 枚举做分支，避免裸数字比较
+- 导航模式与布局模式解耦：`typeOf()` 决定导航组件，`LayoutBuilder` 决定内容区域布局
+- 平板/桌面端优先测试场景：窗口缩放、分屏模式、键盘弹出、横竖屏切换
+- Master-Detail 布局中选中状态由 `riverpod` Provider 管理，不依赖 local state
+- 响应式图片使用 `cacheWidth: (constraints.maxWidth ~/ columns).toInt()` 限制解码分辨率
+- `adaptiveColumns()` 方法自动返回 2/3/4/6 列，网格/列表/详情页共用同一断点逻辑
+- 用 `flutter run -d chrome` 拖拽窗口快速验证所有断点切换
+
+---
+
+## 7. 本章练习
 
 1. 实现 Library App 的 `AppBreakpoints` 断点系统
 2. 实现图书列表的 Master-Detail 双栏布局（平板模式）
@@ -191,4 +216,5 @@ flutter run -d "iPad (10th generation)"  # medium/expanded
 
 ---
 
+> **下一步**: [Chapter 45 — 国际化](./Chapter-45-国际化.md)
 > 📖 **延伸阅读**: [Material 3 布局指南](https://m3.material.io/foundations/layout) | [LayoutBuilder API](https://api.flutter.dev/flutter/widgets/LayoutBuilder-class.html)
