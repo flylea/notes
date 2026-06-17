@@ -289,7 +289,12 @@ library_app/
 
 打开 `lib/main.dart`，用以下代码替换全部内容：
 
-> ⚠️ **初学者注意**：下面这段代码你现在不需要完全理解每一行的含义——本章重点是让项目跑起来，后面的章节会逐一拆解。暂时把它当作"咒语"，先复制运行即可。你只需要关注：1. 这段代码创建了一个 App 2. 它显示了一个简单的界面。
+> ⚠️ **初学者注意**：下面这段代码你现在不需要完全理解每一行的含义——本章重点是让项目跑起来，后面的章节会逐一拆解。暂时把它当作"咒语"，先复制运行即可。
+>
+> 你只需要关注：
+>
+> 1. 这段代码创建了一个 App 
+> 2. 它显示了一个简单的界面。
 
 > 📦 **关于第一行 `import`**：`import` 是 Dart 的导入语句，相当于 TypeScript/JavaScript 的 `import ... from '...'`，用来从其他文件中引入代码。`package:` 是 Dart 特有的协议，指向当前项目 `pubspec.yaml` 中声明的依赖包（类似于 `node_modules`），`flutter/material.dart` 就是 Flutter 框架自带的 Material Design 组件库文件——它包含了 AppBar、Button、Text 等所有常用的 UI 控件。
 
@@ -489,7 +494,9 @@ UI = f(state)
 
 当状态（state）发生变化时，`build()` 方法被重新调用，返回一个新的 Widget 配置树。Flutter 比较新旧 Widget 树，通过 Element 树只更新真正需要变化的 RenderObject。
 
-> **TS 经验**：`UI = f(state)` 就是 React 的核心理念（`UI = render(state)`）。在 React 中 `f` 是函数组件（`function MyComponent`），在 Flutter 中 `f` 是 `build()` 方法。
+> **TS 经验**：`UI = f(state)` 就是 React 的核心理念（`UI = render(state)`）。
+>
+> 在 React 中 `f` 是函数组件（`function MyComponent`），在 Flutter 中 `f` 是 `build()` 方法。
 
 ```dart
 // React（TS）:
