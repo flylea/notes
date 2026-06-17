@@ -168,13 +168,38 @@ Dart 语言级宏（Macro）正在开发中——`@JsonEncodable()` 等宏将内
 
 ---
 
-## 7. 本章小结
+## 7. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误描述 | 后果 | 正确做法 |
+|---------|------|----------|
+| 忘记添加 `part 'xxx.freezed.dart'` 和 `part 'xxx.g.dart'` | 编译错误：找不到 `_$BookFromJson` 或 `_$Book` | 确保两个 part 指令都添加，`freezed.dart` 在 `g.dart` 之前 |
+| `fromJson` 字段名与 JSON key 不一致（如 `publishYear` vs `publish_year`） | 序列化时字段为 null，无任何编译警告 | 统一在 `build.yaml` 配置 `field_rename: snake`，或逐个加 `@JsonKey(name:)` |
+| 联合类型未使用 `sealed` | switch 必须写 `default` 分支，编译器无法穷举检查 | 用 `sealed class` 确保 switch 语法强制覆盖所有子类型 |
+| `@Default` 用于 `required` 字段 | 编译错误：默认值对必填字段无效 | `@Default` 仅用于非 required 字段，如 `int? count` 或 `@Default(0) int count` |
+| 手动修改 `.freezed.dart` 或 `.g.dart` 文件 | 下次 `build_runner` 运行时修改被覆盖 | 永远只修改源 `.dart` 文件，生成文件由工具维护 |
+
+### 最佳实践
+
+- 在项目根 `build.yaml` 统一配置 `field_rename: snake` 和 `explicit_to_json: true`，避免逐类设置
+- 用 `sealed` 联合类型建模 API 响应状态（`ApiSuccess` / `ApiError`），配合 Dart 3 switch 穷举消除漏处理
+- 枚举值始终加 `@JsonValue`，防止前后端字段拼写不一致导致反序列化失败
+- `@JsonKey(fromJson:, toJson:)` 处理 DateTime（`_dateFromJson`/`_dateToJson`）等自定义类型转换
+- 复杂嵌套泛型 JSON 用 `fromJsonT` 参数传递反序列化函数，如 `factory ApiResponse.fromJson(json, T Function(Object?) fromJsonT)`
+- 开发期使用 `dart run build_runner watch` 自动监听文件变化，无需手动触发
+- 与 Retrofit 配合时，Retrofit 的返回类型直接使用 freezed 数据类，形成完整类型安全链路
+- 模型单元测试覆盖 `fromJson`/`toJson` 往返，确保 `field_rename` 规则生效
+
+---
+
+## 8. 本章小结
 
 freezed + json_serializable 将数据模型类的样板代码减少 80%+。`@freezed` 生成 copyWith/==/hashCode/toString/sealed 联合类型，`@JsonSerializable` 生成 fromJson/toJson。`build_runner watch` 监听文件变化自动重新生成。
 
 ---
 
-## 8. 本章练习
+## 9. 本章练习
 
 1. 将 Library App 的 `Book` 模型迁移到 freezed（添加 `@freezed` + `@JsonSerializable`），生成 `copyWith`/`==`/`fromJson`/`toJson`
 2. 为 `Book` 添加 `@JsonKey(name: 'publish_year')` 字段映射，验证 `fromJson` 正确解析 snake_case JSON
@@ -182,5 +207,5 @@ freezed + json_serializable 将数据模型类的样板代码减少 80%+。`@fre
 
 验证标准：`dart run build_runner build` 成功，`book.freezed.dart` 和 `book.g.dart` 生成无误。
 
-> **下一步**: [Chapter 20 — 模型单元测试入门](./Chapter-19b-模型单元测试入门.md)
+> **下一步**: [Chapter 20 — Supabase 集成](./Chapter-20-Supabase集成.md)
 > **原始文档**: [pub.dev/packages/freezed](https://pub.dev/packages/freezed)

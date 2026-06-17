@@ -227,7 +227,32 @@ testWidgets('BookCard 提供无障碍标签', (tester) async {
 
 ---
 
-## 10. 本章练习
+## 10. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| `IconButton` 无 `Semantics.label` | 屏幕阅读器只读"button"，用户不知道功能 | 用 `Semantics(label: '借阅《书名》', button: true)` 包裹 |
+| 装饰性图片/图标未 `ExcludeSemantics` | 背景图、分割线被朗读，打断信息流 | `ExcludeSemantics(child: Image.asset('decorative_bg.png'))` |
+| 动态内容加载后未 `announce` | 数据刷新后屏幕阅读器仍读旧内容 | 用 `SemanticsService.announce('加载了 X 本书', TextDirection.ltr)` |
+| 只靠颜色区分状态 | 红绿色盲无法区分"可借（绿）/已借（红）" | 同一状态同时用图标 + 颜色 + 文字（如"✅ 可借""❌ 已借出"） |
+| 触摸目标小于 48×48dp | 运动障碍用户难以准确点击 | `IconButton` 最小尺寸 48×48，`minWidth: 48` 或 `padding` 补偿 |
+
+### 最佳实践
+
+- 每个交互元素添加 `Semantics.label`（读什么）+ `Semantics.hint`（怎么操作）
+- 用 `MergeSemantics` 将图标+文字合并为一个语义节点：读"4.5 星"而非"图标 4.5"
+- 数据加载等异步操作完成后，`addPostFrameCallback` 中调用 `SemanticsService.announce`
+- 使用 `MediaQuery.of(context).textScaleFactor.clamp(1.0, 1.5)` 限制最大字体缩放
+- `Semantics(enabled: false)` 标记不可用状态，阅读器自动读"已停用"
+- `Semantics(liveRegion: true)` 标记频繁变化的语义节点（如倒计时），阅读器自动通知
+- 用 `find.bySemanticsLabel()` 编写 a11y 自动化测试，CI 中拦截回归
+- TalkBack/VoiceOver 测试走完整用户流程：浏览列表 → 打开详情 → 操作 → 返回
+
+---
+
+## 11. 本章练习
 
 1. 为 Library App 中 3 个核心组件添加 Semantics 适配（BookCard、SearchBar、BottomNav）
 2. 在 Android 模拟器开启 TalkBack，完成"浏览列表→打开详情→借阅→返回"的全流程
@@ -238,4 +263,5 @@ testWidgets('BookCard 提供无障碍标签', (tester) async {
 
 ---
 
+> **下一步**: [Chapter 47 — 高级 UI 效果](./Chapter-47-高级UI效果.md)
 > 📖 **延伸阅读**: [Flutter 无障碍文档](https://docs.flutter.dev/ui/accessibility) | [WCAG 2.1](https://www.w3.org/TR/WCAG21/) | [Semantics API](https://api.flutter.dev/flutter/widgets/Semantics-class.html)

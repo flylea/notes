@@ -241,13 +241,38 @@ if (session?.isExpired == true) {
 
 ---
 
-## 6. 本章小结
+## 6. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| 异步操作后忘记检查 `mounted` | Widget 已销毁但调用 `setState`/`ScaffoldMessenger`，控制台报错 | 所有 `await` 后 `if (!mounted) return;` |
+| Session 过期未检测 | 用户拿过期 token 请求 API，所有请求返回 401 | 路由守卫中同时检查 `session != null && !session.isExpired` |
+| 登录成功使用 `push()` 导航 | 用户按返回键回到登录页，导航栈混乱 | 使用 `context.go('/')` 替代 `push()` 清理栈 |
+| `onAuthStateChange` Stream 未正确管理 | Stream 泄漏，Widget 销毁后仍监听导致内存泄漏 | 使用 Riverpod `StreamProvider` 自动管理生命周期 |
+| Magic Link `redirectTo` 未配置 Custom URL Scheme | OAuth/深度链接回调后 App 无法被唤醒 | Android `AndroidManifest.xml` 和 iOS `Info.plist` 中注册 scheme |
+
+### 最佳实践
+
+- AuthGuard 覆盖所有受保护路由（`/`、`/admin`、`/profile` 等），而非仅主路由
+- 在 `signOut()` 中统一清除：Supabase Session + SecureStorage Token + 本地缓存 + Riverpod 状态
+- 启动流程：SplashScreen → 检查 Session → 已登录走 `/`，未登录走 `/login`
+- 表单验证前后端双重校验：Client 端做格式校验，RLS 策略做权限校验
+- `isLoggedIn` getter 封装 `currentSession != null && !isExpired`，避免各处重复逻辑
+- 登录按钮在 `_isLoading` 时置灰并显示"登录中..."，防止重复提交
+- Token 刷新由 Supabase SDK `startAutoRefresh()` 自动处理，无需手动定时器
+- 忘记密码路由 (`/forgot-password`) 加入 AuthGuard 白名单，未登录用户可访问
+
+---
+
+## 7. 本章小结
 
 Supabase Auth 完整流程：注册→邮箱确认→登录→启动 AutoRefresh→AuthGuard 路由守卫→退出清理。关键 API：signUp/signInWithPassword/signInWithOAuth/onAuthStateChange/currentSession。
 
 ---
 
-## 7. 本章练习
+## 8. 本章练习
 
 1. **添加 Google OAuth 登录**：在 `AuthService` 中实现 `signInWithGoogle()` 方法（参考 `signInWithOAuth` provider），在登录页面添加"使用 Google 登录"按钮，配置 Supabase Google Provider。验证标准：点击按钮后跳转 Google 授权页，授权成功后回调 App 并自动登录进入首页。
 

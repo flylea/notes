@@ -141,7 +141,30 @@ lib/
 
 ---
 
-## 7. 本章练习
+## 7. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| 新功能文件直接放在 `lib/` 根目录或按技术层堆叠 | 项目膨胀后难以定位文件，改一个功能跳转多个目录 | 每个功能独立 `features/{name}/` 目录，内聚所有相关文件 |
+| 跨 Feature 直接 import 内部文件（如 books import auth 的 screen） | Feature 边界模糊，耦合严重，删除 auth 时 books 会编译失败 | 通过 `core/` 层共享基础设施，或通过 barrel file 暴露公开 API |
+| 公共工具类散落在各 Feature 的 `utils/` 目录 | 相同工具函数多份拷贝，修改时多处遗漏 | 统一收到 `core/extensions/` 或 `core/utils/` 中 |
+| 不同 Feature 内部目录结构不一致 | 新人无法快速定位代码，认知负担大 | 所有 Feature 统一 `screens/view_models/models/widgets` 四层结构 |
+| 不创建 barrel file | import 语句冗长，多行 import 难以维护 | 每个 Feature 提供 `feature_name.dart` 统一导出所有公开 API |
+
+**最佳实践**：
+
+- 新功能一律按 Feature-First 组织：`features/{name}/{screens,view_models,models,widgets}/`
+- `core/` 层只放跨功能的基础设施（config/di/network/router/theme/state），不放业务逻辑
+- 每个 Feature 提供 barrel file 对外暴露公开 API，隐藏内部实现细节
+- 命名遵循 Effective Dart：文件名 `snake_case`，类名 `PascalCase`，目录名小写复数
+- Feature 之间通信走 `core/` 层的 Repository/Provider，严禁直接引用内部文件
+- 添加 lint 规则（`avoid_relative_lib_imports` 等）强制跨 Feature 边界约束
+- Feature 目录下的 `models/` 放 UI State（freezed），Domain 模型放 `core/models/` 或独立 `shared/` 包
+- 删除功能时直接删除整个 Feature 目录，不残留任何代码
+
+---
+
+## 8. 本章练习
 
 1. 创建新的 `reviews/` 功能模块：在 `lib/features/` 下按标准结构创建 `reviews/screens/` / `reviews/view_models/` / `reviews/models/` / `reviews/widgets/` 子目录，并在 `reviews/models/` 中创建 `review.dart` 模型类（包含 `id` / `bookId` / `userId` / `rating` / `content` / `createdAt` 字段）。
 

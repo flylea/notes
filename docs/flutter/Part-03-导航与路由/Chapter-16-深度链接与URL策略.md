@@ -458,5 +458,5 @@ xcrun simctl openurl booted "io.library.app://login-callback"
 
 ---
 
-> **下一步**: [Part IV — 状态管理（Chapter 13）](../Part-04-状态管理/)
+> **下一步**: [Part IV — 网络与数据](../Part-04-网络与数据/Chapter-17-Dio-HTTP客户端.md)
 > **原始文档**: [flutter.cn/ui/navigation/deep-linking](https://docs.flutter.cn/ui/navigation/deep-linking) | [supabase.com/docs/guides/auth/native-mobile-deep-linking](https://supabase.com/docs/guides/auth/native-mobile-deep-linking)

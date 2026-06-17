@@ -532,5 +532,5 @@ setState(() { ... });
 
 ---
 
-> **下一步**: [Chapter 14 — Provider + ChangeNotifier 跨组件状态共享](./Chapter-14-Provider与ChangeNotifier.md)
+> **下一步**: [Chapter 24 — Provider + ChangeNotifier 跨组件状态共享](./Chapter-24-Provider与ChangeNotifier.md)
 > **原始文档**: [flutter.cn/data-and-backend/state-mgmt/simple](https://docs.flutter.cn/data-and-backend/state-mgmt/simple)

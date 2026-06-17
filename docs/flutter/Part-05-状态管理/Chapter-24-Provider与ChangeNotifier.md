@@ -436,5 +436,5 @@ onPressed: () { context.read<...>().doSomething(); }
 
 ---
 
-> **下一步**: [Chapter 15 — 状态管理工程化：三态封装、分页与骨架屏](./Chapter-15-状态管理工程化.md)
+> **下一步**: [Chapter 25 — 状态管理工程化：三态封装、分页与骨架屏](./Chapter-25-状态管理工程化.md)
 > **原始文档**: [flutter.cn/data-and-backend/state-mgmt/simple](https://docs.flutter.cn/data-and-backend/state-mgmt/simple) | [pub.dev/packages/provider](https://pub.dev/packages/provider)

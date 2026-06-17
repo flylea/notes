@@ -203,7 +203,32 @@ GoRoute(
 
 ---
 
-## 7. 本章练习
+## 7. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误 | 后果 | 正确做法 |
+|------|------|----------|
+| 角色判断散落在各 UI 文件中 | `if (role == 'admin')` 重复数十次，修改角色名需全局查找替换 | 权限逻辑集中在 `UserRole` enum 的 getter 中 |
+| 仅前端做权限控制 | 攻击者直接调 Supabase REST API 绕过 UI 限制 | RLS 策略做数据库层校验 + RoleGate 做 UI 层控制，双层防护 |
+| 角色用字符串比较 | `'admin'` vs `'Admin'` 大小写不匹配导致权限误判 | 使用 `enum UserRole` + `role.name` 统一序列化 |
+| 角色存 `raw_user_meta_data` | 客户端可通过 `updateUser` API 修改自身角色 | 角色存 `raw_app_meta_data`，仅 Edge Function（SERVICE_ROLE_KEY）可修改 |
+| RLS 策略只有 `USING` 缺少 `WITH CHECK` | 用户可 INSERT/UPDATE 不符合条件的数据（只限制了 SELECT） | `FOR ALL` 策略同时配置 `USING` 和 `WITH CHECK` |
+
+### 最佳实践
+
+- 使用 `UserRole` enum 集中定义角色和权限矩阵（`canManageBooks`、`canManageUsers` 等）
+- `RoleGate` 组件统一控制 UI 可见性：传入 `minRole`，不足时显示 `fallback` 或 `SizedBox.shrink()`
+- 路由守卫使用 `ProviderScope.containerOf(context).read(currentUserRoleProvider)` 检查角色等级
+- 403 页面给出明确的权限不足提示（"您没有访问此页面的权限"），而非黑屏或静默隐藏
+- Supabase 端通过 Edge Function (`set_user_role`) 修改角色，使用 `SERVICE_ROLE_KEY` 绕过 RLS
+- `canManageBooks` 等细粒度 Provider 从 `currentUserRoleProvider` 派生，避免 UI 层直接读 role
+- RLS 策略粒度匹配操作：`books_read_all`（所有人）→ `books_manage_privileged`（librarian+admin）→ `users_manage_admin`（admin）
+- 角色修改操作记录审计日志（谁在何时将谁的角色从 X 改为 Y）
+
+---
+
+## 8. 本章练习
 
 1. 为 Library App 实现三级角色模型和权限矩阵
 2. 创建 `RoleGate` 组件并在 3 个位置使用（添加图书按钮、删除按钮、管理入口）
@@ -212,4 +237,5 @@ GoRoute(
 
 ---
 
+> **下一步**: [Part VIII — 本地持久化与离线（Chapter 39）](../Part-08-本地持久化与离线/Chapter-39-SharedPreferences用户偏好.md)
 > 📖 **延伸阅读**: [Supabase 自定义 Claims](https://supabase.com/docs/guides/auth/custom-claims-and-rbac)

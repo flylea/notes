@@ -173,7 +173,28 @@ CupertinoIcons.trash        // 对应 SF Symbol: trash
 
 ---
 
-## 7. 本章练习
+## 7. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| Cupertino 和 Material Widget 混搭在同一页面 | 视觉风格混乱，不符合 iOS/Android 设计规范 | 根据 `Theme.of(context).platform` 统一选择一套设计系统 |
+| 忘记 `import 'package:flutter/cupertino.dart'` | Cupertino 组件不可用，编译失败 | 显式导入 cupertino 包；不要依赖 Material 包的隐式导出 |
+| `CupertinoPageScaffold` 内嵌 `AppBar` | 出现两个导航栏重叠，布局异常 | iOS 页面用 `CupertinoNavigationBar`，Android 页面用 `Scaffold` + `AppBar` |
+| 在 iOS 上使用 Material Icons | 图标风格与系统原生不一致 | iOS 优先用 `CupertinoIcons`（SF Symbols 映射），Android 用 `Icons` |
+| `showCupertinoDialog` 与 `showDialog` 混用 | 对话框动画和交互模式与平台不匹配 | iOS 用 `showCupertinoDialog`，Android 用 `showDialog` |
+
+**最佳实践**：
+
+- 使用 `Theme.of(context).platform` 在 build 方法中判断平台，避免硬编码组件
+- 抽取 `PlatformAdaptiveWidget` 模式封装 iOS/Android 双端实现
+- `CupertinoPageRoute` 提供 iOS 风格的页面滑动返回手势，iOS 平台优先使用
+- `CupertinoActionSheet` 用于底部操作表，`CupertinoAlertDialog` 用于居中对话框
+- `CupertinoFormSection` / `CupertinoFormRow` 适合 iOS 风格的分组表单
+- 字体使用 `CupertinoTheme` 统一设置 SF Pro 字体族
+- 使用 `flutter_platform_widgets` 等包简化平台适配代码
+- 在开发阶段通过 `debugDefaultTargetPlatformOverride` 切换平台预览效果
+
+## 8. 本章练习
 
 **1. Cupertino 与 Material 组件的互选**
 

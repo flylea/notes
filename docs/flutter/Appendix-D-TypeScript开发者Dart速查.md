@@ -21,7 +21,7 @@
 >
 > Dart 的 `const` 是递归不可变，类似 `Object.freeze()` 深度冻结。
 >
-> Dart 的库级私有（`_` 前缀）与 TS 的 `#` 真私有更接近，但隔离粒度是文件级别。
+> Dart 的库级私有（`_` 前缀）隔离粒度是文件级别，与 TS 的 `#` 真私有接近但机制不同。
 
 ---
 
@@ -61,6 +61,123 @@ Dart 的命名参数用 `{}` 包裹，调用时直接 `fn(x: 1, y: 2)`（不需�
 TS 则需要传对象 `fn({x: 1, y: 2})`。
 
 Dart 的 `=>` 不是"箭头函数"——它只是单行返回的简写，不创建闭包。
+
+---
+
+## 级联操作符 `..` vs TS 链式调用
+
+Dart 的 `..`（级联操作符）允许在同一个对象上执行多次操作，而无需重复引用：
+
+```dart
+// Dart: 级联操作符 —— 在同一个对象上执行一系列操作
+final button = Button()
+  ..text = 'Submit'
+  ..color = Colors.blue
+  ..width = 120
+  ..onClick = () => print('clicked');
+
+// TS: 链式调用 —— 每个方法必须返回 this
+// builder.setName('Alice').setAge(30).build();  // 需要每个 setter 返回 this
+```
+
+级联操作符的优点：不需要类的方法返回 `this`，适用于任何对象上的 setter 和方法调用。
+
+```dart
+// ?.. 空安全级联：只在对象非 null 时执行
+List<int>? maybeList;
+maybeList
+  ?..add(1)
+  ..add(2);  // 如果 maybeList 为 null，整个级联被跳过
+```
+
+---
+
+## 展开操作符 `...` 和 `...?`
+
+```dart
+// Dart: 集合展开（类似 TS 的 ...）
+var list1 = [1, 2, 3];
+var list2 = [0, ...list1, 4];     // [0, 1, 2, 3, 4]
+
+var set1 = {1, 2, 3};
+var set2 = {0, ...set1};          // {0, 1, 2, 3}
+
+var map1 = {'a': 1};
+var map2 = {'b': 2, ...map1};    // {b: 2, a: 1}
+
+// ...? 空安全展开 —— 只在非 null 时展开
+List<int>? maybeList;
+var safe = [0, ...?maybeList];   // [0] —— maybeList 为 null 则跳过
+
+// ❌ Dart 不支持对象展开（没有 TS 的 { ...obj, key: val }）
+// ✅ 替代方案：用集合字面量或手动赋值
+var merged = <String, dynamic>{}
+  ..addAll(base)
+  ..['extra'] = value;
+```
+
+---
+
+## 模式匹配（Dart 3） vs TS Discriminated Unions
+
+```dart
+// Dart 3 sealed class + switch 表达式 —— 编译器强制穷举
+sealed class Result<T> {}
+class Success<T> extends Result<T> {
+  final T data;
+  Success(this.data);
+}
+class Failure<T> extends Result<T> {
+  final String error;
+  Failure(this.error);
+}
+class Loading<T> extends Result<T> {}
+
+// switch 表达式：缺少任何分支会编译错误
+Widget buildResult(Result<String> result) {
+  return switch (result) {
+    Success(data: var d) => Text(d),
+    Failure(error: var e) => Text('Error: $e'),
+    Loading() => const CircularProgressIndicator(),
+  };
+}
+
+// Dart 3 模式解构
+final (a, b) = (1, 2);               // 解构
+if (json case {'name': String n}) {}  // 条件匹配
+
+// TS 等价
+type Result<T> = { kind: 'success'; data: T } | { kind: 'failure'; error: string };
+// ...switch 穷举需依赖 noImplicitReturns + exhaustiveness 检查
+```
+
+**关键区别**：Dart 3 的 `sealed class` + `switch` 是**编译器级别**的穷举检查（遗漏分支产生编译错误），而 TS 的 discriminated union 的穷举检查依赖于配置和工具链。
+
+---
+
+## Records vs TS Tuples
+
+```dart
+// Dart 3 Records —— 匿名、不可变的聚合类型
+var pair = (1, 'hello');                          // (int, String)
+var named = (x: 10, y: 20);                       // 命名记录
+var mixed = (1, label: 'start');                  // 混合
+
+// 解构
+var (id, name) = pair;
+print(named.x);                                    // 通过名称访问
+
+// 多返回值 —— Dart 的惯用模式
+(int, String) getUser() => (1, 'Alice');
+final (id, name) = getUser();
+
+// TS 等价
+let pair: [number, string] = [1, 'hello'];        // 位置元组
+let named = { x: 10, y: 20 };                     // 对象解构 —— TS 无命名元组
+function getUser(): [number, string] { return [1, 'Alice']; }
+```
+
+**关键区别**：Dart Records 支持位置+命名混合字段，是语言原生的不可变类型。TS 元组仅有位置字段，命名字段需用对象替代。
 
 ---
 
@@ -124,6 +241,26 @@ Dart 3 的 `sealed class` + switch 表达式 ≈ TS 的 discriminated union + �
 Dart 的空安全是健全的（Sound）——如果类型系统说变量不可为 null，它在运行时绝不可能是 null。
 
 TS 的 `strictNullChecks` 只是编译时检查，运行时仍可能遇到 null 值。
+
+---
+
+> ### Vue-TS 开发者特别关注
+>
+> 1. **没有 SFC（.vue 文件）**：Dart/Flutter 不存在 Vue 的 `template`/`script`/`style` 三段式结构。`Widget` 就等于 template，直接在 Dart 代码中描述 UI。
+>
+> 2. **没有 `ref()` / `reactive()` 的自动追踪**：Vue 3 的 `ref()` 包裹后自动收集依赖、触发更新——Flutter 需要显式调用 `setState(() { ... })` 或用状态管理方案（`Provider`、`Riverpod`、`Bloc`）来通知 UI 重建。
+>
+> 3. **Pinia → Riverpod 快速对照**：
+>
+> | 概念 | Pinia (Vue) | Riverpod (Flutter) |
+> |------|------------|-------------------|
+> | Store | `defineStore('id', ...)` | `Provider<T>(...)` 或 `NotifierProvider<Notifier, T>` |
+> | State | `ref()` / `reactive()` | `state` 属性（不可变——每次返回新对象） |
+> | Getter | `getters: { fullName: (s) => ... }` | 派生 Provider：`Provider((ref) => ref.watch(x) + y)` |
+> | Action | `actions: { async fetch() {} }` | `Notifier` 中的方法 |
+> | 组合 stores | `useOtherStore()` | `ref.watch(otherProvider)` |
+>
+> 4. **路由没有组件级别的守卫**：Vue Router 的 `beforeEnter` 可在路由配置中写 hook，Flutter 的 Navigator / GoRouter 通常将守卫逻辑写在 Widget 或路由回调中，不区分组件级/路由级守卫。
 
 ---
 

@@ -134,7 +134,30 @@ test('getBooks returns books from repository', () async {
 
 ---
 
-## 6. 本章练习
+## 6. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| 所有服务都用 Riverpod 注册 | 非响应式服务（Logger/Analytics）也被套上 Provider 开销 | 非 UI 响应式服务用 `get_it`，需要响应 UI 的服务用 Riverpod |
+| 在 Singleton Provider 内部 `new` 依赖而非通过 `ref.watch` | 依赖链断裂，测试无法注入 Fake | 所有依赖通过 `ref.watch(xxxProvider)` 获取，保持依赖链完整 |
+| 测试中直接修改 Provider 源码来注入 Fake | 代码侵入性高，提交时容易遗漏还原 | 使用 `ProviderScope.overrides` 在测试容器中替换依赖 |
+| 环境配置硬编码在 Provider 内 | 每次切环境需改代码、重新编译 | 用 `--dart-define=ENV=prod` 环境变量 + `appConfigProvider` 动态切换 |
+| 忘记在测试后 dispose `ProviderContainer` | 测试间状态污染，上一个测试的副作用影响后续测试 | 每个 test 创建独立 Container + `tearDown` 中 `dispose` |
+
+**最佳实践**：
+
+- 分层注册依赖：基础设施 → DataSource → Repository → ViewModel，依赖方向单向
+- Riverpod 用 `@riverpod` codegen 自动生成 Provider 常量，避免手动声明错误
+- `get_it` 管理不参与 UI 的全局单例：`AnalyticsService`、`LoggerService`、`CrashReporter`
+- 使用 `appConfigProvider` 统一管理环境配置，通过 `--dart-define` 在 `main()` 中切换
+- 为每个测试创建独立的 `ProviderContainer` + `overrides`，不依赖全局 Provider
+- 避免在 Provider 内部再创建 `ProviderContainer`（容器递归，难以追踪）
+- 注册顺序：先调用 `setupServices()` 初始化 `get_it` → 再启动 `ProviderScope`
+- 三环境（dev/staging/prod）至少保证 dev 和 prod 两套配置的完整切换路径
+
+---
+
+## 7. 本章练习
 
 1. 构建完整的 Riverpod DI 依赖链：在 `lib/core/di/` 中创建 `injection_container.dart`，按层级注册 Provider——第 1 层 `SupabaseClient`、第 2 层 `BookRemoteDataSource` 和 `BookLocalDataSource`、第 3 层 `BookRepository`、第 4 层 ViewModel 通过 `ref.watch` 自动获取 Repository。验证标准：所有 Provider 之间的依赖关系在编译时即可验证。
 

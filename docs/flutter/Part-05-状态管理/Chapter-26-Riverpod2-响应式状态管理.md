@@ -339,7 +339,30 @@ GoRouter appRouter(AppRouterRef ref) {
 
 ---
 
-## 10. 本章小结
+## 10. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| 在 `build()` 中用 `ref.read` 读取数据 | Provider 变化时 Widget 不重建，UI 与状态不同步 | 数据读取用 `ref.watch`，仅在事件回调（onTap、onPressed）中使用 `ref.read` |
+| 用 `StateProvider` 管理复杂对象 | 细小字段改动也会重建整个对象树 | 复杂状态用 `NotifierProvider` 或 `AsyncNotifierProvider` |
+| 忘记在 `main.dart` 包裹 `ProviderScope` | 运行时抛 `No ProviderScope found` | 确保 `runApp` 的根 Widget 是 `ProviderScope` |
+| Provider 内部直接修改可变对象（如 `list.add()` 不赋新引用） | 依赖该 Provider 的 Widget 不重建 | 始终 `state = AsyncValue.data([...oldList, newItem])` |
+| Provider 未设置 `autoDispose` 且未手动释放 | 页面关闭后 Provider 仍占用内存 | 页面级 Provider 加 `autoDispose` 修饰符 |
+
+**最佳实践**：
+
+- 优先使用 `@riverpod` codegen，减少样板代码并自动保证类型安全
+- 注册 `ProviderObserver` 记录所有 Provider 创建/更新/销毁事件，便于 DevTools 调试
+- `autoDispose` 用于页面级 Provider，离开页面自动释放；全局 Provider（Auth/Theme）不设 autoDispose
+- `ref.watch` 链自动建立依赖关系，无需手动 `MultiProvider` 声明
+- 复杂异步逻辑用 `AsyncValue.guard()` 包装，统一捕获异常
+- 为每个 Provider 设置 `name` 属性，便于在 DevTools 中快速定位
+- `FutureProvider` 适合一次性加载场景，需要刷新/更新的场景改用 `AsyncNotifierProvider`
+- 在 Widget 的 `build()` 中只做 `ref.watch`，方法调用放在用户交互回调中
+
+---
+
+## 11. 本章小结
 
 | 你学到了什么 | 核心要点 |
 |-------------|---------|
@@ -353,7 +376,7 @@ GoRouter appRouter(AppRouterRef ref) {
 
 ---
 
-## 11. 本章练习
+## 12. 本章练习
 
 1. 将 Library App 中的 `BookProvider`（ChangeNotifier）迁移为 Riverpod `@riverpod` AsyncNotifier：创建 `BookListViewModel`，使用 `@riverpod` 注解标记，运行 `build_runner` 生成 `.g.dart` 文件，在 Widget 中将 `context.watch<BookProvider>()` 替换为 `ref.watch(bookListViewModelProvider)`。验证标准：应用功能与迁移前完全一致。
 

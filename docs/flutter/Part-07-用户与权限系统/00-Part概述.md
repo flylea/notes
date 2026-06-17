@@ -11,8 +11,6 @@
 | [Ch34](./Chapter-34-Supabase-Auth认证体系.md) | Supabase Auth 认证体系 | 注册/登录/AuthGuard/Session/OAuth/Magic Link |
 | [Ch35](./Chapter-35-安全存储与生物识别.md) | 安全存储与生物识别 | flutter_secure_storage/local_auth/隐私锁屏 |
 | [Ch36](./Chapter-36-RBAC权限管理.md) | RBAC 权限管理 | 三级角色/app_metadata Claims/RLS按角色/缓存策略 |
-| [Ch37](./Chapter-37-借阅系统状态机.md) | 借阅系统状态机 | Available→Borrowed→Overdue→Returned/并发锁/预约排队 |
-| [Ch38](./Chapter-38-搜索与发现.md) | 搜索与发现 | PostgreSQL FTS/复合筛选/搜索防抖/搜索历史 |
 
 ---
 
@@ -20,7 +18,7 @@
 
 - [ ] 你能实现完整的注册/登录/OAuth 流程吗？
 - [ ] 你能配置基于角色的 RLS 策略吗？
-- [ ] 你能实现借阅状态机并处理并发冲突吗？
+- [ ] 你能保护敏感数据（Token/密钥）并集成生物识别吗？
 
 ### Part VII 独立练习
 

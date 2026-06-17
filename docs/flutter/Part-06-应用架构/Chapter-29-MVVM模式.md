@@ -157,13 +157,36 @@ class SearchViewModel extends _$SearchViewModel {
 
 ---
 
-## 6. 本章小结
+## 6. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| ViewModel 持有 `BuildContext` | 内存泄漏 + 无法进行单元测试 | ViewModel 只通过 `ref` 获取依赖，绝不持有 Context |
+| View 中包含过滤/排序/格式化等业务逻辑 | View 职责过重，逻辑分散难以复用 | 移到 ViewModel 中作为 computed 属性或方法 |
+| 一个 ViewModel 管理多个无关页面的状态 | ViewModel 膨胀，页面间耦合 | 每页一个 ViewModel，遵循单一职责原则 |
+| View 直接调用 Repository 绕过 ViewModel | 架构分层被破坏，无法追踪数据流 | View 只能通过 `ref.read(vm.notifier).method()` 调用 ViewModel |
+| ViewModel State 使用可变对象（直接修改 List 内部元素） | State 引用未变，UI 不重建 | 使用 `freezed` 不可变数据类 + `copyWith` 创建新 State |
+
+**最佳实践**：
+
+- ViewModel 文件名与 Page 名一一对应（`home_page.dart` ↔ `home_view_model.dart`）
+- ViewModel State 类使用 `@freezed` 标记为不可变，保证状态变化触发 UI 重建
+- View 层只做纯渲染 + 事件转发，单个 Widget 文件控制在 80 行以内
+- 页面级 ViewModel 使用 `autoDispose`，全局 ViewModel（Auth/Theme）不使用
+- ViewModel 中的异步操作统一用 `AsyncValue.guard()` 包装错误处理
+- 跨 ViewModel 通信通过 `ref.watch` 依赖链，不直接引用其他 ViewModel 实例
+- ViewModel 不操作 Navigator/ScaffoldMessenger，导航通过 GoRouter + ref 处理
+- 定期用迁移检查清单审查：Widget 无直接数据源调用、ViewModel 无 Context 依赖
+
+---
+
+## 7. 本章小结
 
 ViewModel = AsyncNotifier = 持有状态 + 暴露数据 + 处理事件。View = ConsumerWidget = 纯渲染。分离后 Widget 从 300 行缩减到 ~50 行，ViewModel 可独立单元测试。
 
 ---
 
-## 7. 本章练习
+## 8. 本章练习
 
 1. 提取 `BookDetailPage` 的业务逻辑到 ViewModel：创建 `BookDetailViewModel`（AsyncNotifier），将 Widget 中的 `fetchBookDetail()` / `toggleFavorite()` / `addToBorrowList()` 方法全部移入 ViewModel。Widget 只保留 `ConsumerWidget` 的 `build` 方法，通过 `ref.watch` 读取状态、通过 ViewModel 方法处理事件。验证标准：Widget 文件从 ~200 行缩减到 ~60 行以内。
 

@@ -287,13 +287,38 @@ class StorageService {
 
 ---
 
-## 7. 本章小结
+## 7. 常见错误与最佳实践
+
+### 常见错误
+
+| 错误描述 | 后果 | 正确做法 |
+|---------|------|----------|
+| 表未启用 RLS 或策略缺失 | 接口返回空数组 `[]` 或 401 错误，误以为是数据为空 | 建表后立即 `ALTER TABLE xxx ENABLE ROW LEVEL SECURITY` 并创建至少一条 SELECT 策略 |
+| `insert`/`update`/`delete` 后忘记 `.select()` | 请求成功但返回 null，无法获取服务器生成的 `id`/`created_at` 等字段 | 链式添加 `.select().single()` 获取确认数据：`client.from('books').insert(...).select().single()` |
+| `.single()` 在无匹配结果时抛异常 | 应用崩溃：`PostgrestException: Results contain 0 rows` | 查询可能为空时用 `.maybeSingle()` 返回 null，或用 try-catch 包裹 |
+| Storage bucket 设为 private 却用 `getPublicUrl()` | 图片返回 404，用户看不到封面 | 对公开资源（如图书封面）创建 public bucket；私有文件用 `createSignedUrl()` 生成临时链接 |
+| `Supabase.initialize()` 未 `await` 就使用客户端 | 请求时抛出 `AuthException: Not initialized` | 确保 `await Supabase.initialize(...)` 在 `runApp()` 之前完成 |
+
+### 最佳实践
+
+- 所有表默认启用 RLS，先写策略再写代码，避免安全盲区
+- `insert`/`update`/`delete` 后始终链式 `.select()` 获取服务端确认数据（含自动生成的 `id`、`created_at`）
+- 查询唯一记录时优先用 `.maybeSingle()` 而非 `.single()`，避免无结果时崩溃
+- Storage bucket 按用途区分：`book_covers` 设为 public，`user_documents` 设为 private
+- Supabase 客户端通过 Riverpod `Provider` 单例暴露，避免多处直接调用 `Supabase.instance.client`
+- 分页查询统一使用 `.range((page-1)*limit, page*limit-1)` + `.order()`，确保分页数据可预测
+- SQL 迁移脚本纳入 Git 版本管理（`supabase/migrations/`），禁止通过 Dashboard 手动改表结构
+- RLS 策略中 `auth.uid()` 获取当前用户 ID，`auth.jwt() -> 'app_metadata' ->> 'role'` 做角色判断
+
+---
+
+## 8. 本章小结
 
 Supabase 替代了传统 Firebase 的角色——PostgreSQL 数据库 + RLS 安全 + Storage + Realtime。核心模式：建表 → 配置 RLS → PostgREST CRUD → Riverpod AsyncNotifier 管理状态。
 
 ---
 
-## 8. 本章练习
+## 9. 本章练习
 
 1. 在 Supabase Dashboard 创建 `books` 表（含 title/author/isbn/category/publish_year/cover_url 字段），启用 RLS 并创建"所有人可读"策略
 2. 实现 `BookRepository` 的完整 CRUD（getBooks/getBookById/createBook/updateBook/deleteBook），每条方法用 `.select()` + PostgREST 过滤器
@@ -301,5 +326,5 @@ Supabase 替代了传统 Firebase 的角色——PostgreSQL 数据库 + RLS 安�
 
 验证标准：App 启动后图书列表从 Supabase 加载，新增/编辑/删除操作正确。检查 Supabase Dashboard 中数据变更。
 
-> **下一步**: [Chapter 22 — Supabase 高级](./Chapter-21-Supabase高级.md)
+> **下一步**: [Chapter 21 — Supabase 高级](./Chapter-21-Supabase高级.md)
 > **原始文档**: [supabase.com/docs](https://supabase.com/docs) | [pub.dev/packages/supabase_flutter](https://pub.dev/packages/supabase_flutter)

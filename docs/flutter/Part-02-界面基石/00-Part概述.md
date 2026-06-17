@@ -1,4 +1,4 @@
-# Part II — 界面基石：Widget、布局、表单、主题、测试
+# Part II — 界面基石：Widget、布局、表单、主题
 
 > **前置**: [Part I — Dart 语言基础](../Part-01-起航/)（你需要能熟练声明变量、定义类、使用 async/await）
 >
@@ -17,7 +17,6 @@
 | [Ch10](./Chapter-10-滚动与列表.md) | 滚动与列表 | ListView/GridView/Slivers/ScrollController | GridView.builder + SliverAppBar |
 | [Ch11](./Chapter-11-表单与用户输入.md) | 表单与用户输入 | TextField/Form/选择器/手势/键盘处理/FocusNode | 搜索防抖 + 图书表单 + 筛选面板 |
 | [Ch12](./Chapter-12-Material3主题系统.md) | Material 3 主题系统 | ColorScheme/ThemeData/深色模式/ThemeExtension | `lib/core/theme/app_theme.dart` + 主题切换 |
-| [Ch13](./Chapter-13-Widget测试入门.md) | Widget 测试入门 | WidgetTester/pumpWidget/find/expect | 核心 Widget 的测试文件 |
 
 ---
 
@@ -27,7 +26,7 @@
 - [ ] 你能独立实现一个个人名片页（头像+姓名+简介+技能列表），不需要参照教程吗？
 - [ ] 你能处理键盘遮挡表单的问题（viewInsets + resizeToAvoidBottomInset）吗？
 - [ ] 你能配置 Material 3 主题（ColorScheme.fromSeed + light/dark 切换）吗？
-- [ ] 你能为一个 Widget 编写 3 个测试用例（渲染/点击/空态）吗？
+- [ ] 你能为后续 Part XII 中学习测试时，独立补写核心 Widget 的测试用例吗？
 
 ### Part II 独立练习
 
@@ -37,7 +36,6 @@
 2. 技能列表（每项含名称 + 熟练度指示条）
 3. 深色/浅色主题切换按钮
 4. 响应式布局：手机竖屏纵向排列，平板横屏左右分栏
-5. 为该页面编写 3 个 Widget 测试用例
 
 ---
 

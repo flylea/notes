@@ -124,13 +124,36 @@ class FakeBookRepository implements BookRepository {
 
 ---
 
-## 6. 本章小结
+## 6. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| ViewModel 直接调用 Supabase/Dio | 数据源与业务逻辑强耦合，无法替换实现 | 通过 Repository 抽象接口隔离数据源 |
+| 网络失败后无本地 fallback | 离线或弱网时 App 完全不可用 | 实现 Remote First 策略：远端失败 → 返回本地缓存 |
+| 写操作后未清除或更新本地缓存 | 后续读取返回脏数据，显示已删除的内容 | 每次写操作后调用 `local.clearCache()` 或更新对应缓存条目 |
+| Repository 接口暴露数据源特有类型（如 Supabase Response） | 数据层细节泄漏到 Domain 层 | 接口只返回 Domain 模型，DTO 转换在 DataSource 层完成 |
+| 未提供 Repository 的 Fake 实现 | 测试依赖网络/Supabase，CI 中无法稳定运行 | 为每个 Repository 接口提供 Fake 实现，预置测试数据 |
+
+**最佳实践**：
+
+- Repository 接口定义在 Domain 层（`abstract class`），实现放在 Data 层（`class XxxImpl`）
+- 绝大多数场景使用 Remote First 策略：先网络请求，失败时降级到本地缓存
+- 离线优先应用（笔记、日记类）使用 Local First 策略：先读写本地，后台同步
+- 为每个 Repository 创建 Fake 实现，内部维护 `List<T>` 模拟数据
+- DataSource 按远端/本地拆分独立接口，Repository 负责协调和策略选择
+- 网络异常映射为 Domain 层语义异常（`ServerException`/`NetworkException`/`CacheException`）
+- Repository 方法签名保持简洁的 CRUD 语义，避免暴露分页/排序的实现细节
+- 写入时使用乐观更新（先更新 UI 再调用 Repository），提升交互即时性
+
+---
+
+## 7. 本章小结
 
 Repository 接口（Domain 层）→ Repository 实现（Data 层）→ DataSource（远端+本地）。三种策略选 Remote First（大多数场景）。Fake Repository 让 ViewModel 测试零依赖。
 
 ---
 
-## 7. 本章练习
+## 8. 本章练习
 
 1. 定义 `BorrowRepository` 抽象接口：在 `lib/core/repository/` 下创建 `borrow_repository.dart`，声明 `getActiveBorrows(String userId)` / `borrowBook(String bookId, String userId)` / `returnBook(String recordId)` 三个抽象方法。确保接口不依赖 Supabase 或任何具体实现。
 

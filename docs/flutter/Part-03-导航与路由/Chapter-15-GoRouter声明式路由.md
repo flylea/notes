@@ -670,5 +670,5 @@ final goRouter = GoRouter(
 
 ---
 
-> **下一步**: [Chapter 12 — 深度链接与 URL 策略](./Chapter-12-深度链接与URL策略.md)
+> **下一步**: [Chapter 16 — 深度链接与 URL 策略](./Chapter-16-深度链接与URL策略.md)
 > **原始文档**: [pub.dev/packages/go_router](https://pub.dev/packages/go_router) | [flutter.cn/ui/navigation](https://docs.flutter.cn/ui/navigation)

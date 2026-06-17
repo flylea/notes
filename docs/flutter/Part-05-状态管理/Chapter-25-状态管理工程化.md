@@ -381,7 +381,29 @@ Future<void> optimisticDeleteBook(String bookId) async {
 
 ---
 
-## 5. 本章小结
+## 5. 常见错误与最佳实践
+
+| 常见错误 | 后果 | 正确做法 |
+|---------|------|---------|
+| 仅用 try-catch 管理异步状态，未封装统一状态枚举 | UI 需要到处判空、判加载，遗漏某种状态导致白屏 | 引入 `AsyncState<T>` 四态封装，用 `fold()` 统一处理 |
+| 分页加载时不判断 `hasMore` 和 `isLoadingMore` 就触发加载 | 重复请求、数据覆盖、请求风暴 | 在 `loadMore()` 入口加双重守卫：`if (_isLoadingMore \|\| !_hasMore) return` |
+| 乐观更新失败后未恢复原始数据 | 用户看到的数据与服务器不一致 | 先备份原始数据 → 乐观更新 UI → catch 中用备份回滚 |
+| `ScrollController` 在 `build()` 中创建 | 每次重建都新实例，滚动位置丢失 | 在 `initState()` 中创建，或在 StatefulWidget 中存为 `final` |
+| Shimmer 动画 Controller 忘记 dispose | 内存泄漏，Ticker 持续运行 | 在 State 的 `dispose()` 中调用 `_controller.dispose()` |
+
+**最佳实践**：
+
+- 用 `AsyncState.fold()` 统一处理四种状态，确保 Loading/Empty/Error/Success 都有对应 UI
+- 分页时使用 Backup → Optimistic Update → Rollback on Failure 模式，保证数据一致性
+- ScrollController 监听设置 200px 预加载阈值，提前触发加载而不等用户滑到底部
+- Shimmer 动画用 `SingleTickerProviderStateMixin`，单一动画控制器即可满足骨架屏需求
+- `RefreshIndicator` 包裹在 ScrollView 外层，配合 `provider.refresh()` 重置分页并重新加载
+- 分页终止条件用服务端返回的 `hasMore` 标志，不要仅靠返回数组长度为 0 判断
+- 错误状态提供「重试」按钮 +「刷新」按钮两种恢复方式，允许用户自主恢复
+
+---
+
+## 6. 本章小结
 
 | 你学到了什么 | 对标前端 | 在图书馆 App 中的体现 |
 |-------------|---------|---------------------|
@@ -394,7 +416,7 @@ Future<void> optimisticDeleteBook(String bookId) async {
 
 ---
 
-## 6. 本章练习
+## 7. 本章练习
 
 1. 为图书馆 App 中的图书详情页添加 `AsyncState<Book>` 状态封装：在 `BookDetailViewModel` 中定义 `AsyncState<Book>` 类型的 state，实现 `asyncStateWidget` 统一渲染加载态（Shimmer）、空态（"未找到图书"）、错误态（重试按钮）、成功态（详情内容）四种状态。
 
