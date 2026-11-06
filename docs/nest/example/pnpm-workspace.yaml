@@ -1,0 +1,10 @@
+# 独立示例项目：不参与仓库根的 pnpm workspace。
+# minimumReleaseAge=0：教程示例需要立即使用最新 Nest 12 / Vite 8 依赖，
+# 关闭 pnpm 11 默认的“发布未满 24 小时不安装”策略。
+minimumReleaseAge: 0
+verifyDepsBeforeRun: false
+
+allowBuilds:
+  '@scarf/scarf': set this to true or false
+  esbuild: set this to true or false
+  workerd: set this to true or false

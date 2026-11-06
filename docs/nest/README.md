@@ -1,98 +1,602 @@
-# NestJS + Prisma 实战教程 — 30 天从零到全栈
+# NestJS 12 全栈实战通关教程
 
-## 教程定位
+> 基于 **NestJS 12.3.x** 最新官方文档重写，覆盖 **286 章 / 31 个 Part / 7 篇**，从一个完整业务项目出发，把 NestJS 全栈开发从语法讲到企业级交付。
 
-面向 **2 年以上 Vue/React 经验的前端工程师**，用前端类比讲解后端概念。以「图书管理系统」为贯穿全篇的实战项目，从零搭建一个企业级 NestJS 后端。
+## 版本基线（2026-11）
 
-## 目录
+| 组件 | 版本 | 说明 |
+| --- | --- | --- |
+| NestJS | 12.3.x | 官方文档 v12；ESM 为 CLI 默认 |
+| Node.js | 22 LTS / 24 LTS | 运行 v20.19+；CLI 生成器需 v22.22.3+/v24.15+/v26+ |
+| TypeScript | 5.9+ / 6.x | 脚手架默认 strict |
+| 数据库 | **PostgreSQL 17** | 主库统一用 PostgreSQL |
+| ORM | **Prisma 8**（RC） | `prisma@8.0.0-rc.29` + `@prisma/orm-postgres@8.0.0-rc.21`，版本必须配对；另含 TypeORM / Drizzle / MikroORM / MongoDB 对照章节 |
+| 缓存/队列 | Redis 8、RabbitMQ 4、Kafka 4、RocketMQ | 含选型对比 |
+| 实时 | WebSocket（ws / socket.io 4）、SSE | |
+| API | GraphQL（Apollo Server 5）、REST + Swagger/OpenAPI | 含 federation |
+| 部署 | Docker / Compose、Nginx、K8s、Vercel | |
+| 测试 | 本期暂不引入 | 单测/e2e/压测章节暂缓；验证以命令、curl、接口契约与构建结果为准 |
 
-### 前置篇：前端视角的后端世界
+> Prisma 8 目前是 release candidate。本教程按 Prisma 8 的 contract 模型与 `@prisma/orm-postgres` 运行时编写；升级到 GA 时只需同步升级两个包版本。
 
-| Day | 主题 | 核心内容 |
-|-----|------|---------|
-| [Day 1](day-01-后端框架选择/README.md) | 后端框架选择 | Node.js 三层演进、五框架对比、Nest vs Spring、前端类比 |
-| [Day 2](day-02-Nest工程搭建/README.md) | Nest 工程搭建 | 开发环境、CLI 命令、项目结构、调试指南 |
+## 如何使用本教程
 
-### 入门篇：核心概念解析
+1. 286 章按 **7 篇 → 31 个 Part** 组织；每章是独立可读的讲解，包含可运行代码与验证步骤。
+2. 所有代码以 ESM + strict TS 编写，示例项目在 `example/`，随项目章节逐步完善。
+3. 每章文末给出官方文档链接；版本冲突时以最新 v12 文档为准。
+4. **篇幅由内容决定，不凑字数**：讲清一个问题即收尾，不做注水扩写；每章至少一张图（Mermaid 优先），架构/流程类必须有图。
 
-| Day | 主题 | 核心内容 |
-|-----|------|---------|
-| [Day 3](day-03-IoC控制反转与依赖注入/README.md) | IoC 与 DI | 依赖痛点、IoC 思想、Nest DI 实现、Provider 四种写法、循环依赖 |
-| [Day 4](day-04-Module模块化架构/README.md) | Module 模块化 | MVC 职责、@Module 装饰器、imports/exports、全局模块、动态模块、生命周期 |
-| [Day 5](day-05-Controller控制器与路由/README.md) | Controller 控制器 | HTTP 数据传输、路由声明、参数装饰器、务实 API 设计 |
-| [Day 6](day-06-实战-用户模块/README.md) | 实战：用户模块 | 需求分析、项目创建、Entity/DTO、ValidationPipe、DbModule 动态模块、Postman 测试 |
-| [Day 7](day-07-AOP面向切面编程/README.md) | AOP 面向切面 | 五大切面全景图、Middleware/Guard/Interceptor/Pipe/Filter、请求生命周期 |
+## 学习路线
 
-### 基础篇：请求处理与校验
+| 路线 | 适合谁 | 顺序 |
+| --- | --- | --- |
+| A. 全栈求职（推荐） | 想尽快拿全栈 offer | Part 00–02 → Part 03–05 → Part 06（项目一）→ Part 10/12/14/15/17（选两个项目）→ Part 18/20 → Part 21–26 → Part 29 |
+| B. 完整通关 | 时间充足，想系统掌握 | Part 00 → Part 30 按序学完全部 286 章 |
+| C. 专题补强 | 已有基础，按需补短板 | 按下方「技能矩阵」选 Part：可靠性/可观测/AI/全栈交付/数据架构等 |
 
-| Day | 主题 | 核心内容 |
-|-----|------|---------|
-| [Day 8](day-08-DTO参数校验/README.md) | DTO 参数校验 | class-validator 装饰器、自定义校验、ValidationPipe 配置、Mapped Types |
-| [Day 9](day-09-中间件与守卫/README.md) | 中间件与守卫 | Nest Middleware、Express 生态复用、Guard 实现、Metadata/Reflector、Middleware vs Guard |
-| [Day 10](day-10-拦截器与RxJS/README.md) | 拦截器与 RxJS | Interceptor 结构、RxJS Operators、统一响应格式、请求日志、序列化 |
-| [Day 11](day-11-异常过滤器/README.md) | 异常过滤器 | 内置异常类、ExceptionFilter 实现、自定义业务异常、全局注册 |
-| [Day 12](day-12-实战-图书CRUD与文件上传/README.md) | 实战：图书 CRUD | Book Entity/DTO、CRUD Service、multer 文件上传、静态文件托管 |
-| [Day 13](day-13-自定义装饰器与元数据/README.md) | 装饰器与元数据 | 全部装饰器分类、Reflect Metadata、Reflector、自定义参数装饰器、组合装饰器 |
+## 项目地图
 
-### 数据库篇：Prisma ORM 深度整合
+| 项目 | 章节 | 位置 |
+| --- | --- | --- |
+| 会议室预订系统（主线） | 84–103 | example/（Nest 12 + Prisma 8 后端） |
+| 会议室预订系统前端 | 244–250 | example/meeting-booking-web/（Next.js 16 + shadcn，规划中） |
+| 电商系统 | 137–144 | 本项目章节内实现 |
+| 大众点评系统 | 148–152 | 本项目章节内实现 |
+| 聊天室 | 160–166 | 本项目章节内实现 |
+| 教育平台（GraphQL） | 167–176 | 本项目章节内实现 |
+| 博客系统 | 183–190 | 本项目章节内实现 |
 
-| Day | 主题 | 核心内容 |
-|-----|------|---------|
-| [Day 14](day-14-数据库与Prisma入门/README.md) | 数据库入门 | MySQL/PostgreSQL 速览、SQL CRUD、表关系设计、事务隔离、ORM 概念、Prisma vs TypeORM |
-| [Day 15](day-15-Prisma-Schema设计/README.md) | Schema 设计 | 字段类型、关系设计（1:1/1:N/M:N）、自引用、图书管理系统完整 Schema、类型映射 |
-| [Day 16](day-16-Prisma-CRUD详解/README.md) | CRUD API | 单表 CRUD、select/include、where 过滤、分页排序、嵌套写入、聚合、SQL 日志 |
-| [Day 17](day-17-Nest与Prisma集成/README.md) | Nest + Prisma | PrismaService 封装、@Global Module、类型体系、Prisma 异常处理 |
-| [Day 18](day-18-Prisma事务与迁移/README.md) | 事务与迁移 | 交互式事务、批量事务、Migration 工作流、Seed、Prisma Studio |
-| [Day 19](day-19-实战-数据库迁移重构/README.md) | 实战：数据库迁移 | JSON→Prisma 迁移、User/Book Service 重构、BorrowService 事务、种子数据 |
+## 技能矩阵（按章节领域统计）
 
-### 进阶篇：工程化实践
+| 技术域 | 章节数 | 已写 |
+| --- | ---: | ---: |
+| 数据库 | 62 | 16 |
+| Nest | 31 | 12 |
+| DevOps | 21 | 5 |
+| 消息队列 | 21 | 0 |
+| 全栈 | 15 | 0 |
+| HTTP | 13 | 0 |
+| Nest 核心基础 | 11 | 11 |
+| 安全 | 11 | 0 |
+| 可观测 | 10 | 3 |
+| 工程化设施 | 9 | 0 |
+| 求职 | 9 | 0 |
+| 可靠性 | 8 | 0 |
+| 微服务 | 7 | 0 |
+| AI | 7 | 0 |
+| 架构 | 5 | 1 |
+| GraphQL | 5 | 0 |
+| 框架原理与源码 | 5 | 0 |
+| Redis 基础与认证鉴权 | 4 | 0 |
+| 分布式架构 | 4 | 0 |
+| 全文检索与云原生 | 4 | 0 |
+| PostgreSQL | 3 | 3 |
+| 项目二 | 3 | 0 |
+| 项目三 | 3 | 0 |
+| WebSocket 与实时通信 | 3 | 0 |
+| 项目四 | 3 | 0 |
+| GraphQL 与教育平台 | 3 | 0 |
+| 项目五 | 3 | 0 |
+| 数据库选型 | 3 | 0 |
+| 微服务传输与进阶 | 3 | 0 |
+| 基础 | 3 | 0 |
+| 项目复盘 | 3 | 0 |
+| 导学 | 2 | 2 |
+| 文件 | 2 | 0 |
+| 工程化 | 2 | 0 |
+| 可观测性 | 2 | 0 |
+| 认证 | 2 | 0 |
+| 复盘 | 2 | 0 |
+| 容器化与进程管理 | 1 | 1 |
+| 项目一 | 1 | 0 |
+| 面试题与总结 | 1 | 0 |
+| AI 与 MCP | 1 | 0 |
+| 可靠性工程 | 1 | 0 |
+| 求职冲刺 | 1 | 0 |
+| 存储 | 1 | 0 |
+| 性能 | 1 | 0 |
+| ORM | 1 | 0 |
+| 部署 | 1 | 0 |
 
-| Day | 主题 | 核心内容 |
-|-----|------|---------|
-| [Day 20](day-20-JWT认证鉴权/README.md) | JWT 认证 | 四种认证方案对比、JWT 结构、签发与验证、AuthGuard、Token 续期、@IsPublic |
-| [Day 21](day-21-RBAC权限控制/README.md) | RBAC 权限 | ACL vs RBAC、Schema 设计、PermissionGuard、Redis 缓存权限、组合装饰器 |
-| [Day 22](day-22-配置管理/README.md) | 配置管理 | @nestjs/config、ConfigService、多环境切换、Joi 校验、YAML、namespace |
-| [Day 23](day-23-日志系统/README.md) | 日志系统 | Winston 核心、DailyRotateFile、nest-winston 集成、请求日志拦截器 |
-| [Day 24](day-24-Swagger接口文档/README.md) | Swagger 文档 | OpenAPI 概念、DocumentBuilder、全部装饰器、图书系统文档 |
-| [Day 25](day-25-文件上传与OSS/README.md) | 文件上传与 OSS | 分片上传、OSS 对比、MinIO/RustFS、Presigned URL 直传、Excel 导入导出 |
+## 完整目录（286 章）
 
-### 架构篇：规模化与微服务
+## 第 1 篇 · 起步与框架核心（34 章，已写 34）
 
-| Day | 主题 | 核心内容 |
-|-----|------|---------|
-| [Day 26](day-26-定时任务与事件/README.md) | 定时任务与事件 | @Cron/@Interval、SchedulerRegistry、EventEmitter2 解耦 |
-| [Day 27](day-27-Redis深度实战/README.md) | Redis 深度实战 | ioredis 封装、分布式 Session、关注/排行榜、Geo 位置搜索 |
-| [Day 28](day-28-Docker容器化部署/README.md) | Docker 部署 | 多阶段构建、Compose 编排、MySQL/PostgreSQL 双方案、PM2 vs Restart |
-| [Day 29](day-29-Nginx与Monorepo/README.md) | Nginx 与 Monorepo | 反向代理、负载均衡（6 种策略）、灰度发布、共享库抽离 |
-| [Day 30](day-30-微服务与30天回顾/README.md) | 微服务与回顾 | 微服务取舍、TCP/Redis/RabbitMQ/gRPC、WebSocket/SSE、30 天知识图谱 |
+### Part 00 · 导学：从零建立 NestJS 全栈学习路径（第 1–2 章）
 
-## 使用方式
+> 本 Part 共 2 章，已写 2 章。明确教程结构、技术栈与学习路线
 
-```bash
-# 按顺序阅读，每天一个文件夹
-# 每个文件夹内 README.md 是当天的概览和导航
-# 按 01-xx.md → 02-xx.md → ... 顺序阅读子文件
+- ✅ [001 开篇词](part-00/001-开篇词.md)
+- ✅ [002 给你5个学习Nest的理由，你会心动么](part-00/002-给你5个学习Nest的理由，你会心动么.md)
 
-# 实战日（标注"实战"的 Day）建议跟着写代码
-# 项目代码在 projects/book-management-system/ 下按阶段存放
-```
+### Part 01 · Nest 核心基础：模块、IoC、AOP 与请求模型（第 3–28 章）
 
-## 技能路线图
+> 本 Part 共 26 章，已写 26 章。掌握 Nest 模块系统、依赖注入、AOP 与请求生命周期
 
-```
-Day  1-2 ：理解 Nest 的定位 → 完成环境搭建
-Day  3-5 ：掌握核心三板斧（Module/Controller/DI）
-Day  6   ：★ 第一个实战：用户模块（JSON 存储）
-Day  7   ：理解请求处理全链路
-Day  8-13：深入各切面 + 第二个实战（图书 CRUD）
-Day 14-18：数据库 + Prisma 全家桶
-Day 19  ：★ 第三个实战：JSON → 数据库迁移
-Day 20-25：企业级功能（JWT/RBAC/日志/文档/OSS）
-Day 26-30：架构升级（Redis/Docker/Nginx/微服务）
-```
+- ✅ [003 快速掌握NestCLI](part-01/003-快速掌握NestCLI.md)
+- ✅ [004 5种HTTP数据传输方式](part-01/004-5种HTTP数据传输方式.md)
+- ✅ [005 IoC解决了什么痛点问题](part-01/005-IoC解决了什么痛点问题.md)
+- ✅ [006 如何调试Nest项目](part-01/006-如何调试Nest项目.md)
+- ✅ [007 使用多种Provider，灵活注入对象](part-01/007-使用多种Provider，灵活注入对象.md)
+- ✅ [008 全局模块和生命周期](part-01/008-全局模块和生命周期.md)
+- ✅ [009 AOP架构有什么好处](part-01/009-AOP架构有什么好处.md)
+- ✅ [010 一网打尽Nest全部装饰器](part-01/010-一网打尽Nest全部装饰器.md)
+- ✅ [011 ExecutionContext：切换不同上下文](part-01/011-ExecutionContext：切换不同上下文.md)
+- ✅ [012 Nest如何自定义装饰器](part-01/012-Nest如何自定义装饰器.md)
+- ✅ [013 Metadata和Reflector](part-01/013-Metadata和Reflector.md)
+- ✅ [014 Module和Provider的循环依赖怎么处理](part-01/014-Module和Provider的循环依赖怎么处理.md)
+- ✅ [015 如何创建动态模块](part-01/015-如何创建动态模块.md)
+- ✅ [016 Nest和Express的关系，如何切到fastify](part-01/016-Nest和Express的关系，如何切到fastify.md)
+- ✅ [017 Nest的Middleware](part-01/017-Nest的Middleware.md)
+- ✅ [018 RxJS和Interceptor](part-01/018-RxJS和Interceptor.md)
+- ✅ [019 内置Pipe和自定义Pipe](part-01/019-内置Pipe和自定义Pipe.md)
+- ✅ [020 如何使用ValidationPipe验证post请求参数](part-01/020-如何使用ValidationPipe验证post请求参数.md)
+- ✅ [021 如何自定义ExceptionFilter](part-01/021-如何自定义ExceptionFilter.md)
+- ✅ [022 图解串一串Nest核心概念](part-01/022-图解串一串Nest核心概念.md)
+- ✅ [023 Express如何使用multer实现文件上传](part-01/023-Express如何使用multer实现文件上传.md)
+- ✅ [024 Nest如何使用multer实现文件上传](part-01/024-Nest如何使用multer实现文件上传.md)
+- ✅ [025 大文件分片上传](part-01/025-大文件分片上传.md)
+- ✅ [026 Nest里如何打印日志](part-01/026-Nest里如何打印日志.md)
+- ✅ [027 为什么Node里要用Winston打印日志](part-01/027-为什么Node里要用Winston打印日志.md)
+- ✅ [028 Nest集成日志框架Winston](part-01/028-Nest集成日志框架Winston.md)
 
-## 参考来源
+### Part 02 · 容器化与进程管理（第 29–34 章）
 
-- [NestJS 官方文档](https://docs.nestjs.com)
-- [Prisma 官方文档](https://www.prisma.io/docs)
-- [Nest 通关秘籍](https://github.com/thinkasany/nest)
+> 本 Part 共 6 章，已写 6 章。把 Nest 应用容器化，并用进程管理与反向代理托管
+
+- ✅ [029 通过Desktop学Docker也太简单了](part-02/029-通过Desktop学Docker也太简单了.md)
+- ✅ [030 你的第一个Dockerfile](part-02/030-你的第一个Dockerfile.md)
+- ✅ [031 Nest项目如何编写Dockerfile](part-02/031-Nest项目如何编写Dockerfile.md)
+- ✅ [032 提升Dockerfile水平的5个技巧](part-02/032-提升Dockerfile水平的5个技巧.md)
+- ✅ [033 Docker是怎么实现的](part-02/033-Docker是怎么实现的.md)
+- ✅ [034 为什么Node应用要用PM2来跑](part-02/034-为什么Node应用要用PM2来跑.md)
+
+## 第 2 篇 · 数据、缓存与工程化（49 章，已写 19）
+
+### Part 03 · PostgreSQL、SQL 与 Prisma 8 数据层（第 35–53 章）
+
+> 本 Part 共 19 章，已写 19 章。掌握 PostgreSQL 与 Prisma 8 的数据建模、查询与迁移
+
+- ✅ [035 快速入门PostgreSQL](part-03/035-快速入门PostgreSQL.md)
+- ✅ [036 SQL查询语句的所有语法和函数PostgreSQL版](part-03/036-SQL查询语句的所有语法和函数PostgreSQL版.md)
+- ✅ [037 一对一、JOIN查询与级联](part-03/037-一对一、JOIN查询与级联.md)
+- ✅ [038 一对多、多对多的表设计](part-03/038-一对多、多对多的表设计.md)
+- ✅ [039 子查询和EXISTS](part-03/039-子查询和EXISTS.md)
+- ✅ [040 SQL综合练习](part-03/040-SQL综合练习.md)
+- ✅ [041 PostgreSQL的事务和隔离级别](part-03/041-PostgreSQL的事务和隔离级别.md)
+- ✅ [042 PostgreSQL的视图、存储过程和函数](part-03/042-PostgreSQL的视图、存储过程和函数.md)
+- ✅ [043 使用Node操作PostgreSQL的两种方式](part-03/043-使用Node操作PostgreSQL的两种方式.md)
+- ✅ [044 快速掌握Prisma8](part-03/044-快速掌握Prisma8.md)
+- ✅ [045 Prisma8一对一映射与关联CRUD](part-03/045-Prisma8一对一映射与关联CRUD.md)
+- ✅ [046 Prisma8一对多映射与关联CRUD](part-03/046-Prisma8一对多映射与关联CRUD.md)
+- ✅ [047 Prisma8多对多映射与关联CRUD](part-03/047-Prisma8多对多映射与关联CRUD.md)
+- ✅ [048 Prisma8常用命令与迁移工作流](part-03/048-Prisma8常用命令与迁移工作流.md)
+- ✅ [049 Prisma8知识点查缺补漏](part-03/049-Prisma8知识点查缺补漏.md)
+- ✅ [050 在Nest里集成Prisma8](part-03/050-在Nest里集成Prisma8.md)
+- ✅ [051 快速入门Redis](part-03/051-快速入门Redis.md)
+- ✅ [052 在Nest里操作Redis](part-03/052-在Nest里操作Redis.md)
+- ✅ [053 为什么推荐ioredis而不是cache-manager操作Redis](part-03/053-为什么推荐ioredis而不是cache-manager操作Redis.md)
+
+### Part 04 · Redis 基础与认证鉴权（第 54–70 章）
+
+> 本 Part 共 17 章，已写 0 章。掌握 Redis 常见用法与认证鉴权体系
+
+- ⬜ 054 两种登录状态保存方式：JWT、Session（待写）
+- ⬜ 055 Nest里实现Session和JWT（待写）
+- ⬜ 056 PostgreSQL+Prisma8+JWT实现登录注册（待写）
+- ⬜ 057 基于ACL实现权限控制（待写）
+- ⬜ 058 基于RBAC实现权限控制（待写）
+- ⬜ 059 基于access_token和refresh_token实现无感刷新登录状态（待写）
+- ⬜ 060 如何动态读取不同环境的配置（待写）
+- ⬜ 061 为什么要使用DockerCompose（待写）
+- ⬜ 062 Docker容器通信的最简单方式：桥接网络（待写）
+- ⬜ 063 Docker支持重启策略，是否还需要PM2（待写）
+- ⬜ 064 搭建私有Docker镜像仓库（待写）
+- ⬜ 065 快速掌握Nginx的2大核心用法（待写）
+- ⬜ 066 基于Nginx实现灰度系统（待写）
+- ⬜ 067 Nginx的全部配置（待写）
+- ⬜ 068 基于Redis实现分布式session（待写）
+- ⬜ 069 Redis+高德地图，实现附近的充电宝（待写）
+- ⬜ 070 基于Redis实现王者荣耀段位排行榜（待写）
+
+### Part 05 · 工程化设施（第 71–83 章）
+
+> 本 Part 共 13 章，已写 0 章。搭建生产可用的工程化基础设施
+
+- ⬜ 071 用Swagger自动生成api文档（待写）
+- ⬜ 072 使用compodoc生成文档（待写）
+- ⬜ 073 Node如何发邮件（待写）
+- ⬜ 074 实现基于邮箱验证码的登录（待写）
+- ⬜ 075 使用阿里云的邮件和短信服务（待写）
+- ⬜ 076 定时任务+Redis实现阅读量计数（待写）
+- ⬜ 077 Nest的3种定时任务（待写）
+- ⬜ 078 短链服务自己写一个（待写）
+- ⬜ 079 Nest实现ServerSentEvent数据推送（待写）
+- ⬜ 080 基于sharp实现gif压缩工具（待写）
+- ⬜ 081 实现扫二维码登录（待写）
+- ⬜ 082 Nest的REPL模式（待写）
+- ⬜ 083 使用Prometheus实现Node性能监控（待写）
+
+## 第 3 篇 · 项目实战一：会议室预订（20 章，已写 0）
+
+### Part 06 · 项目一：会议室预订系统（第 84–103 章）
+
+> 本 Part 共 20 章，已写 0 章。从零完成会议室预订系统全链路
+
+- ⬜ 084 会议室预订系统：需求分析和原型图（待写）
+- ⬜ 085 会议室预订系统：技术方案和数据库设计（待写）
+- ⬜ 086 会议室预订系统：用户管理模块-用户注册（待写）
+- ⬜ 087 会议室预订系统：用户管理模块-配置抽离、登录认证鉴权（待写）
+- ⬜ 088 会议室预订系统：用户管理模块-interceptor、修改信息接口（待写）
+- ⬜ 089 会议室预订系统：用户管理模块-用户列表和分页查询（待写）
+- ⬜ 090 会议室预订系统：用户管理模块-swagger接口文档（待写）
+- ⬜ 091 会议室预订系统：用户管理模块-用户端登录注册页面（待写）
+- ⬜ 092 会议室预订系统：用户管理模块-用户端信息修改页面（待写）
+- ⬜ 093 会议室预订系统：用户管理模块-管理端用户列表页面（待写）
+- ⬜ 094 会议室预订系统：用户管理模块-管理端信息修改页面（待写）
+- ⬜ 095 会议室预订系统：会议室管理模块-后端开发（待写）
+- ⬜ 096 会议室预订系统：会议室管理模块-管理端前端开发（待写）
+- ⬜ 097 会议室预订系统：会议室管理模块-用户端前端开发（待写）
+- ⬜ 098 会议室预订系统：预定管理模块-后端开发（待写）
+- ⬜ 099 会议室预订系统：预定管理模块-管理端前端开发（待写）
+- ⬜ 100 会议室预订系统：预定管理模块-用户端前端开发（待写）
+- ⬜ 101 会议室预订系统：统计管理模块-后端开发（待写）
+- ⬜ 102 会议室预订系统：统计管理模块-前端开发（待写）
+- ⬜ 103 会议室预订系统-项目部署和整体验收（待写）
+
+## 第 4 篇 · 分布式与云原生（49 章，已写 0）
+
+### Part 07 · 微服务（第 104–113 章）
+
+> 本 Part 共 10 章，已写 0 章。掌握 Nest 微服务拆分与通信
+
+- ⬜ 104 Nest如何创建微服务（待写）
+- ⬜ 105 Nest的Monorepo和Library（待写）
+- ⬜ 106 用Etcd实现微服务配置中心和注册中心（待写）
+- ⬜ 107 Nest集成Etcd做注册中心、配置中心（待写）
+- ⬜ 108 使用Nacos做配置中心和注册中心（待写）
+- ⬜ 109 使用ZoopKeeper做注册中心（待写）
+- ⬜ 110 使用Zuul做配置中心和注册中心（待写）
+- ⬜ 111 注册中心功能总结（待写）
+- ⬜ 112 基于gRPC实现跨语言的微服务通信（待写）
+- ⬜ 113 深入掌握gRPC（待写）
+
+### Part 08 · Prisma 8、ORM 对比与消息队列（第 114–129 章）
+
+> 本 Part 共 16 章，已写 0 章。深入 ORM 选型与消息队列
+
+- ⬜ 114 Prisma8架构与contract模型深入（待写）
+- ⬜ 115 Prisma8的全部命令（待写）
+- ⬜ 116 Prisma8的全部contract语法（待写）
+- ⬜ 117 Prisma8单表CRUD的全部API（待写）
+- ⬜ 118 Prisma8多表CRUD的全部API（待写）
+- ⬜ 119 在Nest里工程化集成Prisma8（待写）
+- ⬜ 120 使用Sequelize做ORM框架（待写）
+- ⬜ 121 Prisma8、TypeORM、Sequelize三大ORM框架对比（待写）
+- ⬜ 122 为什么前端监控系统要用RabbitMQ（待写）
+- ⬜ 123 快速掌握RocketMQ（待写）
+- ⬜ 124 快速掌握Kafka（待写）
+- ⬜ 125 消息队列选型（待写）
+- ⬜ 126 基于Redis实现消息队列（待写）
+- ⬜ 127 基于Redis实现分布式锁（待写）
+- ⬜ 128 Redis的Stream数据结构（待写）
+- ⬜ 129 Redis的布隆过滤器（待写）
+
+### Part 09 · 分布式架构、可观测性与性能（第 130–136 章）
+
+> 本 Part 共 7 章，已写 0 章。理解分布式核心问题与可观测性基础
+
+- ⬜ 130 使用passport做身份认证（待写）
+- ⬜ 131 实现单点登录（待写）
+- ⬜ 132 BFF层的作用（待写）
+- ⬜ 133 什么是分布式架构（待写）
+- ⬜ 134 Nest应用的可观测性-日志、指标与链路追踪（待写）
+- ⬜ 135 生产环境性能排查与容量规划（待写）
+- ⬜ 136 图解微服务架构（待写）
+
+### Part 11 · Redis 高级应用（第 145–147 章）
+
+> 本 Part 共 3 章，已写 0 章。掌握 Redis 高级数据结构与实践
+
+- ⬜ 145 基于Redis实现关注关系（待写）
+- ⬜ 146 基于Redis实现uv计数（待写）
+- ⬜ 147 面试题：说说Redis的应用场景（待写）
+
+### Part 13 · WebSocket 与实时通信（第 153–159 章）
+
+> 本 Part 共 7 章，已写 0 章。掌握 Nest 实时通信能力
+
+- ⬜ 153 什么时候需要WebSocket（待写）
+- ⬜ 154 用Node.js手写WebSocket协议（待写）
+- ⬜ 155 MongoDB快速入门（待写）
+- ⬜ 156 在Nest里操作MongoDB（待写）
+- ⬜ 157 Nest如何开发WebSocket服务（待写）
+- ⬜ 158 Redis+WebSocket实时外卖员距离（待写）
+- ⬜ 159 WebSocket的面试题（待写）
+
+### Part 16 · 全文检索与云原生（第 177–182 章）
+
+> 本 Part 共 6 章，已写 0 章。掌握全文检索与云原生部署
+
+- ⬜ 177 为什么要用ElasticSearch做全文检索（待写）
+- ⬜ 178 部署一套Kubenetes环境（待写）
+- ⬜ 179 ElasticSearch和PostgreSQL如何配合（待写）
+- ⬜ 180 Node里操作ElasticSearch（待写）
+- ⬜ 181 Nest集成ElasticSearch（待写）
+- ⬜ 182 什么是Kubenetes（待写）
+
+## 第 5 篇 · 多业务系统实战（43 章，已写 0）
+
+### Part 10 · 项目二：电商系统（第 137–144 章）
+
+> 本 Part 共 8 章，已写 0 章。完成电商核心域与交易链路
+
+- ⬜ 137 电商系统：需求分析（待写）
+- ⬜ 138 电商系统：数据库设计（待写）
+- ⬜ 139 电商系统：微服务拆分（待写）
+- ⬜ 140 电商系统：集成RabbitMQ、Redis、Etcd（待写）
+- ⬜ 141 电商系统：功能开发（上）（待写）
+- ⬜ 142 电商系统：功能开发（下）（待写）
+- ⬜ 143 电商系统：前端界面开发（待写）
+- ⬜ 144 电商系统-DockerCompose部署和整体验收（待写）
+
+### Part 12 · 项目三：大众点评系统（第 148–152 章）
+
+> 本 Part 共 5 章，已写 0 章。完成 LBS 点评类系统
+
+- ⬜ 148 大众点评系统：需求分析和原型图（待写）
+- ⬜ 149 大众点评系统：技术方案设计（待写）
+- ⬜ 150 大众点评系统：后端开发（待写）
+- ⬜ 151 大众点评系统：前端开发（待写）
+- ⬜ 152 大众点评系统-项目部署和整体验收（待写）
+
+### Part 14 · 项目四：聊天室（第 160–166 章）
+
+> 本 Part 共 7 章，已写 0 章。完成完整聊天室系统
+
+- ⬜ 160 聊天室项目：需求分析（待写）
+- ⬜ 161 聊天室项目：数据库设计（待写）
+- ⬜ 162 聊天室项目：微服务拆分（待写）
+- ⬜ 163 聊天室项目：功能开发（上）（待写）
+- ⬜ 164 聊天室项目：功能开发（下）（待写）
+- ⬜ 165 聊天室项目：前端界面开发（待写）
+- ⬜ 166 聊天室项目-DockerCompose部署（待写）
+
+### Part 15 · GraphQL 与教育平台（第 167–176 章）
+
+> 本 Part 共 10 章，已写 0 章。掌握 GraphQL 服务端开发
+
+- ⬜ 167 GraphQL快速入门（待写）
+- ⬜ 168 Nest如何开发GraphQL服务（待写）
+- ⬜ 169 Kafka消息中间件和RabbitMQ有什么区别（待写）
+- ⬜ 170 GraphQL的面试题（待写）
+- ⬜ 171 教育平台：需求分析（待写）
+- ⬜ 172 教育平台：数据库设计（待写）
+- ⬜ 173 教育平台：微服务拆分（待写）
+- ⬜ 174 教育平台：GraphQL层设计（待写）
+- ⬜ 175 教育平台：功能开发（上）（待写）
+- ⬜ 176 教育平台：功能开发（下）（待写）
+
+### Part 17 · 项目五：博客系统（第 183–190 章）
+
+> 本 Part 共 8 章，已写 0 章。完成博客内容系统
+
+- ⬜ 183 博客项目：需求分析（待写）
+- ⬜ 184 博客项目：数据库设计（待写）
+- ⬜ 185 博客项目-ORM层开发Prisma8（待写）
+- ⬜ 186 博客系统：集成ElasticSearch（待写）
+- ⬜ 187 博客项目：功能开发（待写）
+- ⬜ 188 博客项目：前端界面开发（待写）
+- ⬜ 189 博客项目：Docker部署（待写）
+- ⬜ 190 博客项目-Docker部署与整体验收（待写）
+
+### Part 19 · 数据库选型、OAuth2 与支付（第 197–201 章）
+
+> 本 Part 共 5 章，已写 0 章。掌握数据选型与第三方集成
+
+- ⬜ 197 数据库选型-为什么公司里选择PostgreSQL作为主库（待写）
+- ⬜ 198 PostgreSQL和MySQL的区别（待写）
+- ⬜ 199 如何用OAuth2.0做三方授权（待写）
+- ⬜ 200 实现三方扫码登录（待写）
+- ⬜ 201 微信支付、支付宝支付（待写）
+
+## 第 6 篇 · 原理、扩展与求职（73 章，已写 0）
+
+### Part 18 · 框架原理与源码（第 191–196 章）
+
+> 本 Part 共 6 章，已写 0 章。读懂 Nest 核心机制与源码
+
+- ⬜ 191 如何调试Nest源码（待写）
+- ⬜ 192 NestIOC实现原理（待写）
+- ⬜ 193 手写Nest的IOC容器（待写）
+- ⬜ 194 NestAOP实现原理（待写）
+- ⬜ 195 Nest的路由是怎么实现的（待写）
+- ⬜ 196 NestCLI实现原理（待写）
+
+### Part 20 · 面试题与总结（第 202–205 章）
+
+> 本 Part 共 4 章，已写 0 章。梳理高频考点与知识体系
+
+- ⬜ 202 面试题-PostgreSQL中SQL的执行流程（待写）
+- ⬜ 203 面试题-PostgreSQL索引优化（待写）
+- ⬜ 204 面试题：redis缓存雪崩、缓存击穿、缓存穿透（待写）
+- ⬜ 205 小册总结（待写）
+
+### Part 21 · AI 与 MCP（第 206–211 章）
+
+> 本 Part 共 6 章，已写 0 章。把 AI 能力接入 Nest 应用
+
+- ⬜ 206 用NestJS-AI接入第一个模型（待写）
+- ⬜ 207 结构化输出与Schema校验（待写）
+- ⬜ 208 把Service方法变成AI工具（待写）
+- ⬜ 209 用MCP把Nest应用变成工具服务器（待写）
+- ⬜ 210 MCP接入实战（待写）
+- ⬜ 211 AI工程化（待写）
+
+### Part 22 · 可靠性工程（第 212–219 章）
+
+> 本 Part 共 8 章，已写 0 章。掌握生产级可靠性模式
+
+- ⬜ 212 幂等键（待写）
+- ⬜ 213 事务与消息一致性Outbox模式（待写）
+- ⬜ 214 Outbox实战（待写）
+- ⬜ 215 重试死信与消息可靠性（待写）
+- ⬜ 216 分布式锁（待写）
+- ⬜ 217 DurableWorkflows（待写）
+- ⬜ 218 熔断超时限流与降级（待写）
+- ⬜ 219 健康检查与优雅停机（待写）
+
+### Part 23 · 可观测性（第 220–226 章）
+
+> 本 Part 共 7 章，已写 0 章。建立 OpenTelemetry/指标/日志/告警体系
+
+- ⬜ 220 OpenTelemetry与observability-SDK（待写）
+- ⬜ 221 分布式追踪（待写）
+- ⬜ 222 指标与告警（待写）
+- ⬜ 223 结构化日志与日志聚合（待写）
+- ⬜ 224 错误监控与APM接入（待写）
+- ⬜ 225 生产规则SLO与Dashboard（待写）
+- ⬜ 226 CICD从GitHubActions到发布（待写）
+
+### Part 24 · HTTP、任务与事件（第 227–236 章）
+
+> 本 Part 共 10 章，已写 0 章。掌握 HTTP 进阶、任务队列与事件驱动
+
+- ⬜ 227 Webhooks签名验签与防重放（待写）
+- ⬜ 228 API版本化与兼容策略（待写）
+- ⬜ 229 CookieSession与安全属性（待写）
+- ⬜ 230 HTTP压缩缓存头与传输优化（待写）
+- ⬜ 231 MVC与模板渲染（待写）
+- ⬜ 232 HTTPClient（待写）
+- ⬜ 233 i18n多语言API设计（待写）
+- ⬜ 234 文件存储（待写）
+- ⬜ 235 BullMQ任务队列（待写）
+- ⬜ 236 EventEmitter异步事件与AsyncLocalStorage（待写）
+
+### Part 25 · 安全与合规（第 237–243 章）
+
+> 本 Part 共 7 章，已写 0 章。掌握 API 安全体系
+
+- ⬜ 237 HelmetCORS与CSRF与安全响应头（待写）
+- ⬜ 238 限流防刷与验证码（待写）
+- ⬜ 239 加密哈希与密码存储（待写）
+- ⬜ 240 密钥凭证与环境变量管理（待写）
+- ⬜ 241 多租户与数据隔离（待写）
+- ⬜ 242 OWASP-API-Top10与安全审计（待写）
+- ⬜ 243 依赖供应链与依赖安全（待写）
+
+### Part 26 · 全栈交付（第 244–250 章）
+
+> 本 Part 共 7 章，已写 0 章。完成 Next.js 管理后台与部署
+
+- ⬜ 244 Nextjs16-App-Router与RSC（待写）
+- ⬜ 245 Next16与shadcn搭管理后台（待写）
+- ⬜ 246 TanStackQuery与API客户端（待写）
+- ⬜ 247 端到端认证httpOnly-Cookie与JWT（待写）
+- ⬜ 248 SSR-RSC数据获取与缓存（待写）
+- ⬜ 249 实时看板SSE与WebSocket联调（待写）
+- ⬜ 250 部署Vercel与Docker与Nginx（待写）
+
+### Part 27 · 数据与架构（第 251–257 章）
+
+> 本 Part 共 7 章，已写 0 章。掌握多 ORM 与架构模式
+
+- ⬜ 251 TypeORM实战（待写）
+- ⬜ 252 DrizzleORM与SQL优先开发（待写）
+- ⬜ 253 MikroORM与UnitOfWork（待写）
+- ⬜ 254 MongoDB进阶（待写）
+- ⬜ 255 pgvector与RAG（待写）
+- ⬜ 256 GraphQL联邦（待写）
+- ⬜ 257 CQRS与事件溯源（待写）
+
+### Part 28 · 微服务传输与进阶（第 258–263 章）
+
+> 本 Part 共 6 章，已写 0 章。覆盖 Nest 微服务传输层与进阶特性
+
+- ⬜ 258 微服务传输层Redis与MQTT与NATS（待写）
+- ⬜ 259 微服务传输层RabbitMQ与Kafka与自定义（待写）
+- ⬜ 260 Hybrid应用Standalone与Serverless（待写）
+- ⬜ 261 DiscoveryService与LazyModule（待写）
+- ⬜ 262 AsyncProvider与InjectionScope（待写）
+- ⬜ 263 CLI-Libraries与Monorepo进阶（待写）
+
+### Part 29 · 求职冲刺（第 264–268 章）
+
+> 本 Part 共 5 章，已写 0 章。准备面试与作品集
+
+- ⬜ 264 系统设计与高并发面试（待写）
+- ⬜ 265 NestNode与TypeScript高频题（待写）
+- ⬜ 266 数据库Redis与消息队列专项（待写）
+- ⬜ 267 项目包装简历与作品集（待写）
+- ⬜ 268 模拟面试与12周学习计划（待写）
+
+## 第 7 篇 · 实战补遗与复盘（18 章，已写 0）
+
+### Part 30 · 实战补遗与经典项目拆解（第 269–286 章）
+
+> 本 Part 共 18 章，已写 0 章。补齐 200 版小册独有的实战主题：文件直传/报表/三方登录/ORM 迁移深水区，并用拆解方式回收图书管理、考试、聊天室三个经典项目。
+
+- ⬜ 269 MinIO与OSS-自建存储与前端直传（待写）
+- ⬜ 270 大文件流式下载与Range断点续传（待写）
+- ⬜ 271 Excel导入导出（待写）
+- ⬜ 272 用代码动态生成PPT（待写）
+- ⬜ 273 服务器资源监控接口（待写）
+- ⬜ 274 GitHub与Google三方登录（待写）
+- ⬜ 275 单token无限续期与无感刷新（待写）
+- ⬜ 276 灵活DTO与class-validator自定义装饰器（待写）
+- ⬜ 277 Entity序列化与VO取舍（待写）
+- ⬜ 278 TypeORM迁移深水区与Prisma对照（待写）
+- ⬜ 279 图书管理系统拆解-旧版全栈复盘（待写）
+- ⬜ 280 考试系统拆解-微服务与自动判卷（待写）
+- ⬜ 281 聊天室拆解-Socketio与全链路（待写）
+- ⬜ 282 请求日志审计日志与脱敏（待写）
+- ⬜ 283 部署到阿里云-前后端上线清单（待写）
+- ⬜ 284 200版与205版差异复盘与学习路线（待写）
+- ⬜ 285 286主题覆盖清单与查漏补缺（待写）
+- ⬜ 286 Nest12迁移与ESM踩坑合集（待写）
+
+## 进度
+
+| Part | 标题 | 章节 | 已写 / 总数 |
+| --- | --- | --- | ---: |
+| Part 00 | 导学：从零建立 NestJS 全栈学习路径 | 第 1–2 章 | 2 / 2 |
+| Part 01 | Nest 核心基础：模块、IoC、AOP 与请求模型 | 第 3–28 章 | 26 / 26 |
+| Part 02 | 容器化与进程管理 | 第 29–34 章 | 6 / 6 |
+| Part 03 | PostgreSQL、SQL 与 Prisma 8 数据层 | 第 35–53 章 | 19 / 19 |
+| Part 04 | Redis 基础与认证鉴权 | 第 54–70 章 | 0 / 17 |
+| Part 05 | 工程化设施 | 第 71–83 章 | 0 / 13 |
+| Part 06 | 项目一：会议室预订系统 | 第 84–103 章 | 0 / 20 |
+| Part 07 | 微服务 | 第 104–113 章 | 0 / 10 |
+| Part 08 | Prisma 8、ORM 对比与消息队列 | 第 114–129 章 | 0 / 16 |
+| Part 09 | 分布式架构、可观测性与性能 | 第 130–136 章 | 0 / 7 |
+| Part 10 | 项目二：电商系统 | 第 137–144 章 | 0 / 8 |
+| Part 11 | Redis 高级应用 | 第 145–147 章 | 0 / 3 |
+| Part 12 | 项目三：大众点评系统 | 第 148–152 章 | 0 / 5 |
+| Part 13 | WebSocket 与实时通信 | 第 153–159 章 | 0 / 7 |
+| Part 14 | 项目四：聊天室 | 第 160–166 章 | 0 / 7 |
+| Part 15 | GraphQL 与教育平台 | 第 167–176 章 | 0 / 10 |
+| Part 16 | 全文检索与云原生 | 第 177–182 章 | 0 / 6 |
+| Part 17 | 项目五：博客系统 | 第 183–190 章 | 0 / 8 |
+| Part 18 | 框架原理与源码 | 第 191–196 章 | 0 / 6 |
+| Part 19 | 数据库选型、OAuth2 与支付 | 第 197–201 章 | 0 / 5 |
+| Part 20 | 面试题与总结 | 第 202–205 章 | 0 / 4 |
+| Part 21 | AI 与 MCP | 第 206–211 章 | 0 / 6 |
+| Part 22 | 可靠性工程 | 第 212–219 章 | 0 / 8 |
+| Part 23 | 可观测性 | 第 220–226 章 | 0 / 7 |
+| Part 24 | HTTP、任务与事件 | 第 227–236 章 | 0 / 10 |
+| Part 25 | 安全与合规 | 第 237–243 章 | 0 / 7 |
+| Part 26 | 全栈交付 | 第 244–250 章 | 0 / 7 |
+| Part 27 | 数据与架构 | 第 251–257 章 | 0 / 7 |
+| Part 28 | 微服务传输与进阶 | 第 258–263 章 | 0 / 6 |
+| Part 29 | 求职冲刺 | 第 264–268 章 | 0 / 5 |
+| Part 30 | 实战补遗与经典项目拆解 | 第 269–286 章 | 0 / 18 |
+
+- 当前已写 **53 / 286** 章。
+- 写作规范见 [STYLE-GUIDE.md](STYLE-GUIDE.md)，结构由 `_meta/build-structure.mjs` 生成，门禁见 `_meta/check-structure.mjs`、`_meta/validate-chapters.mjs`。
+
+## 资料与致谢
+
+- 官方文档：<https://docs.nestjs.com/>（v12）
+- 生态资源：[nestjs/awesome-nestjs](https://github.com/nestjs/awesome-nestjs)
+- 学习路径参考：掘金小册《Nest 通关秘籍》（仅参考章节顺序与问题清单，正文为原创重写，不逐字复制）
+- 写作方法：已安装 skill `developer-tutorial`、`doc-coauthoring`、`nestjs-best-practices`

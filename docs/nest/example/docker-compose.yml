@@ -1,0 +1,42 @@
+# 只负责基础设施；后端用 pnpm start:dev 在本机运行。
+# 启动：docker compose up -d
+# 查看健康状态：docker compose ps
+services:
+  postgres:
+    image: postgres:17
+    container_name: meeting-booking-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: meeting_booking
+      POSTGRES_USER: meeting
+      POSTGRES_PASSWORD: meeting
+      TZ: Asia/Shanghai
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U meeting -d meeting_booking']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:8
+    container_name: meeting-booking-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:

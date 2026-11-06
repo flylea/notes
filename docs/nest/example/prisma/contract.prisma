@@ -1,0 +1,76 @@
+// use prisma-8
+
+// Prisma 8 契约（contract）是数据库结构的唯一事实来源。
+// 改完这里依次执行：pnpm db:emit → pnpm db:plan --name <改动> → pnpm db:migrate。
+
+/// 用户：注册、登录与角色。
+model User {
+  id           Uuid    @id @onCreate(uuid())
+  name         String
+  email        String  @unique
+  passwordHash String  @map("password_hash")
+  role         Role    @default(USER)
+  avatarUrl    String? @map("avatar_url")
+  createdAt    TimestamptzString       @default(now()) @map("created_at")
+  updatedAt    temporal.UpdatedAtString @map("updated_at")
+
+  @@map("users")
+}
+
+/// 会议室：容量、位置、设备清单与维护状态。
+model Room {
+  id        Uuid       @id @onCreate(uuid())
+  name      String
+  capacity  Int
+  location  String
+  equipment String[]   @default([])
+  status    RoomStatus @default(AVAILABLE)
+  createdAt TimestamptzString       @default(now()) @map("created_at")
+  updatedAt temporal.UpdatedAtString @map("updated_at")
+
+  @@index([status])
+  @@map("rooms")
+}
+
+/// 预订：半开区间 [startTime, endTime)，PENDING/APPROVED 占用会议室。
+model Booking {
+  id        Uuid            @id @onCreate(uuid())
+  userId    Uuid            @map("user_id")
+  roomId    Uuid            @map("room_id")
+  startTime TimestamptzString @map("start_time")
+  endTime   TimestamptzString @map("end_time")
+  status    BookingStatus   @default(PENDING)
+  remark    String?
+  createdAt TimestamptzString       @default(now()) @map("created_at")
+  updatedAt temporal.UpdatedAtString @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Restrict)
+
+  @@index([roomId, startTime, endTime], map: "idx_bookings_room_time")
+  @@index([userId], map: "idx_bookings_user")
+  @@map("bookings")
+}
+
+enum Role {
+  ADMIN
+  USER
+
+  @@type("pg/text@1")
+}
+
+enum RoomStatus {
+  AVAILABLE
+  MAINTENANCE
+
+  @@type("pg/text@1")
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@type("pg/text@1")
+}

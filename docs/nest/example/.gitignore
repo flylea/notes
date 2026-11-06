@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# build & test artifacts
+dist/
+coverage/
+*.tsbuildinfo
+
+# local env（.env.example 必须入库）
+.env
+.env.*
+!.env.example
+
+# logs & editor / OS files
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/

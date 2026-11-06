@@ -1,0 +1,32 @@
+part	no	section	section_no	title	chapter_range	count	domains	project	goal	outcome	required_or_optional
+part-00	0	起步与框架核心	1	导学：从零建立 NestJS 全栈学习路径	1-2	2	导学	-	明确教程结构、技术栈与学习路线	能按自己的目标选择学习路线，并搭好 Nest 12 开发环境	required
+part-01	1	起步与框架核心	1	Nest 核心基础：模块、IoC、AOP 与请求模型	3-28	26	Nest 核心基础	-	掌握 Nest 模块系统、依赖注入、AOP 与请求生命周期	能独立搭建并组织一个 Nest 应用的模块与请求处理链路	required
+part-02	2	起步与框架核心	1	容器化与进程管理	29-34	6	容器化与进程管理	-	把 Nest 应用容器化，并用进程管理与反向代理托管	能用 Docker Compose 一键启动应用与依赖，并完成基础部署	required
+part-03	3	数据、缓存与工程化	2	PostgreSQL、SQL 与 Prisma 8 数据层	35-53	19	PostgreSQL	-	掌握 PostgreSQL 与 Prisma 8 的数据建模、查询与迁移	能从零设计数据模型、编写迁移，并跑通完整 CRUD	required
+part-04	4	数据、缓存与工程化	2	Redis 基础与认证鉴权	54-70	17	Redis 基础与认证鉴权	-	掌握 Redis 常见用法与认证鉴权体系	能实现 JWT/Session/RBAC 等认证授权流程	required
+part-05	5	数据、缓存与工程化	2	工程化设施	71-83	13	工程化设施	-	搭建生产可用的工程化基础设施	能配置统一日志、接口文档、文件上传、定时任务等能力	required
+part-06	6	项目实战一：会议室预订	3	项目一：会议室预订系统	84-103	20	项目一	meeting-booking	从零完成会议室预订系统全链路	能独立交付一个带权限、预订、统计与部署的业务系统	required
+part-07	7	分布式与云原生	4	微服务	104-113	10	微服务	-	掌握 Nest 微服务拆分与通信	能拆分并调试一个多服务架构	required
+part-08	8	分布式与云原生	4	Prisma 8、ORM 对比与消息队列	114-129	16	Prisma 8	-	深入 ORM 选型与消息队列	能按场景选型并实现可靠异步链路	required
+part-09	9	分布式与云原生	4	分布式架构、可观测性与性能	130-136	7	分布式架构	-	理解分布式核心问题与可观测性基础	能定位并优化分布式系统的常见问题	required
+part-10	10	多业务系统实战	5	项目二：电商系统	137-144	8	项目二	ecommerce	完成电商核心域与交易链路	能独立实现商品、订单、库存与支付主流程	required
+part-11	11	分布式与云原生	4	Redis 高级应用	145-147	3	Redis 高级应用	-	掌握 Redis 高级数据结构与实践	能设计缓存、排行榜、分布式锁等方案	required
+part-12	12	多业务系统实战	5	项目三：大众点评系统	148-152	5	项目三	dianping	完成 LBS 点评类系统	能实现位置检索、评分、搜索与推荐基础	required
+part-13	13	分布式与云原生	4	WebSocket 与实时通信	153-159	7	WebSocket 与实时通信	-	掌握 Nest 实时通信能力	能实现聊天室、通知等实时功能	required
+part-14	14	多业务系统实战	5	项目四：聊天室	160-166	7	项目四	chatroom	完成完整聊天室系统	能实现房间、消息、在线状态与消息推送	required
+part-15	15	多业务系统实战	5	GraphQL 与教育平台	167-176	10	GraphQL 与教育平台	education	掌握 GraphQL 服务端开发	能设计 schema，并实现教育平台的查询与变更	required
+part-16	16	分布式与云原生	4	全文检索与云原生	177-182	6	全文检索与云原生	-	掌握全文检索与云原生部署	能实现搜索能力并部署到 Kubernetes	required
+part-17	17	多业务系统实战	5	项目五：博客系统	183-190	8	项目五	blog	完成博客内容系统	能实现文章、评论、后台管理与 SEO 基础	required
+part-18	18	原理、扩展与求职	6	框架原理与源码	191-196	6	框架原理与源码	-	读懂 Nest 核心机制与源码	能手写简版容器并解释底层实现	required
+part-19	19	多业务系统实战	5	数据库选型、OAuth2 与支付	197-201	5	数据库选型	-	掌握数据选型与第三方集成	能完成 OAuth2 登录与支付接入	required
+part-20	20	原理、扩展与求职	6	面试题与总结	202-205	4	面试题与总结	-	梳理高频考点与知识体系	能系统回答 Nest/Node/数据库核心面试题	required
+part-21	21	原理、扩展与求职	6	AI 与 MCP	206-211	6	AI 与 MCP	-	把 AI 能力接入 Nest 应用	能实现带工具调用的 AI 服务，并暴露为 MCP server	required
+part-22	22	原理、扩展与求职	6	可靠性工程	212-219	8	可靠性工程	-	掌握生产级可靠性模式	能实现幂等、Outbox、分布式锁与健康检查	required
+part-23	23	原理、扩展与求职	6	可观测性	220-226	7	可观测性	-	建立 OpenTelemetry/指标/日志/告警体系	能搭建可观测性体系并接入 CI/CD	required
+part-24	24	原理、扩展与求职	6	HTTP、任务与事件	227-236	10	HTTP	-	掌握 HTTP 进阶、任务队列与事件驱动	能实现 Webhooks、版本化、队列与事件驱动	required
+part-25	25	原理、扩展与求职	6	安全与合规	237-243	7	安全与合规	-	掌握 API 安全体系	能完成安全加固与审计	required
+part-26	26	原理、扩展与求职	6	全栈交付	244-250	7	全栈交付	meeting-booking-web	完成 Next.js 管理后台与部署	能独立交付前后端一体的产品	required
+part-27	27	原理、扩展与求职	6	数据与架构	251-257	7	数据与架构	-	掌握多 ORM 与架构模式	能按业务选择数据方案，并落地 CQRS/事件溯源	required
+part-28	28	原理、扩展与求职	6	微服务传输与进阶	258-263	6	微服务传输与进阶	-	覆盖 Nest 微服务传输层与进阶特性	能选型传输层，并落地 Hybrid 与 Serverless	required
+part-29	29	原理、扩展与求职	6	求职冲刺	264-268	5	求职冲刺	-	准备面试与作品集	能完成系统设计面试与项目包装	required
+part-30	30	实战补遗与复盘	7	实战补遗与经典项目拆解	269-286	18	文件/存储/工程化/认证/ORM/项目复盘/部署/复盘	-	补齐 200 版小册独有的实战主题：文件直传/报表/三方登录/ORM 迁移深水区，并用拆解方式回收图书管理、考试、聊天室三个经典项目。	能给项目补上 OSS 直传、Excel/PPT、三方登录、监控接口；能读懂并复盘三个经典全栈项目；完成 286 主题自查。	optional
