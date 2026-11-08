@@ -1,26 +1,38 @@
 # 第 21 章 如何自定义 ExceptionFilter
 
-## 先弄懂：异常过滤器和“错误出口”
+## 一栋楼漏水，得有一个共用的排水口
 
-一条请求链路上，中间件、守卫、管道、拦截器、handler 任何一环都可能抛异常。Nest 不会让异常直接冒到进程外，而是把它送进一个统一的**异常层**，由它决定返回什么状态码、什么响应体、记不记日志。默认实现只做最低限度：`HttpException` 原样返回，其他 `Error` 压成 500 和一句固定文案。
+一条请求要经过好几道手：中间件、守卫、管道、拦截器，最后才到 handler。这五道手里的任何一道都可能出错——token 过期、参数不合法、数据库连不上、代码里一个 `undefined` 被当成函数调了。Nest 不会让这些错误直接冒到进程外，而是把它们统统送进一个地方，由那里决定回什么状态码、什么响应体、记不记日志。
 
-**异常过滤器（ExceptionFilter）**就是替换这个默认出口的类：用 `@Catch()` 声明接哪类异常，实现 `catch(exception, host)`，在方法里改写响应、补日志、加业务错误码。`host` 是 `ArgumentsHost`，不是 `ExecutionContext`——异常可能发生在路由选中之前，过滤器不能假设 handler 一定存在（第 11 章讲过两者的区别）。
+这个地方叫**异常层**，替它做决定的类就是**异常过滤器（ExceptionFilter）**。
 
-没有它行不行？能跑，但每个接口的错误形状各写各的：404 的 `message` 是字符串，400 是数组，500 只有一句 `Internal server error`；客户端要写多套解析，排障时也没有 requestId 把日志和请求串起来。把 `try/catch` 写进每个 Controller 更糟，业务代码会被错误处理淹没。
+拿楼里的排水打比方：哪一层漏水，水最后都从同一个排水口出去。排水口接不接、怎么接、接完倒哪儿，决定了楼下会不会被淹。一个项目里，这个排水口就是所有错误的唯一出口。
+
+具体怎么写？实现 `ExceptionFilter` 接口，用 `@Catch()` 声明接哪类异常，在 `catch(exception, host)` 里改写响应、补日志、加业务错误码。`host` 是 `ArgumentsHost`，不是 `ExecutionContext`——异常可能发生在路由选中之前，过滤器不能假设 handler 一定存在（第 11 章讲过两者的区别）。
+
+没有它会卡在哪？能跑，但每个接口的错误形状各写各的：404 的 `message` 是字符串，400 是数组，500 只有一句 `Internal server error`。客户端要写多套解析分支，排障时也没有 requestId 把日志和请求串起来。把 `try/catch` 写进每个 Controller 更糟，业务代码会被错误处理淹没。
+
+它和另外四类组件差在哪，一句话就能分开：
+
+- **中间件**在楼门口（第 17 章），只管请求进来，拿不到 handler，也管不了错误怎么回去。
+- **守卫**是前台查预约（第 9 章的表），回答「你能不能进」，进不去时抛的异常也要落到过滤器。
+- **管道**是安检机（第 19 章），只检查参数，一次一个。
+- **拦截器**是包在 handler 外面的一层夹层（第 18 章），`catchError` 能看到 handler 抛的错，但路由都没匹配上的 404、中间件里抛的错，它看不到。
+- **过滤器**是出口。异常从哪一层来都归它，只要它是全局注册的。
 
 官方文档（先看懂正文再点）：
 - [Exception filters](https://docs.nestjs.com/exception-filters)：官方 `@Catch()` 与 `catch(exception, host)` 的签名，对应正文过滤器写法。
-- [Execution context](https://docs.nestjs.com/fundamentals/execution-context)：`ArgumentsHost` 和 `ExecutionContext` 的区别，对应“过滤器拿到的是 ArgumentsHost”。
+- [Execution context](https://docs.nestjs.com/fundamentals/execution-context)：`ArgumentsHost` 和 `ExecutionContext` 的区别，对应「过滤器拿到的是 ArgumentsHost」。
 
-现在看一个真实事故。
+## 一句 500，什么都没留下
 
-周一早上，客服转来一张截图：`POST /api/bookings` 返回 500，页面上只有一句 `Internal server error`。你打开日志，同一秒有几十条请求，没有 requestId，只能按时间一条条猜是哪一单。
+`POST /api/bookings` 返回 500，页面上只有一句 `Internal server error`。打开日志，同一秒有几十条请求，没有 requestId，只能按时间一条条猜是哪一单。
 
-前端那边也在抱怨：404 的 `message` 是字符串，400 的 `message` 是数组，409 又变成对象；三个接口写了三套解析分支，最近还多了一个 422。错误形状不统一，客户端就没法把“失败”当成一种正常返回值处理。
+前端那边也在抱怨：404 的 `message` 是字符串，400 的 `message` 是数组，409 又变成对象；三个接口写了三套解析分支，最近还多了一个 422。错误形状不统一，客户端就没法把「失败」当成一种正常返回值处理。
 
 Nest 的默认异常层只做了最低限度的事：`HttpException` 原样返回，其他错误压成 500 和固定文案。它替你挡住了堆栈，但没有建立稳定的响应结构，也没有把请求上下文带进日志。这一章把这两件事补上。
 
-## 默认异常层做了什么，没做什么
+## 默认出口只做两件事
 
 请求链路上任何一环抛出的异常——中间件、守卫、管道、拦截器、handler——最后都会进入异常层。默认行为只有两条：
 
@@ -33,7 +45,7 @@ Nest 的默认异常层只做了最低限度的事：`HttpException` 原样返�
 
 - **没有请求关联 ID**。线上收到一张 500 截图，不知道对应哪条日志。
 - **没有业务错误码**。客户端只能靠 `message` 文案分支，文案一改就崩。
-- **`HttpException` 默认不打日志**。它继承自 `IntrinsicException`（框架内部用来标记“不需要默认日志”的基类），内置过滤器不会为它记录；未知错误虽然由框架打印，但缺请求上下文。
+- **`HttpException` 默认不打日志**。它继承自 `IntrinsicException`（框架内部用来标记「不需要默认日志」的基类），内置过滤器不会为它记录；未知错误虽然由框架打印，但缺请求上下文。
 
 这里有个必须说清楚的细节：**默认异常不会自动生成业务 `errorCode`**。`new NotFoundException('预约不存在')` 的 `exception.errorCode` 是 `undefined`，响应体里也没有这个字段。只有你在构造函数的 options 里显式传了，它才会被设置：
 
@@ -47,6 +59,8 @@ throw new ConflictException('时间冲突', { errorCode: 'BOOKING_CONFLICT' });
 
 写过滤器第一个要改的习惯是参数类型。`catch(exception, host)` 里的 `host` 是 `ArgumentsHost`，它没有 `getHandler()`、`getClass()`——异常可能发生在还没有选中 handler 的时候，比如中间件里。`ExecutionContext` 是它的子接口，只在守卫、拦截器、管道这些已经绑定到路由的场景里才有。
 
+打个比方：`ExecutionContext` 是「已经排到号的窗口」，能查你办的是哪项业务；`ArgumentsHost` 是「大厅」——先知道你是从哪个门进来的，业务窗口还没影呢。
+
 `host.switchToHttp()` 返回 HTTP 上下文，`getRequest<T>()`、`getResponse<T>()` 取出平台对象。发送响应不要直接调 `response.status().json()`：换成 Fastify 后这套 API 就不存在了。注入 `HttpAdapterHost`，用 `httpAdapter.reply(response, body, status)`，让适配器决定怎么发。
 
 ```ts
@@ -57,7 +71,7 @@ httpAdapter.reply(ctx.getResponse(), body, status);
 
 `HttpAdapterHost` 由 `@nestjs/core` 提供，`APP_FILTER` 注册时能正常注入；用 `new AllExceptionsFilter()` 手动注册就拿不到它，运行期直接炸。
 
-## 作用域和匹配顺序
+## 谁先接住：作用域和匹配顺序
 
 | 绑定方式 | 作用范围 | 能否依赖注入 |
 | --- | --- | --- |
@@ -195,7 +209,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 - **请求类型只声明用得到的字段**。不要 `import type { Request } from 'express'`——过滤器可能跑在 Fastify 下，`originalUrl` 不存在时用 `url` 兜底，`headers` 两边都有。发送仍然走 `httpAdapter.reply`。
 - **发送前检查 `isHeadersSent`**。handler 用 `@Res()` 自己发送响应、之后又冒出异常时，再 `reply` 会触发 `ERR_HTTP_HEADERS_SENT`；错误处理里再抛错，客户端只会看到连接被重置。`httpAdapter.isHeadersSent()` 比直接读 `response.headersSent` 更稳，Express 和 Fastify 都适用。
 
-## 业务错误码要手动传
+## 业务错误码不会自己长出来
 
 ```ts
 // src/bookings/booking-conflict.exception.ts
@@ -238,7 +252,7 @@ export class AppModule {}
 
 `APP_FILTER` 注册的过滤器是全局的，而且能注入 `HttpAdapterHost`。`app.useGlobalFilters(new AllExceptionsFilter())` 看起来更短，但构造函数参数只能手动塞，漏了就等到运行期才炸。另外，`useGlobalFilters()` 不覆盖 WebSocket 网关和混合应用；纯 HTTP 项目里两者等价，有网关时优先 `APP_FILTER`。
 
-## 跑起来，把四种错误都打一遍
+## 跑起来，四种错误各打一遍
 
 ```bash
 pnpm start:dev
@@ -335,18 +349,13 @@ curl -s -H 'x-request-id: demo-400' http://localhost:3000/api/bookings/abc | jq 
 几条边界，越早定越好：
 
 - **错误码是 API 契约，不是日志字段**。用 `DOMAIN_REASON` 命名（`BOOKING_CONFLICT`、`PAYMENT_DECLINED`），在 OpenAPI 里枚举出来。不要用 `HTTP_409` 这种把传输层状态当业务语义的写法，也不要把数据库错误码直接透出。
-- **5xx 只返回关联 ID**。客户端提示“请稍后重试，错误编号 xxx”，客服拿编号能在日志系统里定位；堆栈、SQL、上游响应只进服务端日志，并做敏感字段脱敏。
+- **5xx 只返回关联 ID**。客户端提示「请稍后重试，错误编号 xxx」，客服拿编号能在日志系统里定位；堆栈、SQL、上游响应只进服务端日志，并做敏感字段脱敏。
 - **过滤器只负责翻译，不负责恢复**。重试、降级、事务回滚应该在 service 或拦截器里完成；在过滤器里再调远程服务，一旦失败就是异常套异常。
 - **优先继承 `BaseExceptionFilter`**。只想加日志、保留默认行为时，继承它并调用 `super.catch(exception, host)`，比完全手写更不容易漏掉边界；要统一响应结构时再完全接管。它内部也用 `applicationRef.isHeadersSent` 处理了响应已发送的情况，自己写 catch-all 就要补上这一步。
 - **跨协议时按 `host.getType()` 分支**。同一个过滤器可以服务 HTTP、WebSocket、RPC，但发送方式不同；不要假设一定是 HTTP。
 
-## 这一章带走了什么
+到这里，所有失败都长同一个样了：4xx 保留可读消息，5xx 只给固定文案和 requestId，业务失败带稳定的 `errorCode`。但还有一个问题没回答：中间件、守卫、拦截器、管道、过滤器，这五类组件在一条请求里到底谁先谁后，谁短路了谁后面的代码就不跑。下一章用一条带编号的 trace 把它们串起来，逐个验证。
 
-你现在能把“错误”当成一份接口契约来设计：所有失败都长同一个样，4xx 保留可读消息，5xx 只给固定文案和 requestId，业务失败带稳定的 `errorCode`。也知道了过滤器为什么拿 `ArgumentsHost`、为什么发送要走 `httpAdapter.reply`、以及 catch-all 和具体过滤器同组时谁先谁后。
-
-错误出口收拢之后，中间件、守卫、拦截器、管道、过滤器各自站在请求链的哪个位置，短路时谁会执行、谁不会，就成了下一个要搞清楚的问题。下一章用一条带 Trace 的请求把这些概念串起来，逐个验证它们的顺序。
-
-想更深入的话，官方文档里有这几页可以接着看：[Exception filters](https://docs.nestjs.com/exception-filters)（官方过滤器的作用域和注册方式，对照“作用域和匹配顺序”“接到模块里”两节）、[Catch everything](https://docs.nestjs.com/exception-filters#catch-everything)（`@Catch()` 不带参数接住所有异常的写法，对应“写一个能收住所有异常的过滤器”）、[Built-in HTTP exceptions](https://docs.nestjs.com/exception-filters#built-in-http-exceptions)（Nest 自带异常类和状态码，对应“业务错误码要手动传”）。
 
 <!-- chapter-nav:start -->
 ---

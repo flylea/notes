@@ -1,23 +1,37 @@
 # 第 49 章 Prisma 8 知识点查缺补漏
 
-## 分页、聚合、事务，先各说一句
+这一章当字典用，不当教程读。44–48 章把 Prisma 8 的日常写法过了一遍：建契约、emit、查询、关联、迁移。真到了项目里，出事的往往不是这些主路径，而是几个小词——`offset` 翻得深了、总数拿当前页长度顶替、关联在循环里一条条查、查重和写入没放进同一个事务。每个词单看都认识，凑在一个列表接口里，就是一次 504。
 
-`offset 29900 limit 100` 的意思是「跳过前 29900 行，取 100 行」。跳过不是免费的：数据库仍要把前面那些行定位出来再丢掉，页码越深，读出来扔掉的行越多；排序的列上没索引时，每次还要把整个筛选结果排一遍。这是下面这个 504（网关等待超时）的技术前提，和网关本身关系不大。
+下面先给一张表，每个词一句人话、一个最小例子。不熟的时候查表；表后面再用一个真实事故把它们串起来。代码都是 example 里的原样节选。
 
-聚合（aggregate）是在数据库里算 `count` / `sum` / `avg`，不是把行拉回内存再算，省的是传输和内存、不是扫描。事务（transaction）把多条语句绑在同一条连接上，要么一起提交、要么一起回滚；边界按业务不变量画，不按一个 HTTP 请求画。
+## 一张表，先把词认全
 
-官方文档（先看懂正文再点）：
-- [Prisma 分页](https://www.prisma.io/docs/orm/prisma-client/queries/pagination)：`skip` / `take` 和游标分页的写法，对应本章深分页那段。
-- [Prisma 聚合](https://www.prisma.io/docs/orm/prisma-client/queries/aggregation-grouping-summarizing)：`count`、`sum`、`groupBy` 的用法。
-- [Prisma 事务](https://www.prisma.io/docs/orm/prisma-client/queries/transactions)：批量事务和交互式事务的区别。
+| 词 | 一句人话（打个比方） | 不这么做会卡在哪 | 最小例子 |
+| --- | --- | --- | --- |
+| `limit` / `offset` | 一页一页翻书：`limit` 是这页取几行，`offset` 是撕掉前面几页。像数到第 300 页再开始抄，前面 29900 行数据库仍要数一遍 | 页码越深越慢，深到一定程度网关直接 504 | `.limit(20).offset(29900)` |
+| 游标（cursor） | 书签：记住上次读到哪一行，下次从它后面接着读，不用重数前面 | 数据量大时 offset 的丢弃成本压不下去；代价是不能跳页 | `.cursor({ createdAt }).limit(21)` |
+| 聚合（aggregate） | 让数据库自己数完把结果告诉你，不是把行拉回内存再 `.length` | 几万行拉回 Node 算总数，内存和网络都白花 | `.aggregate((a) => ({ total: a.count() }))` |
+| `count()` 的空集 | 数零行返回 `0`；但 `sum` / `avg` 对零行返回 `null`，不是 `0` | 报表接口把 `null` 丢进 `toFixed`，线上就是一个 500 | `sum: row.amount.sum()` 得到 `null` |
+| `include` / `select` | `include` 是顺带把关联的册子也拿来，`select` 是只要这几栏。像取快递时连填充物一起搬回来 vs 只拿自己要的那件 | 列表页多传几十列，解码、序列化、前端全白跑 | `.select('id', 'status').include('room', (r) => r.select('name'))` |
+| N+1 | 先查 20 条预订，再为每条单独跑一次查会议室，一共 21 次往返。像买 20 样菜分 20 趟出门 | 本地看不出，线上 20 次往返就是几百毫秒 | 循环里的 `await Room.where(...).first()` |
+| 事务（transaction） | 一串操作绑成一次：要么全成，要么全不成。像转账，扣钱和加钱必须一起发生 | 查重和写入之间插进另一个请求，同一时段被订两次 | `db.transaction(async (tx) => ...)` |
+| 行锁 `forNoKeyUpdate` | 在那一行上挂个「正在改」的牌子，别人得排队。它比 `forUpdate` 轻，不挡外键插入 | 两个请求都查到「没冲突」，然后都插成功 | `.where({ id }).forNoKeyUpdate().first()` |
+| `db` 与 `tx` | `db` 是公司总机，`tx` 是这通电话已经占住的那条线 | 事务里用 `this.db` 再借一条线，两边互相等，请求挂到超时 | 回调里只写 `tx.orm...` |
+| outbox | 把「要发的通知」和业务数据写进同一个事务，像信和账本一起锁进抽屉，之后再慢慢寄 | 写库成功、发通知失败，或者反过来，两边对不上 | 事务里写 outbox 表，后台任务负责投递 |
+| 原生 SQL | ORM 表达不了的报表直接写 SQL，像手术刀，不是日常菜刀 | 复杂聚合硬用链式 API 拼，拼不出来，还慢 | `db.raw.sql` 模板串交给 `db.query` |
+| codec | 列的编解码规格，像插头型号：`pg/int4@1` 和 `pg/int8@1` 对不上就插不进去 | 原生 SQL 返回值解码失败，编译期或运行时报类型错 | `returnsRow({ count: 'pg/int4@1' })` |
+| seed | 给开发库、演示库灌初始数据的脚本，不是迁移。像给空房子摆家具，不改房子结构 | 演示前数据不全；或者把它当迁移用，结构对不上 | `prisma/seed.ts` |
+| emit / plan / migrate | 改完契约的三步：编译产物、生成迁移文件、真打到库上。像改图纸、出施工单、动工 | 漏一步，类型和数据库各说各话 | `pnpm db:emit` → `db:plan` → `db:migrate` |
 
-现在看一个真实事故。
+表里最容易被跳过的是「事务」和「游标」这两行，因为 CRUD 主路径上根本不出现它们，等出现时已经是线上问题。
 
-周五下午运营要导上个月的预订，列表翻到第 300 页开始转圈，最后网关直接 504。日志里只有两条 SQL：一条 `count(*)`，一条带 `offset 29900 limit 100` 的查询。表里 300 万行，筛选后 40 万行，两万九千行被读出来又扔掉，前端还每隔几秒重试一次。
+## 那个 504 是怎么来的
 
-写 CRUD 的时候 Prisma 8 很省心：`where`、`include`、`create`，链式调用读起来像自然语言。真正出事的地方往往不在这些主路径上，而在计数怎么写、分页用哪种、关系是顺带取还是循环查、事务边界画在哪。这几个点单独看都不难，凑在一个列表接口里，就是这个 504。
+导出上个月的预订，列表翻到第 300 页开始转圈，最后网关直接 504。日志里只有两条 SQL：一条 `count(*)`，一条带 `offset 29900 limit 100` 的查询。表里 300 万行，筛选后 40 万行，两万九千行被读出来又扔掉，前端还每隔几秒重试一次。
 
-先交代三样东西的边界：`db` 是一个进程级客户端，内部持有一个连接池；一条查询的路径是从池里借一条连接、发送、解码、归还；`db.transaction` 把同一条连接借给整个回调，`tx` 上所有语句都走它，回调结束才提交或回滚、归还连接。客户端、连接、事务边界画错，就会出现「查询越来越多、连接一直不还、查重和写入之间插进另一个请求」。
+这三件事单看都不算错：要总数所以 count，要第 300 页所以 offset，前端怕失败所以重试。错在它们叠在了同一个接口上。写 CRUD 的时候 Prisma 8 很省心，`where`、`include`、`create` 读起来像自然语言；真正出事的地方在计数怎么写、分页用哪种、关系是顺带取还是循环查、事务边界画在哪。
+
+再交代三样东西的边界，后面会反复用到：`db` 是一个进程级客户端，内部持有一个连接池——可以想成一沓已经拨通的电话线，用完放回去，不用每次重拨；一条查询的路径是从池里借一条线、发送、解码、归还；`db.transaction` 把同一条线借给整个回调，`tx` 上所有语句都走它，回调结束才提交或回滚、归还。客户端、连接、事务边界画错，就会出现「查询越来越多、连接一直不还、查重和写入之间插进另一个请求」。
 
 > **图 49-1** 一次列表请求和一次写请求各自在 Prisma 8 里的走向。
 >
@@ -56,15 +70,15 @@ const [items, totals] = await Promise.all([
 return paginate(items, totals.total, page, pageSize);
 ```
 
-`filtered` 是一个还没执行的查询描述，两次调用各自从它派生出一条 SQL。`Promise.all` 让它们并发，省掉一次串行等待，但没有省掉任何一次扫描：计数要扫一遍筛选结果，取页还要再扫一遍并排序。
+`filtered` 是一个还没执行的查询描述，不是结果；两次调用各自从它派生出一条 SQL。`Promise.all` 让它们并发，省掉一次串行等待，但没有省掉任何一次扫描：计数要扫一遍筛选结果，取页还要再扫一遍并排序。
 
-这里最容易写错的是计数。有人为了省事，先 `.all()` 把当前页拉回来，再用 `items.length` 当总数；也有人把 `total` 写成当前页长度的倍数。前者拿到的是每页 20 条，分页器永远只有一页；后者在筛选条件变化后立刻对不上。`aggregate` 的 `count()` 返回 `number`，空结果集是 `0`，可以直接交给分页器。
+这里最容易写错的是计数。有人为了省事，先 `.all()` 把当前页拉回来，再用 `items.length` 当总数——拿到的是每页 20 条，分页器就永远只有一页；也有人把 `total` 写成当前页长度的倍数，筛选条件一变立刻对不上。`aggregate` 的 `count()` 返回 `number`，空结果集是 `0`，可以直接交给分页器。
 
-聚合省的是传输和内存，不是扫描：`count()` 仍然要扫一遍筛选结果，只是结果不占网络。顺带记住 `sum`、`avg`、`min`、`max` 的空集语义：SQL 里它们对零行返回 `NULL`，Prisma 8 也如实返回 `null`，不是 `0`。财务报表接口把 `null` 直接塞进 `toFixed`，线上就是一个 `Cannot read properties of null`。真要给前端一个 0，在映射层写 `?? 0`，别在 SQL 层猜。
+聚合省的是传输和内存，不是扫描：`count()` 仍然要把筛选结果扫一遍，只是结果不占网络。顺带记住 `sum`、`avg`、`min`、`max` 的空集语义：SQL 里它们对零行返回 `NULL`，Prisma 8 也如实返回 `null`，不是 `0`。财务报表接口把 `null` 直接塞进 `toFixed`，线上就是一个 `Cannot read properties of null`。真要给前端一个 0，在映射层写 `?? 0`，别在 SQL 层猜。
 
 ## offset 的分水岭
 
-回到那个 504：`offset` 的代价随页码线性增长——数据库仍然要定位并丢弃前面 29900 行。页码越大，丢得越多；如果 `orderBy` 的列上还没有索引，每次还要把整个筛选结果排序一遍。example 的 `Booking` 只有 `@@index([roomId, startTime, endTime])`，列表却按 `createdAt` 倒序，这就是那个 504 的根因之一。
+回到那个 504：`offset` 的代价随页码线性增长——数据库仍然要定位并丢弃前面 29900 行。页码越大，丢得越多；如果 `orderBy` 的列上还没有索引，每次还要把整个筛选结果排一遍。example 的 `Booking` 只有 `@@index([roomId, startTime, endTime])`，列表却按 `createdAt` 倒序，这就是那个 504 的根因之一。
 
 先补索引，再谈游标：
 
@@ -87,7 +101,7 @@ pnpm db:migrate
 
 `db:emit` 重新产出 `src/generated/prisma8/contract.json` 和 `contract.d.ts`；`db:plan` 生成迁移目录；`db:migrate` 才真正打到库上。跳过 `db:emit` 直接跑应用，类型还是旧的，运行时会拿旧 contract 去校验，报的错和索引一点关系都没有。
 
-索引只能把排序成本压下去，深 offset 的丢弃成本还在。数据量再上一个量级，就该换成游标。游标（cursor）是「从上一页最后一条之后继续」的定位方式，和 offset 的「跳过前 N 行」是两种成本模型：
+索引只能把排序成本压下去，深 offset 的丢弃成本还在。数据量再上一个量级，就该换成游标。游标就是上面表里说的书签：`offset` 是「跳过前 N 行」，游标是「从上一页最后一条之后继续」，两种成本模型：
 
 ```ts
 // src/modules/bookings/bookings.service.ts（新增）
@@ -215,9 +229,9 @@ const rows = await this.db.query(
 
 codec 是 Prisma 8 对列类型的编解码标识，比如 `pg/int4@1`，原生 SQL 的返回值靠它解码。`returnsRow` 里写的 codec id 必须出现在 `contract.d.ts` 的 `CodecTypes` 里，否则编译期就过不去。拿不准就打开生成物搜一下，别凭记忆写。
 
-原生 SQL 适合聚合、窗口函数、CTE（公用表表达式，`WITH ... AS`）这类 ORM 不擅长的查询。日常 CRUD 别为了「性能」全改写 SQL：你失去的不只是类型，还有 `include`、软删除扩展、中间件这些统一入口。写之前先问一句，这个查询是不是真的复杂到 ORM 表达不了。
+原生 SQL 适合聚合、窗口函数（`OVER` 那种「按行滑动着算」的查询）、CTE（公用表表达式，`WITH ... AS`）这类 ORM 不擅长的查询。日常 CRUD 别为了「性能」全改写 SQL：你失去的不只是类型，还有 `include`、软删除扩展、Prisma 中间件这些统一入口。写之前先问一句，这个查询是不是真的复杂到 ORM 表达不了。
 
-## seed 脚本和迁移，最容易在演示前翻车
+## seed 和迁移，最容易在演示前翻车
 
 seed 是给开发库、演示库灌初始数据的脚本，不是迁移的一部分：它不改结构，可以重复执行，失败了大不了清库重来。example 的 `prisma/seed.ts` 不长，但几个顺序不能错：
 
@@ -299,11 +313,10 @@ psql "$DATABASE_URL" -c 'select count(*) from users;'
 再补两条不常被写进文档、但很致命的：
 
 - **`count()` 不是免费的**。带复杂 `where` 的计数在百万行表上可能比取一页还慢。列表首屏可以只返回 `hasMore`，把精确总数放到单独的统计接口，或者用近似值。
-- **别在循环里 `await` 查询**。哪怕是 20 条，串行往返也足够把 P99 拉高；能 `include` 就 `include`，不能就一次 `in` 查回来在内存里拼。
+- **别在循环里 `await` 查询**。哪怕是 20 条，串行往返也足够把 P99（99% 请求的耗时）拉高；能 `include` 就 `include`，不能就一次 `in` 查回来在内存里拼。
 
 查询层的东西到这里差不多了。下一章换个角度：这些查询最终都跑在一个 `Database` 实例上，这个实例怎么接进 Nest 的依赖注入、怎么在进程退出时关干净、怎么让健康检查真的反映数据库状态，是另一类问题。
 
-想更深入的话，官方文档里有这几页可以接着看：[聚合与分组](https://www.prisma.io/docs/orm/prisma-client/queries/aggregation-grouping-summarizing)（分组统计的完整参数）、[分页](https://www.prisma.io/docs/orm/prisma-client/queries/pagination)（深分页为什么慢、游标分页怎么换）、[事务](https://www.prisma.io/docs/orm/prisma-client/queries/transactions)（事务边界和超时设置）、[原生 SQL](https://www.prisma.io/docs/orm/prisma-client/queries/raw-database-access/raw-queries)（ORM 表达不了时直接写 SQL 的入口）、[行锁](https://www.postgresql.org/docs/17/sql-select.html#SQL-FOR-UPDATE-SHARE)（`FOR UPDATE` 的加锁范围）。
 
 <!-- chapter-nav:start -->
 ---

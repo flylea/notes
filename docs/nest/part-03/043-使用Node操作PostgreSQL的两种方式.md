@@ -1,16 +1,20 @@
 # 第 43 章 使用 Node 操作 PostgreSQL 的两种方式
 
-## 先认四个词：驱动、连接、连接池、ORM
+你在 Node 里写了一段代码，想把一条会议室记录存进 PostgreSQL。代码是 JavaScript，数据库只认 SQL 和它自己的协议，两边说的不是一种话，中间得站一个翻译。
 
-**驱动（driver）**是 Node 里真正实现 PostgreSQL 协议的库。你的代码调 `pool.query()`，最后是它把 SQL 按协议发给数据库、把结果解析回来。`pg` 是最常用的一个，Prisma 8 的运行时底层也用它。没有驱动，Node 就没法和 PostgreSQL 说话，这一层绕不过去。
+这个翻译叫**驱动（driver）**。你调 `pool.query('SELECT ...')`，它负责把 SQL 按 PostgreSQL 的协议送过去，再把结果翻译成 JS 对象。`pg` 是 Node 里最常用的那个。打个比方，驱动像随身翻译：没有它，你说的它听不懂，它说的你也接不住，这一层绕不过去。后面要讲的 Prisma 8，底层用的也是它。
 
-**连接（connection）**不是一根网线，而是数据库里一个真实的后端进程：占内存、有会话状态、数量有上限（`max_connections`）。每次查询都新建一条连接，要付 TCP 三次握手、认证、分配进程的成本，高并发下光建连就能把数据库拖垮。**连接池（pool）**就是为此存在的：进程启动时建一小队连接，查询来了借一条，用完还回去，下个请求接着用。池子省的是建连成本，不是把数据库的连接上限变大——池子里的 `max` 乘以实例数，仍然要落在 `max_connections` 以内。
+光有翻译还不够。**连接（connection）**不是一根网线，而是数据库里一个真实的后端进程：占内存、有会话状态、数量有上限（`max_connections`）。每次查询都新建一条，就要付 TCP 握手、认证、分配进程的成本。像去银行办业务，来一个人就现盖一个窗口，人一多，光盖窗口就把大厅堵死了。
 
-**ORM（Object-Relational Mapping，对象关系映射）**是另一条路：把表映射成代码里的类型和对象，用链式 API 代替手写 SQL。好处是类型安全、改表时编译期就能发现漏改；代价是多一层抽象，复杂查询最终还是要落回 SQL。这一章两条路都走一遍：`pg` 的原生 SQL，和 Prisma 8 的契约查询（契约是什么，下一章拆）。
+**连接池（pool）**就是那排常开的窗口：应用启动时先建一小队连接，查询来了借一条，用完还回去，下一位接着用。它省的是反复建连的成本，不是把数据库的连接上限变大——池子里的 `max` 乘以应用实例数，仍然要落在 `max_connections` 以内。这个区别很关键，后面的事故就是栽在这里。
+
+再往上还有一层 **ORM**（Object-Relational Mapping，对象关系映射）：把表映射成代码里的类型和对象，用链式 API 代替手写 SQL。可以想成点菜——手写 SQL 是直接跟后厨报"牛肉 200 克、切 3 毫米、大火 2 分钟"，ORM 是看菜单点"黑椒牛柳"。菜单背后还是那些原料和火候，但你不必每次都说一遍。好处是类型安全，改表时编译器能提醒你哪里漏改；代价是多一层抽象，复杂查询最后还是得落回 SQL。
+
+它和驱动差在哪：驱动负责"把话送到"，ORM 负责"把话组织好"。Prisma 8 属于后者，底层仍然是 `pg`。
 
 官方文档（先看懂正文再点）：
-- [node-postgres（`pg`）](https://node-postgres.com/)：驱动本身的用法，本章 `pool.query` 那段对应它的接口。
-- [PostgreSQL 连接与 `max_connections`](https://www.postgresql.org/docs/17/runtime-config-connection.html)：数据库最多允许多少连接，池子大小要照着它算。
+- [node-postgres（`pg`）](https://node-postgres.com/)：驱动本身的用法，后面 `pool.query` 那段对应它的接口。
+- [PostgreSQL 连接与 `max_connections`](https://www.postgresql.org/docs/17/runtime-config-connection.html)：数据库最多允许多少连接，池子的大小要照着它算。
 - [Prisma](https://www.prisma.io/docs)：另一条 ORM 路线的总入口，下一章细讲。
 
 现在看一个真实事故。
@@ -23,7 +27,7 @@
 
 ## 把池子建起来
 
-概念上面说过了，这里直接写代码。先装驱动。虽然它作为 Prisma 的依赖可能已经在 `node_modules` 里，但别依赖传递依赖——版本跟着 ORM 走，哪天 ORM 换驱动，你的代码先崩：
+概念说完了，直接写代码。先装驱动。虽然它作为 Prisma 的依赖可能已经在 `node_modules` 里，但别依赖传递依赖——版本跟着 ORM 走，哪天 ORM 换驱动，你的代码先崩：
 
 ```bash
 pnpm add pg
@@ -85,14 +89,14 @@ pnpm tsx src/report.ts
 
 ## 池子为什么会满
 
-- `max`：每个进程最多持有的连接数。总数是 `实例数 × max`，还要留出迁移、`psql`、监控的余量。把 `max_connections` 当成「每个进程的配额」是连接打满的头号原因。
-- `idleTimeoutMillis`：空闲连接多久回收，`pg` 默认 10 秒。太长占着连接不放，太短频繁重连。
+- `max`：每个进程最多持有的连接数。总数是 `实例数 × max`，还要留出迁移、`psql`、监控的余量。把 `max_connections` 当成「每个进程的配额」是连接打满的头号原因。就像每家分店都按总行的窗口数开窗口，开到最后总行没窗口可用了。
+- `idleTimeoutMillis`：空闲连接多久回收，`pg` 默认 10 秒。太长占着窗口不放，太短客人刚走窗口就关，下一位又得重新开。
 - `connectionTimeoutMillis`：池子空了、排队等连接的超时。默认是 0，也就是永远等——数据库慢的时候请求会一直挂着，而不是快速失败。
 - `statement_timeout`：服务端执行超时，到点 PostgreSQL 主动取消，报 `57014`。它保护的是数据库，防止一条烂查询拖垮实例。
-- `query_timeout`：客户端等待响应的超时，包含网络和排队时间。它和服务端超时互补，两个都设。
-- `application_name`：出现在 `pg_stat_activity` 里，排障时一眼看出是哪个服务。
+- `query_timeout`：客户端等待响应的超时，包含网络和排队时间。它和服务端超时互补：一个管厨房出菜，一个管传菜路上，两个都设。
+- `application_name`：出现在 `pg_stat_activity` 里，排障时一眼看出是哪个服务。相当于外卖单上写清楚店名。
 
-`pool.on('error')` 不能省。空闲连接被服务端掐断（重启、`pg_terminate_backend`（管理员主动断开某条连接的函数）、网络抖动）时，错误发在空闲 client 上，没人监听就是未捕获的 `error` 事件，Node 进程直接退出。
+`pool.on('error')` 不能省。空闲连接被服务端掐断（重启、`pg_terminate_backend`（管理员主动断开某条连接的函数）、网络抖动）时，错误发在空闲 client 上，没人监听就是未捕获的 `error` 事件，Node 进程直接退出。像窗口挂了个没人接的报警器，一响整栋楼跳闸。
 
 池子健康不健康不用猜，`pg` 把实时计数挂在实例上：
 
@@ -150,13 +154,17 @@ console.log(await findRoomsByCapacity(8));
 [ { id: '6f1c2d3e-...', name: '木星厅', capacity: 12 } ]
 ```
 
-`$1` 是占位符，驱动把它单独发送，PostgreSQL 只当值，不参与语法解析。传 `8` 和传 `8; DROP TABLE rooms` 在解析器眼里没有区别，后者只是一个匹配不到任何行的字符串。拼接则是把用户输入塞进语法结构，注入就是从这里开始的。
+`$1` 是占位符，驱动把它单独发送，PostgreSQL 只当值，不参与语法解析。传 `8` 和传 `8; DROP TABLE rooms` 在解析器眼里没有区别，后者只是一个匹配不到任何行的字符串。
+
+可以想成寄快递：参数化是把东西装进封好的盒子，盒子上只写「1 号件」，里面是什么快递员不管；拼字符串是把用户说的话直接写进合同条款，对方补一句「以上条款作废」，合同就变了。注入就是从拼接这里开始的。
 
 两个边界容易忽略。第一，参数只能替代「值」，不能替代表名、列名、`ORDER BY` 的方向；这些位置要白名单映射，不能把用户输入拼进去。第二，`rowCount` 的类型是 `number | null`，`INSERT ... RETURNING` 用 `rows` 取结果，别拿 `rowCount` 当行数。
 
 ## 事务：连接必须自己拿、自己还
 
-事务（transaction）是一组要么全成功、要么全回滚的语句，它必须绑定在同一条连接上。`pool.query('BEGIN')` 是错的：Pool 每次 `query()` 可能换一条连接，`BEGIN` 在 A 上、`INSERT` 在 B 上、`COMMIT` 又回到 A，事务根本没包住任何东西。
+事务（transaction）是一组要么全成功、要么全回滚的语句。最熟的例子是转账：A 账户扣 100，B 账户加 100，扣钱成功了、加钱失败，这 100 块就凭空消失。事务就是要求这两步绑死。
+
+它必须绑定在同一条连接上。`pool.query('BEGIN')` 是错的：Pool 每次 `query()` 可能换一条连接，`BEGIN` 在 A 上、`INSERT` 在 B 上、`COMMIT` 又回到 A，事务根本没包住任何东西。像三个人接力搬同一批货，每人都重新开一辆车，货压根没装在同一辆车上。
 
 正确做法是从池子里取一条连接，全程用它：
 
@@ -183,7 +191,7 @@ export const withTransaction = async <T>(
 };
 ```
 
-`client.release()` 必须在 `finally` 里。少写一次，这条连接就永远回不到池子；几十次请求之后池子空、请求全卡在 `connectionTimeoutMillis` 上，现象和数据库挂了几乎一样。
+`client.release()` 必须在 `finally` 里。少写一次，这条连接就永远回不到池子，像借了图书馆的书不还，可借的书只会越来越少；几十次请求之后池子空、请求全卡在 `connectionTimeoutMillis` 上，现象和数据库挂了几乎一样。
 
 用它订一次会议室：
 
@@ -212,6 +220,8 @@ const bookingId = await withTransaction(async (client) => {
 ## 错误处理：认 SQLSTATE，不认 message
 
 `pg` 抛出的错误是 `DatabaseError`，关键字段是 `code`（SQLSTATE）、`constraint`、`detail`、`table`、`column`。SQLSTATE 是 PostgreSQL 错误对象上的五位标准错误码，和错误文案、语言环境都无关，是应用层唯一该用来做分支的东西。
+
+打个比方，SQLSTATE 像快递单号，全球唯一、不会因为换了个客服就变；`message` 像客服的口头描述，数据库语言设成中文还是英文，说法都不一样。拿 `message` 做判断，升个版本或换个环境就失效。
 
 ```ts
 // src/db/errors.ts
@@ -272,13 +282,17 @@ export const withRetry = async <T>(work: () => Promise<T>, attempts = 3): Promis
 };
 ```
 
-不要在事务内部重试单条语句。事务已经中止，后续语句只会报 `25P02`（当前事务已回滚）。要重试就重试整个 `withTransaction`。
+不要在事务内部重试单条语句。事务已经中止，后续语句只会报 `25P02`（当前事务已回滚）。要重试就重试整个 `withTransaction`——这就像一锅菜炒糊了，不能只把糊的那一勺倒掉再接着炒，得整锅重来。
 
 `pool` 是长生命周期对象。脚本结束 `await pool.end()` 收尾；Nest 应用里不要在每个请求里 `end()`，那会把共享池关掉，应该放到 `onApplicationShutdown`（Nest 的关闭钩子，应用停机时触发）里。
 
 ## 方式二：Prisma 8，同一件事换个写法
 
-Prisma 8 是 contract-first 的。契约（contract）是描述模型与关系的源文件 `contract.prisma`，`contract emit` 把它编译成运行时读的 JSON 和给 TypeScript 用的类型；下一章会把这条链路整个拆开。安装时两个包必须成对：CLI 用 `8.0.0-rc.29`，运行时用 `@prisma/orm-postgres@8.0.0-rc.21`。版本错配不会提示「版本不匹配」，只会给你各种看不懂的解析错误。
+Prisma 8 是 contract-first 的。契约（contract）是描述模型与关系的源文件 `contract.prisma`，它像一张建筑图纸：家里几间房、门朝哪开，都画在这一张图上。`contract emit` 则像把图纸复印成两份——一份是施工队照着干的材料清单（`contract.json`，运行时读它），一份是给设计软件看的标注（`contract.d.ts`，TypeScript 读它）。没有这一步，代码里的类型和数据库的真实结构就各说各话，改一列要等上线才发现。
+
+这里和旧版 Prisma 的区别要分清：旧版先写 `schema.prisma`，再 `prisma generate` 生成一个客户端；Prisma 8 不生成客户端，运行时直接拿着契约产物开工。下一章会把这条链路整个拆开。
+
+安装时两个包必须成对：CLI 用 `8.0.0-rc.29`，运行时用 `@prisma/orm-postgres@8.0.0-rc.21`。版本错配不会提示「版本不匹配」，只会给你各种看不懂的解析错误——像螺丝和螺母的型号差了一号，拧不进去，但工具不会告诉你「型号不对」，只会说「螺纹崩了」。
 
 ```bash
 pnpm add @prisma/orm-postgres@8.0.0-rc.21 temporal-polyfill
@@ -340,7 +354,7 @@ export const db = postgres({
 });
 ```
 
-同一条「容量不小于 8」的查询：
+模型入口长这样：`db.orm.public.模型名`。本章是 `db.orm.public.Room`，后面用户表就是 `db.orm.public.User`。同一条「容量不小于 8」的查询：
 
 ```ts
 const rooms = await db.orm.public.Room
@@ -416,7 +430,6 @@ flowchart LR
 
 `pg` 让你看清连接、事务、超时这些底层行为，Prisma 8 把它们包起来，用契约换开发效率。先把池和事务用对，再学契约流程，顺序反过来也能走，但排障时会缺一块拼图。下一章把 Prisma 8 拆开：契约、emit、迁移、CRUD，以及它和 5/6/7 到底差在哪。
 
-想更深入的话，官方文档里有这几页可以接着看：[node-postgres Pool](https://node-postgres.com/apis/pool)（连接池的配置项和借用、归还接口）、[node-postgres 事务](https://node-postgres.com/features/transactions)（拿同一条连接跑 `BEGIN`、`COMMIT` 的写法）、[PostgreSQL 错误码](https://www.postgresql.org/docs/17/errcodes-appendix.html)（凭 `code` 判断是唯一键冲突还是连接断开）、[Prisma 文档](https://www.prisma.io/docs)（契约和客户端 API 的入口）。
 
 <!-- chapter-nav:start -->
 ---

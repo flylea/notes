@@ -1,12 +1,14 @@
 # 第 16 章 Nest 和 Express 的关系，如何切到 Fastify
 
-## 先弄懂：HTTP 框架和适配器
+## 出国要带转换插头
 
-Nest 的核心不解析 HTTP。监听端口、拆请求报文、写响应头和状态码，这些活它交给一个**HTTP 框架**：Express、Fastify，或者 Node 自带的 `node:http`。Express 成熟、生态大，中间件和 `req`/`res` 的写法影响最广；Fastify 新一些，主打插件、schema 校验（按声明的数据结构校验请求和响应）和更高的吞吐，响应对象叫 `reply`。
+去英国旅行，你的手机充电器是国标两脚，墙上却是三方孔。充电器没坏，墙也没坏，中间少一个转换头。Nest 和 Express 的关系就是这样：Nest 是那台充电器，Express 是墙上的插座，中间那层转换头叫**适配器（adapter）**。
 
-Nest 不直接调某一个框架，而是在中间放一层**适配器（adapter）**：它把框架包成统一接口，Nest 只调“注册路由、发响应、设响应头、取客户端地址”这几个固定方法。默认适配器是 `@nestjs/platform-express`；不传适配器时 Nest 会去找它，找不到就启动失败。没有这层行不行？Nest 核心自己不会收包，没有适配器连服务都起不来。
+具体说，Nest 的核心不解析 HTTP。监听端口、拆请求报文、写响应头和状态码，这些活它交给一个 **HTTP 框架**：Express、Fastify，或者 Node 自带的 `node:http`。Express 成熟、生态大，中间件和 `req`/`res` 的写法影响最广；Fastify 新一些，主打插件、schema 校验（按声明的数据结构校验请求和响应）和更高的吞吐，响应对象叫 `reply`。
 
-适配器的代价是“抽象漏底”：只要业务代码直接摸框架的 `req`/`res`/`reply`，就绑死在这个框架上，换适配器时这些地方会最先坏。这一章的两个事故都属于这一类。
+Nest 不直接调某一个框架，而是在中间放一层适配器：它把框架包成统一接口，Nest 只调“注册路由、发响应、设响应头、取客户端地址”这几个固定方法。默认适配器是 `@nestjs/platform-express`；不传适配器时 Nest 会去找它，找不到就启动失败。没有这层行不行？Nest 核心自己不会收包，没有适配器连服务都起不来。
+
+代价是“抽象漏底”：只要业务代码直接摸框架的 `req`/`res`/`reply`，就绑死在这个框架上，换适配器时这些地方会最先坏。这一章的两个事故都属于这一类。
 
 下面的事故发生在 Kubernetes 上：灰度指先放一小部分流量到新版本；Pod 是运行容器的单元，Readiness 探针通过只说明进程愿意接流量，不代表集群外一定能访问。
 
@@ -25,11 +27,11 @@ Nest 不直接调某一个框架，而是在中间放一层**适配器（adapter
 
 两次故障都不在业务逻辑里。要理解为什么，得先看清 Nest 和 Express 到底是什么关系。
 
-## Nest 不解析 HTTP
+## Nest 不管收包，Express 只管收包
 
-监听端口、拆报文、写响应头这些事，Nest 核心一件都不做。它把它们交给一个**HTTP 适配器**（adapter），自己只调用适配器暴露的一组固定方法：注册路由、发响应、设响应头、取客户端地址。
+监听端口、拆报文、写响应头这些事，Nest 核心一件都不做。它把它们交给适配器，自己只调用适配器暴露的一组固定方法：注册路由、发响应、设响应头、取客户端地址。
 
-所以 Express 不是 Nest 的一部分，而是默认适配器底下的那层运行时。`@nestjs/platform-express` 这个包把 Express 包成适配器；`@Controller()`、`@Get()`、`@Body()` 这些写法属于 Nest 的抽象层，不知道底下是谁在收包。
+所以 Express 不是 Nest 的一部分，而是默认适配器底下的那层运行时。`@nestjs/platform-express` 这个包把 Express 包成适配器；`@Controller()`、`@Get()`、`@Body()` 这些写法属于 Nest 的抽象层，不知道底下是谁在收包。像装修：Nest 是设计加管理流程的那一方，Express 是实际开槽走线的施工队，换施工队不影响你的户型图。
 
 | 适配器 | 包 | 底层 |
 | --- | --- | --- |
@@ -37,7 +39,7 @@ Nest 不直接调某一个框架，而是在中间放一层**适配器（adapter
 | `FastifyAdapter` | `@nestjs/platform-fastify` | Fastify 5 |
 | `NodeAdapter` | `@nestjs/platform-node` | `node:http`，v12.3 起推荐 |
 
-不传适配器时，`NestFactory.create(AppModule)` 会去找 `@nestjs/platform-express`；找不到就启动失败。这就是“卸了 Express 却忘了传 `new FastifyAdapter()`”那条报错的来源。
+不传适配器时，`NestFactory.create(AppModule)` 会去找 `@nestjs/platform-express`；找不到就启动失败。这就是“卸了 Express 却忘了传 `new FastifyAdapter()`”那条报错的来源——转换头拿掉了，插头自然插不进去。
 
 > **图 16-1** 业务代码只依赖 Nest 抽象，适配器负责落到具体框架。
 
@@ -184,7 +186,7 @@ const bootstrap = async (): Promise<void> => {
 await bootstrap();
 ```
 
-三个关键点：
+几个关键点：
 
 - **`NestFastifyApplication` 不能省**。只有它暴露 `register()`，写成 `INestApplication` 会编译失败。
 - **`listen` 的第二个参数**。Fastify 默认绑 `localhost`，Docker/K8s 里表现为“容器活着，外面进不来”。
@@ -309,7 +311,6 @@ curl -s -D - -o /dev/null http://localhost:3000/api/v1/bookings \
 
 下一章顺着请求往回走一步。请求进入 Nest 管线之前，最先碰到的是中间件。它拿得到最原始的 `req`/`res`，却不知道最终哪个 handler 会被调用；类中间件能注入 Provider，但拿不到路由元数据。这一层的位置很特殊，坑也集中。
 
-想更深入的话，官方文档里有这几页可以接着看：[HTTP adapters](https://docs.nestjs.com/http/performance)（官方对比 Express、Fastify 的取舍和基准，对应“该不该切”）、[HTTP adapter FAQ](https://docs.nestjs.com/faq/http-adapter)（换适配器、写自定义适配器的官方步骤，对应“动手换”那节）、[File upload and streaming](https://docs.nestjs.com/http/file-upload#fastify)（Fastify 下上传要走 `@fastify/multipart`，对应“这些坑，基本都踩过”）。
 
 <!-- chapter-nav:start -->
 ---

@@ -1,29 +1,39 @@
 # 第 20 章 用 ValidationPipe 验证 POST 请求参数
 
-## 先弄懂：DTO 和运行时校验
+## 包裹进了门，没人拆开看过
 
-**DTO（Data Transfer Object，数据传输对象）**用来描述“请求或响应长什么样”：有哪些字段、什么类型、是否必填。它只负责形状，不放业务逻辑；这一章用它描述 POST body。在 Nest 的校验里，DTO 要写成 class，而不是 interface——因为 interface 编译后会被擦掉，装饰器没地方挂，运行时也拿不到这个类型。
+前端发来的请求体，是一包由客户端自己装好的东西。你在纸上写好了清单：房间号得是 UUID、标题最多 100 字、参会人至少一个。包裹到了服务端，如果没人拆开对一遍，它就被原样送进业务代码，一路写进数据库。
 
-**校验**要在运行时做。TypeScript 只能保证编译期，HTTP 进来的 JSON 是任意对象，`@Body() dto: CreateReservationDto` 不会自动检查。Nest 的 `ValidationPipe` 就是干这个的内置管道（第 19 章讲过管道的位置）：它先用 `class-transformer` 把普通对象转成 DTO 实例，再用 `class-validator` 读属性上的 `@IsUUID()`、`@MaxLength()` 等装饰器逐条跑规则，有错就抛 400，全过才把实例交给 handler。
+TypeScript 的类型标注在这件事上帮不上忙。它像快递单上那句「内有 3 件物品」——填单子的人自己写的，路上没人开箱数。`@Body() dto: CreateReservationDto` 只是给编辑器和编译器看的声明，编译成 JavaScript 后类型整段消失（第 19 章讲过类型擦除）。客户端在 JSON 里多塞一个 `isAdmin: true`，或者把标题写成 5000 字，这行声明一个都拦不住。
 
-没有它行不行？能跑，但 `isAdmin` 这种多余字段会一路穿到业务层，甚至被写进数据库，5000 字的标题和字符串类型的 `attendees` 也会等到写库或渲染时才炸；你只能在每个 handler 里手写一堆 `if`，还很难保证规则一致。class-validator 负责“规则怎么写”，class-transformer 负责“实例怎么来”，ValidationPipe 负责“什么时候执行、错了怎么返回”。
+**校验**就是包裹进 handler（真正处理这个接口的方法）之前，把它拆开，对照一份写死的清单逐项过：字段在不在、类型对不对、长度超没超、枚举值认不认。不合格的当场退回 400，合格的才放进去。
+
+拿机场安检打比方最贴切。行李过传送带，机器只认「有没有超规物品」，既不关心你是谁，也不管你飞去哪儿。校验也一样：它只看这一包数据长得对不对，不看这个用户有没有权限。查权限是**守卫**的活——守卫站在更前面，回答「你能不能进这个接口」。**中间件**还要早，处理的是原始请求（第 17 章）；**拦截器**把 handler 和它的返回值包在中间（第 18 章）；**过滤器**在最后收错误（第 21 章）；校验本身由**管道**执行，一次只检查一个参数（第 19 章）。这五类组件的位置，第 9 章那张表画过一遍。
+
+没有它会卡在哪？三个地方：
+
+- 多传的字段会一路穿到业务层。`isAdmin` 不在 DTO 里，但没人删它，它就可能被当成「客户端想设置的值」存进去。
+- 脏数据要等到更晚才炸。5000 字的标题可能撑到写库才报错，字符串类型的 `attendees` 可能撑到列表页渲染才 500——那时候已经很难判断是哪一层的问题。
+- 每个 handler 都得手写一串 `if`，而且写不齐。十个接口十套规则，改一处漏九处。
+
+class-validator 负责「规则怎么写」，class-transformer 负责「实例怎么来」，ValidationPipe 负责「什么时候执行、错了怎么返回」。三件事分工不同，别混着记。
 
 官方文档（先看懂正文再点）：
-- [Validation](https://docs.nestjs.com/techniques/validation)：官方校验章节，`ValidationPipe` 的选项讲得最全，对应“三个开关决定行为”。
+- [Validation](https://docs.nestjs.com/techniques/validation)：官方校验章节，`ValidationPipe` 的选项讲得最全，对应「三个开关：删掉、报错、转成实例」。
 - [class-validator](https://github.com/typestack/class-validator)：全部规则装饰器清单，对应 DTO 里的 `@IsUUID()`、`@MaxLength()`。
-- [class-transformer](https://github.com/typestack/class-transformer)：普通对象怎么变成 DTO 实例，对应“先看清楚，400 是谁返回的”。
+- [class-transformer](https://github.com/typestack/class-transformer)：普通对象怎么变成 DTO 实例，对应「400 是谁返回的」。
 
-现在看一个真实事故。
+## 多出来的那个 isAdmin
 
-周五下午，前端给 `POST /api/demo/reservations` 多传了一个 `isAdmin: true`，接口照样返回 201，响应里还把它原样回显了。三天后，有人把 `title` 改成 5000 字，把 `attendees` 传成字符串，列表页直接 500。
+给 `POST /api/demo/reservations` 多传一个 `isAdmin: true`，接口照样返回 201，响应里还把它原样回显了。三天后，有人把 `title` 改成 5000 字，把 `attendees` 传成字符串，列表页直接 500。
 
-这两件事看起来是“前端乱传”，根子上是同一个问题：JSON body 进来时只是一个普通对象，TypeScript 的 `interface` 编译完就没了，运行时没有任何人检查它。`@Body() dto: CreateReservationDto` 只是给编辑器看的，不会拦住 `isAdmin`，也不会拦住空标题。
+这两件事看着像「前端乱传」，根子上是同一个问题：JSON body 进来时只是一个普通对象，TypeScript 的 `interface` 编译完就没了，运行时没有任何人检查它。`@Body() dto: CreateReservationDto` 只是给编辑器看的，不会拦住 `isAdmin`，也不会拦住空标题。
 
 这一章把 body 当成一份运行时契约：用 DTO 类写规则，用 `ValidationPipe` 在进入 handler 之前执行，让非法请求停在 400，而不是流进数据库。
 
-## 先看清楚，400 是谁返回的
+## 400 是谁返回的
 
-`ValidationPipe` 是 Nest 内置的管道，挂在路由匹配之后、handler 之前。它背后是两个库：`class-transformer` 负责把 JSON.parse 出来的普通对象变成 DTO 实例，`class-validator` 负责按属性上的装饰器逐条跑规则。规则不过，它抛 `BadRequestException`，响应就是 400。
+`ValidationPipe` 是 Nest 内置的管道，挂在路由匹配之后、handler 之前。它背后是两个库：`class-transformer` 负责把 `JSON.parse` 出来的普通对象变成 DTO 实例，`class-validator` 负责按属性上的装饰器逐条跑规则。规则不过，它抛 `BadRequestException`，响应就是 400。
 
 管道做三件事，顺序不能反：
 
@@ -56,13 +66,15 @@ create(@Body() dto: CreateReservationDto) {
 }
 ```
 
-`interface` 只活在编译期。Nest 在运行时通过 `design:paramtypes` 拿到的类型是 `Object`，`ValidationPipe` 看到 `Object` 就直接放行。把 `interface` 换成 `class`，再打开 `tsconfig.json` 里的 `experimentalDecorators` 和 `emitDecoratorMetadata`，元数据才有地方挂。
+`interface` 只活在编译期。Nest 在运行时通过 `design:paramtypes` 拿到的类型是 `Object`，`ValidationPipe` 看到 `Object` 就直接放行——它连该找哪套规则都不知道。把 `interface` 换成 `class`，再打开 `tsconfig.json` 里的 `experimentalDecorators` 和 `emitDecoratorMetadata`，元数据才有地方挂。
 
 还有一个更隐蔽的写法：`import type { CreateReservationDto } from './dto/...'`。`import type` 在编译时被整个擦掉，装饰器元数据里只剩 `Object`，校验同样静默失效。DTO 必须用普通 `import` 引入。
 
 ## 把 body 写成一份 DTO
 
-新建 `src/modules/demo/dto/create-reservation.dto.ts`。字段按“会议室预订”的真实需求来：房间、标题、起止时间、参会人、设备、备注。
+DTO 第 4 章见过：它是 Data Transfer Object 的缩写，说白了就是「用来装这一次请求数据的类」。客户端能传哪些字段、每个字段什么类型，全写在里面，像一张印好栏位的收货单。
+
+新建 `src/modules/demo/dto/create-reservation.dto.ts`。字段按「会议室预订」的真实需求来：房间、标题、起止时间、参会人、设备、备注。
 
 ```ts
 import { Transform, Type } from 'class-transformer';
@@ -130,14 +142,14 @@ export class CreateReservationDto {
 
 几个地方值得停一下：
 
-- `!` 是 TypeScript 的 definite assignment 断言。`strictPropertyInitialization` 打开时，类字段必须有初始值，但 DTO 的字段是框架在运行时赋的，所以用 `!` 告诉编译器“我心里有数”。
+- `!` 是 TypeScript 的 definite assignment 断言。`strictPropertyInitialization` 打开时，类字段必须有初始值，但 DTO 的字段是框架在运行时赋的，所以用 `!` 告诉编译器「我心里有数」。
 - `@IsUUID()` 不限制版本，v1 到 v8 都收。要只收 v4，写 `@IsUUID('4')`。
 - `@IsISO8601({ strict: true })` 的 `strict` 会检查日期部分。`2026-02-30T09:00:00+08:00` 在宽松模式下可能被当成合法字符串，严格模式下会直接拒掉。
-- `@ValidateNested({ each: true })` 和 `@Type(() => AttendeeDto)` 必须成对出现。前者说“数组里每个元素都要递归校验”，后者告诉 class-transformer“元素要转成哪个类”。少了 `@Type`，class-validator 不知道子对象的规则挂在哪，嵌套校验会静默跳过。
-- `@IsOptional()` 只认 `null` 和 `undefined`。传 `""` 不算“没传”，后面的 `@IsString()`、`@MaxLength()` 照样执行。想让空字符串也跳过，得再加 `@IsEmpty()` 或自定义逻辑，别指望 `@IsOptional()`。
+- `@ValidateNested({ each: true })` 和 `@Type(() => AttendeeDto)` 必须成对出现。前者说「数组里每个元素都要递归校验」，后者告诉 class-transformer「元素要转成哪个类」。少了 `@Type`，class-validator 不知道子对象的规则挂在哪，嵌套校验会静默跳过——不是没报错，是压根没跑。
+- `@IsOptional()` 只认 `null` 和 `undefined`。传 `""` 不算「没传」，后面的 `@IsString()`、`@MaxLength()` 照样执行。想让空字符串也跳过，得再加 `@IsEmpty()` 或自定义逻辑，别指望 `@IsOptional()`。
 - `@Transform()` 在 `plainToInstance` 阶段执行。`remark` 传 `"  周会  "`，handler 拿到的是 `"周会"`，但前提是 `transform: true`，下一节会讲。
 
-## 注册管道：三个开关决定行为
+## 三个开关：删掉、报错、转成实例
 
 DTO 只是规则，得有人执行。打开 `src/main.ts`，在 `app.setGlobalPrefix('api')` 之前加：
 
@@ -157,15 +169,15 @@ app.useGlobalPipes(
 
 逐项说：
 
-- `whitelist: true`：只保留 DTO 上声明过的属性，多余字段直接删掉。
+- `whitelist: true`：只保留 DTO 上声明过的属性，多余字段直接删掉。收货单上没有的栏位，填了也不录入。
 - `forbidNonWhitelisted: true`：多余字段不删，直接 400。它和 `whitelist` 一起开才有意义。只开 `whitelist` 时，`isAdmin` 会被静默丢掉，客户端以为存进去了，其实没有。
-- `transform: true`：handler 拿到的是 DTO 实例，不是 plain object；`@Type` 和 `@Transform` 的结果也才会出现在 handler 里。关掉它，校验阶段仍然会实例化，但最后返回的是原始对象。
-- `transformOptions.enableImplicitConversion: false`：禁止“字符串自动变数字”这种隐式转换。需要转的地方显式写 `@Type(() => Number)`，出问题时能一眼看到。
+- `transform: true`：handler 拿到的是 DTO 实例，不是 plain object；`@Type` 和 `@Transform` 的结果也才会出现在 handler 里。关掉它，校验阶段仍然会实例化，但最后返回的是原始对象——前面 `remark` 的去空格就白写了。
+- `transformOptions.enableImplicitConversion: false`：禁止「字符串自动变数字」这种隐式转换。需要转的地方显式写 `@Type(() => Number)`，出问题时能一眼看到是谁转的。
 - `errorFormat: 'list'`：错误消息是字符串数组，也是 Nest 12 之前的默认形状。Nest 12 还支持 `'grouped'`，把消息按字段路径分组，形状变成 `Record<string, string[]>`；如果切过去，全局异常过滤器和前端解析都要跟着改。
 
-如果管道需要注入依赖，用 `APP_PIPE` 注册；这里没有依赖，`useGlobalPipes` 就够了。别在同一路由上再挂一个更松的 `ValidationPipe` 想“放宽”——全局管道已经先跑过，400 已经抛了，后面的管道没机会。
+如果管道需要注入依赖，用 `APP_PIPE` 注册；这里没有依赖，`useGlobalPipes` 就够了。别在同一路由上再挂一个更松的 `ValidationPipe` 想「放宽」——全局管道已经先跑过，400 已经抛了，后面的管道没机会。
 
-## 跑一遍
+## 跑一遍，看 400 长什么样
 
 在 `DemoController` 里加一个写接口。为了不碰真实数据库，直接把 DTO 原样返回，再补一个 id：
 
@@ -219,7 +231,7 @@ curl -s -X POST http://localhost:3000/api/demo/reservations \
 {"statusCode":400,"message":["property isAdmin should not exist"],"error":"Bad Request","requestId":"c2f4a6b8-1d3e-4f5a-9b7c-8d0e2f4a6b8c"}
 ```
 
-> 示例输出（未实测）。如果只开 `whitelist`、不开 `forbidNonWhitelisted`，这个请求会返回 201，但响应里没有 `isAdmin`——`ValidationPipe` 把它删了。两种行为都不算错，区别是“告诉客户端传错了”还是“默默忽略”。
+> 示例输出（未实测）。如果只开 `whitelist`、不开 `forbidNonWhitelisted`，这个请求会返回 201，但响应里没有 `isAdmin`——`ValidationPipe` 把它删了。两种行为都不算错，区别是「告诉客户端传错了」还是「默默忽略」。
 
 最后把多个字段一起弄坏：
 
@@ -252,7 +264,7 @@ curl -s -X POST http://localhost:3000/api/demo/reservations \
 
 ## 跨字段的规则，别硬塞进装饰器
 
-`endTime` 必须晚于 `startTime`，这条规则现在没人管。class-validator 的装饰器都是“单字段”视角，`@ValidateIf` 只能决定“这个字段要不要校验”，做不了两个字段比大小。硬要写，就得自定义 `ValidatorConstraint`、注入 `ValidationArguments`，为了一个比较搭进去一个类，不划算。
+`endTime` 必须晚于 `startTime`，这条规则现在没人管。class-validator 的装饰器都是「单字段」视角，`@ValidateIf` 只能决定「这个字段要不要校验」，做不了两个字段比大小。硬要写，就得自定义 `ValidatorConstraint`、注入 `ValidationArguments`，为了一个比较搭进去一个类，不划算。
 
 这种跨字段、带业务语义的规则，放在 handler 开头更清楚：
 
@@ -272,7 +284,7 @@ if (Date.parse(dto.endTime) <= Date.parse(dto.startTime)) {
 
 `ValidationPipe` 不是唯一解。Nest 12 新增了 `StandardSchemaValidationPipe`，直接吃 Standard Schema 对象，Zod、Valibot、ArkType 都实现了这个协议。规则不再挂在类上，而是一份 schema；类型用 `z.infer` 反推，不需要 `emitDecoratorMetadata`。
 
-新建 `src/modules/demo/dto/reservation.schema.ts`：
+先装依赖：`pnpm add zod`。然后新建 `src/modules/demo/dto/reservation.schema.ts`：
 
 ```ts
 import { z } from 'zod';
@@ -313,7 +325,7 @@ app.useGlobalPipes(
 );
 ```
 
-两个管道可以共存：`ValidationPipe` 只处理“参数类型是 class”的情况，`StandardSchemaValidationPipe` 只处理“参数上声明了 schema”的情况，各管各的，不会互相抢。
+两个管道可以共存：`ValidationPipe` 只处理「参数类型是 class」的情况，`StandardSchemaValidationPipe` 只处理「参数上声明了 schema」的情况，各管各的，不会互相抢。
 
 控制器换成 schema：
 
@@ -357,7 +369,7 @@ curl -s -X POST http://localhost:3000/api/demo/reservations-schema \
 
 怎么选？手里已经有一堆 class DTO、Swagger 文档、`class-validator` 规则，继续用 `ValidationPipe`，改动最小；新接口、前后端共享 schema、团队已经在用 Zod，直接上 `StandardSchemaValidationPipe`，不用为了校验再维护一套类。两个都注册也不冲突。
 
-## 几个容易踩的点
+## 生产里真正会踩的坑
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
@@ -371,15 +383,8 @@ curl -s -X POST http://localhost:3000/api/demo/reservations-schema \
 | 全局过滤器拿不到 `message` 数组 | 切了 `errorFormat: 'grouped'` | 过滤器同时支持 `string \| string[] \| Record<string, string[]>` |
 | 大 body 直接 413 | Express `json()` 默认 100kb 上限 | 调 `app.use(json({ limit: '1mb' }))`，别靠 DTO 兜底 |
 
-## 这一章带走了什么
+三件事记住就够了：`whitelist` 决定删不删，`forbidNonWhitelisted` 决定删还是报错，`transform` 决定 handler 拿到的是实例还是原始对象。参数错了现在会返回 400，但 401、403、404、500 还是 Nest 的默认形状，错误体里也没有 `requestId`。下一章把这些出口收成一个异常过滤器，让所有失败长一个样。
 
-你现在能判断一个 POST 接口该不该有运行时校验，也能把“字段类型 + 约束 + 嵌套规则”写成一份 DTO，让 `ValidationPipe` 在 handler 之前拦住脏数据。记住三个开关：`whitelist` 决定删不删，`forbidNonWhitelisted` 决定删还是报错，`transform` 决定 handler 拿到的是实例还是原始对象。
-
-如果团队用 Zod，`StandardSchemaValidationPipe` 是 Nest 12 给出的另一条路，规则和类型来自同一份 schema，不用再写 `interface` 和类。两条路都行，别在同一个接口上混着写两套规则。
-
-参数错了现在会返回 400，但 401、403、404、500 还是 Nest 的默认形状，错误体里也没有 `requestId`。下一章把这些出口收成一个异常过滤器，让所有失败长一个样。
-
-想更深入的话，官方文档里有这几页可以接着看：[Validation](https://docs.nestjs.com/techniques/validation)（官方校验全流程，含 `whitelist`、`forbidNonWhitelisted` 的取舍）、[Using the built-in ValidationPipe](https://docs.nestjs.com/techniques/validation#using-the-built-in-validationpipe)（每个选项的默认值和作用，对应“三个开关决定行为”）、[class-validator](https://github.com/typestack/class-validator)（规则装饰器清单和各字段的约束写法，对应 DTO 那节）。
 
 <!-- chapter-nav:start -->
 ---

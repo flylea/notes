@@ -1,33 +1,30 @@
 # 第 52 章 在 Nest 里操作 Redis
 
-## 先认识 ioredis 和「可选依赖」
+第 51 章我们把 Redis 跑起来了，也用 `redis-cli` 敲过命令。可应用不会自己去敲命令——Node 需要一个客户端，替它连上 Redis、发命令、把结果带回来。这一章就是把这条线接上，并且接得经得起断线。
 
-`ioredis` 是 Node 里最常用的 Redis 客户端。`new Redis(url)` 建立的是一条到 Redis 的 TCP 长连接，所有命令都在这条连接上排队发送，结果再按 RESP（Redis 的通信协议）的回复顺序配回各自的 Promise。它没有 pg 那种「借出 / 归还」的池语义，连接就一条——这条连接的健康状况，直接决定缓存能不能用。
+`ioredis` 就是这样一个客户端。Redis 是仓库，ioredis 是每天往返仓库的货车：货单怎么送、回执怎么带回来、路上断了怎么办，都归它管。没有它，你得自己拼 Redis 的通信协议、处理半包粘包、写重连逻辑，等于每次取货都自己造车。
 
-Node 的 EventEmitter 对 `error` 事件有一条特殊规则：普通事件没人监听等于没发生，`error` 没人监听则会被升级成未捕获异常，直接结束进程。Redis 连接抖动时客户端会发 `error`；没挂监听，一次断线就能带走整个服务。
+它和 PostgreSQL 的连接池不一样。`new Redis(url)` 建立的是一条到 Redis 的 TCP 长连接，所有命令都在这条连接上排队发送，结果再按 RESP 的回复顺序配回各自的 Promise。它没有 pg 那种「借出 / 归还」的池语义，连接就一条——这条连接的健康状况，直接决定缓存能不能用。
 
-Redis 做主从切换时，主节点故障、从节点接管，客户端这条连接会断开再重连。缓存本该是可选依赖：Redis 不在了，接口慢一点、回源查库就行。可一旦客户端接错，它就会变成必需依赖——一条连接上的意外能把整个服务拖下水。
+打个比方，长连接像一条专线电话：接通后一直不挂，有事直接说。连接池像客服热线：每次打进去重新排队、重新报身份证。前者省握手，但一条线断了就全断；后者能换线，但每次都要重新建立。
 
-官方文档（先看懂正文再点）：
-- [ioredis](https://github.com/redis/ioredis)：客户端 API、重连和事件，本章 `new Redis(url)` 那段对应它的构造函数。
-- [Nest 缓存](https://docs.nestjs.com/techniques/caching)：Nest 自带的缓存模块，和 ioredis 是两条路。
-- [Redis 文档](https://redis.io/docs/latest/)：命令和协议本身的说明。
+RESP 是 Redis 的通信格式。像点菜时服务员写的编号单：先写几号桌，再写菜名，按固定顺序；厨房照单子做，做完按同样顺序端回来。没有这套顺序，客户端收到一堆回复，不知道哪条对应哪个 Promise。
 
-现在看一个真实事故。
+连接是有状态的。`client.status` 依次会经过 `connecting`、`connect`、`ready`，断线时变 `close`，然后 `reconnecting`，直到 `end` 彻底结束。像红绿灯：刚通电是 `connecting`，可以走是 `ready`，断了是 `close`，黄灯闪烁是 `reconnecting`，彻底熄火是 `end`。这个字段后面判断「能不能发命令」时会反复用到。
+
+还有一件默认行为更重要：断线期间，新来的命令不会立刻失败，而是排进内存里的离线队列，等重连成功后一起补发。像快递爆仓，包裹先堆在仓库，等路通了再一起送。对消息队列也许合适，对缓存完全没必要——用户等的是这一秒的响应，不是三秒后补发的那个 `GET`。队列越长，内存越高，请求挂得越久。
+
+再说一个和业务生死有关的设定。缓存本该是备胎：Redis 不在了，接口慢一点、回源查库就行。可一旦客户端接错，它就会变成必需依赖——一条连接上的意外能把整个服务拖下水。可选依赖不是「不重要」，是「坏了业务还能跑，只是慢一点」。
+
+Node 的 EventEmitter 对 `error` 事件有一条特殊规则：普通事件没人监听等于没发生，`error` 没人监听则会被升级成未捕获异常，直接结束进程。像烟雾报警器直接连了总电闸：响了没人处理，它就把整栋楼断电。Redis 连接抖动时客户端会发 `error`；没挂监听，一次断线就能带走整个服务。
+
+Redis 做主从切换时，主节点故障、从节点接管，客户端这条连接会断开再重连。下面这个事故，就是切换那两秒里发生的。
 
 凌晨两点，Redis 做了一次主从切换。切换本身只花了两秒，但应用容器连着重启了三次，退出码都是 1。统计接口本身没坏——坏的是进程：连接上抛出的一个错误没有人接，Node 直接把它当成未捕获异常，把进程带走了。
 
 这一章把这件事从头接对：连接怎么建、断了怎么降级、key 和 TTL 放哪、批量和原子怎么做，最后真的把 Redis 停一次，看业务是不是还活着。
 
-## 一条长连接，不是一组连接
-
-连接只有一条，所以 ioredis 没有 pg 那种「借出 / 归还」的池语义，也没有 `max` 参数。命令在这条连接上多路复用：客户端按顺序写进去，再按 RESP 协议的回复顺序把结果配回各自的 Promise。这一点决定了它接进 Nest 的方式和数据库客户端不一样。
-
-连接是有状态的。`client.status` 依次会经过 `connecting`、`connect`、`ready`，断线时变 `close`，然后 `reconnecting`，直到 `end` 彻底结束。这个字段后面判断「能不能发命令」时会反复用到。
-
-另一件默认行为更重要：断线期间，新来的命令不会立刻失败，而是排进内存里的离线队列，等重连成功后一起补发。对消息队列也许合适，对缓存完全没必要——用户等的是这一秒的响应，不是三秒后补发的那个 `GET`。队列越长，内存越高，请求挂得越久。
-
-## 让它允许失败
+## 把连接建起来，并且允许它失败
 
 `REDIS_CLIENT` 这个 token 在 example 里是用 symbol 定义的（`src/redis/redis.constants.ts`），provider 读配置、建客户端，并且允许返回 `null`：
 
@@ -67,18 +64,19 @@ export const redisClientProvider: Provider = {
 };
 ```
 
-`client.on('error', ...)` 不是可选的日志装饰。监听要在 `connect()` 之前挂上——第一次连接失败是很容易发生的，那时候再挂就晚了。
+`client.on('error', ...)` 不是可选的日志装饰。监听要在 `connect()` 之前挂上——第一次连接失败是很容易发生的，那时候再挂就晚了。安全帽要在进场前戴，不是等摔了再戴。
 
-其余四个选项各管一段：
+其余几个选项各管一段：
 
-- `lazyConnect: true`——`new Redis()` 不立刻发起连接，等 `onModuleInit` 里显式 `connect()`。Redis 没起来时应用还能启动，只是缓存降级。
+- `lazyConnect: true`——`new Redis()` 不立刻发起连接，等 `onModuleInit` 里显式 `connect()`。像车先通电不点火：Redis 没起来时应用还能启动，只是缓存降级。
 - `enableOfflineQueue: false`——关掉前面说的离线队列。断线期间命令立刻失败，不堆积、不补发。
 - `maxRetriesPerRequest: 1`——单条命令最多重试一次，配合上一条保证「快速失败」，而不是把 HTTP 请求挂住。
 - `retryStrategy`——后台重连节奏，从 200ms 起，最多 2 秒。不写它也会重连，但默认节奏不好排查，写出来更直观。
+- `connectTimeout: 3_000`——第一次连接最多等 3 秒。不设的话，Redis 地址不通时启动会卡很久，像拨一个空号一直听回铃音。
 
-这四个参数合起来表达一件事：**连接可以断，命令可以失败，但请求不能挂**。
+这几个参数合起来表达一件事：**连接可以断，命令可以失败，但请求不能挂**。
 
-## 服务层：连上、断开、恢复
+## 连上、断开、恢复：状态不能只记一次
 
 `RedisService` 构造器注入 `REDIS_CLIENT`，拿到的可能是 `null`。真正容易写错的是状态维护：
 
@@ -108,7 +106,7 @@ async onModuleInit(): Promise<void> {
 }
 ```
 
-`ready` 和 `close` 两个事件驱动了 `available` 标记。反过来写——只在 `connect()` 成功那一行把 `available = true`——就会留下一个很隐蔽的 bug：启动时 Redis 恰好没起来，标记永远是 `false`，可 ioredis 后台其实已经重连成功了，缓存却再也不会恢复。表现是「服务重启一次之后就再也不命中缓存」，很难往这个方向想。
+`ready` 和 `close` 两个事件驱动了 `available` 标记。反过来写——只在 `connect()` 成功那一行把 `available = true`——就会留下一个很隐蔽的 bug：启动时 Redis 恰好没起来，标记永远是 `false`，可 ioredis 后台其实已经重连成功了，缓存却再也不会恢复。表现是「服务重启一次之后就再也不命中缓存」，很难往这个方向想。像门卫只记第一次查岗的结果，人后来回来了，他也不更新名单。
 
 关闭的时候要区分状态：
 
@@ -132,9 +130,15 @@ async onModuleDestroy(): Promise<void> {
 }
 ```
 
-`quit()` 会发 `QUIT` 并等在途命令跑完；`disconnect()` 直接掐断。连接已经断了或者还在重连时，`quit()` 可能一直等下去，所以先看 `status`。这段要在进程退出时真的被执行，还得靠 `main.ts` 里的 `app.enableShutdownHooks()`。
+`quit()` 会发 `QUIT` 并等在途命令跑完；`disconnect()` 直接掐断。连接已经断了或者还在重连时，`quit()` 可能一直等下去，所以先看 `status`。像下班关店：还有客人在，就好好送走再锁门；店都塌了，直接拉闸。
+
+这段要在进程退出时真的被执行，还得靠 `main.ts` 里的 `app.enableShutdownHooks()`。
 
 对外的 `getJson` / `setJson` 保持同一个约定：读失败返回 `null`，写失败静默。业务代码不用包 `try/catch`，但必须接受「可能没有缓存」，并且有回源路径。
+
+## 读缓存、回源、写回：cache-aside
+
+缓存最常用的套路叫 cache-aside：先翻冰箱，没有再去超市买，买回来放冰箱。翻译成代码就是先读缓存，未命中查库，再把结果写回。
 
 > **图 52-1** 统计接口读缓存、回源、写缓存的完整路径。
 
@@ -155,6 +159,26 @@ sequenceDiagram
   end
   S-->>C: 200 + data
 ```
+
+业务侧代码就三行：
+
+```ts
+// src/modules/stats/stats.service.ts（节选）
+const cached = await this.redis.getJson<StatsOverview>(cacheKeys.statsOverview);
+if (cached) {
+  return cached;
+}
+
+const overview = await this.loadOverviewFromDatabase();
+await this.redis.setJson(
+  cacheKeys.statsOverview,
+  overview,
+  jitter(cacheTtl.statsOverview),
+);
+return overview;
+```
+
+写路径也一样直接——数据变更后 `await this.redis.del(key)`，让下一次读去重建。删而不是改，是因为改缓存要处理并发写覆盖，而删只有「没有」这一种结果。像发现冰箱里的牛奶过期了，直接扔掉，下次喝的时候再买；不必先研究怎么把过期牛奶变成新鲜的。
 
 ## 停一次 Redis，看降级是不是真的
 
@@ -202,7 +226,7 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/stats/overvie
 
 日志迟迟不出现「已就绪」，多半是 `ready` 监听没挂，或者 `retryStrategy` 返回了 `null`（那等于主动停止重连）。两种写法在监控上长得一样：缓存再也不命中。
 
-## key 和 TTL 收口
+## key 和 TTL 要收口
 
 key 散在各个 service 里，早晚会撞名，也早晚会有人忘了设 TTL。集中到一个文件：
 
@@ -227,27 +251,7 @@ export const jitter = (seconds: number): number =>
 
 前缀里再带环境和版本，比如 `meeting:staging:v1:`。多套环境共用一个 Redis 时，这是唯一能挡住测试数据污染生产的东西；缓存结构变了就升 `v1`，老 key 靠 TTL 自然淘汰，不用写迁移脚本。
 
-`jitter` 把 60 秒打散成 60 到 72 秒。没有它，同一个 key 在几十个实例上会同时过期、同时回源，数据库瞬间挨一轮。这个函数只该用在缓存过期时间上，别拿去生成订单号。
-
-## 业务侧长什么样
-
-```ts
-// src/modules/stats/stats.service.ts（节选）
-const cached = await this.redis.getJson<StatsOverview>(cacheKeys.statsOverview);
-if (cached) {
-  return cached;
-}
-
-const overview = await this.loadOverviewFromDatabase();
-await this.redis.setJson(
-  cacheKeys.statsOverview,
-  overview,
-  jitter(cacheTtl.statsOverview),
-);
-return overview;
-```
-
-这就是 cache-aside：先读缓存，未命中查库，再把结果写回。写路径也一样直接——数据变更后 `await this.redis.del(key)`，让下一次读去重建。删而不是改，是因为改缓存要处理并发写覆盖，而删只有「没有」这一种结果。
+`jitter` 把 60 秒打散成 60 到 71 秒。没有它，同一个 key 在几十个实例上会同时过期、同时回源，数据库瞬间挨一轮。像下班错峰，不然全公司同一分钟挤电梯。这个函数只该用在缓存过期时间上，别拿去生成订单号。
 
 ## 序列化不是免费的
 
@@ -256,6 +260,8 @@ return overview;
 - `Date` 会变成 ISO 字符串，读回来不再是 `Date` 对象。缓存 DTO 里统一用字符串时间，别在类型上写 `Date` 骗自己。
 - `undefined` 字段会被丢掉；`Map`、`Set`、`BigInt` 要么序列化失败，要么变成 `{}`。
 - 类实例会退化成普通对象，原型上的方法不会回来。
+
+JSON 像复印件：能看清内容，但原件上的材质、签名、夹层都没了。要保留这些东西，得自己写序列化规则，不能指望 `JSON.stringify`。
 
 还有脏数据。缓存里的 JSON 可能来自上一个版本，也可能被人手改过，`JSON.parse` 抛错不能把接口带崩：
 
@@ -270,7 +276,7 @@ try {
 }
 ```
 
-删掉坏 key，下一次请求自然重建。不删的话，这个 key 会在 TTL 到期前持续命中失败。
+删掉坏 key，下一次请求自然重建。不删的话，这个 key 会在 TTL 到期前持续命中失败。像冰箱里一盒发臭的东西，不扔就会一直串味。
 
 ## 批量用 pipeline，原子性用 Lua
 
@@ -312,9 +318,11 @@ async getMany<T>(keys: string[]): Promise<Map<string, T>> {
 }
 ```
 
-`pipeline.exec()` 返回 `[error, result][]`，单条命令失败不会让整个调用抛异常，所以要逐个看 `error`。它省的是网络往返，不是隔离性——pipeline 不是事务，中间可能插进别的客户端的命令。
+`pipeline.exec()` 返回 `[error, result][]`，单条命令失败不会让整个调用抛异常，所以要逐个看 `error`。它省的是网络往返，不是隔离性——pipeline 不是事务，中间可能插进别的客户端的命令。像一次把购物清单递给店员，少跑几趟；但店员配货时，别人也能插单。
 
-需要「要么都成、要么都没发生」时，用 Lua 脚本。脚本在 Redis 里整段原子执行，跑完之前不会插进其他命令；代价是脚本不能太长，否则会像一条慢命令那样堵住整个实例。典型的例子是计数和过期必须一起成功：
+需要「要么都成、要么都没发生」时，用 Lua 脚本。脚本在 Redis 里整段原子执行，跑完之前不会插进其他命令；代价是脚本不能太长，否则会像一条慢命令那样堵住整个实例。像把柜台门锁上，一次办完再开门。
+
+典型的例子是计数和过期必须一起成功：
 
 ```ts
 // src/redis/redis.service.ts（追加）
@@ -358,9 +366,9 @@ subscriber.on('message', (channel, message) => {
 await subscriber.subscribe('booking:created');
 ```
 
-`duplicate()` 是必须的：一条连接进入订阅模式后就不能再执行普通命令，得另开一条。订阅端还要在 `onModuleDestroy` 里先 `unsubscribe` 再 `quit`，否则进程退出时连接会挂着。
+`duplicate()` 是必须的：一条连接进入订阅模式后就不能再执行普通命令，得另开一条。像一个人举着喇叭广播，就没法同时接电话。订阅端还要在 `onModuleDestroy` 里先 `unsubscribe` 再 `quit`，否则进程退出时连接会挂着。
 
-但 pub/sub 是「发出去就不管」：没有持久化、没有确认、没有重放，订阅端断线期间的消息直接丢失。它适合「缓存失效通知」这种丢了也能靠 TTL 兜底的场景；订单、通知这类不能丢的，用 Redis Stream 的消费组，或者上专门的消息队列。
+但 pub/sub 是「发出去就不管」：没有持久化、没有确认、没有重放，订阅端断线期间的消息直接丢失。它像小区广播，喊的时候你不在家，就永远错过了。适合「缓存失效通知」这种丢了也能靠 TTL 兜底的场景；订单、通知这类不能丢的，用 Redis Stream 的消费组（带编号和签收，能补领），或者上专门的消息队列。
 
 ## 生产里真正会踩的坑
 
@@ -382,7 +390,7 @@ await subscriber.subscribe('booking:created');
 
 到这里，ioredis 能给的能力基本过了一遍。下一章回答一个选型问题：Nest 官方 caching 默认推荐 cache-manager，为什么这个项目仍然直接上 ioredis。
 
-想更深入的话，官方文档里有这几页可以接着看：[ioredis README](https://github.com/redis/ioredis)（连接选项、重试策略和事件列表）、[Nest 缓存](https://docs.nestjs.com/techniques/caching)（`CacheModule` 的用法，第 53 章会对比）、[Redis Pipeline](https://redis.io/docs/latest/develop/using-commands/pipelining/)（一次发多条命令、少等几个来回）、[Redis Lua 脚本](https://redis.io/docs/latest/develop/programmability/eval-intro/)（把多条命令写成原子操作）。
+这几页官方文档对应正文里的几个点，读完再看：[ioredis](https://github.com/redis/ioredis)（连接选项、重试策略和事件列表，对应 provider 那段）、[Nest 缓存](https://docs.nestjs.com/techniques/caching)（`CacheModule` 的用法，第 53 章会对比）、[Redis 文档](https://redis.io/docs/latest/)（命令和协议本身）、[Redis Pipeline](https://redis.io/docs/latest/develop/using-commands/pipelining/)（一次发多条命令、少等几个来回）、[Redis Lua 脚本](https://redis.io/docs/latest/develop/programmability/eval-intro/)（把多条命令写成原子操作）。
 
 <!-- chapter-nav:start -->
 ---

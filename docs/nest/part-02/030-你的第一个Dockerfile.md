@@ -1,14 +1,14 @@
 # 第 30 章 你的第一个 Dockerfile
 
-上线前一天，运维在群里问：「给我一个能跑的东西。」你发过去一个 `tar.gz` 压缩包，里面有 `server.js` 和 `package.json`。十分钟后他回：「Node 版本不对，报 `SyntaxError: Unexpected token 'with'`。」你用的是 Node 22，服务器上是 20，代码里用了 ESM 的 JSON 导入属性。
+一个 `tar.gz` 交付过去，里面是 `server.js` 和 `package.json`，对方一跑就报 `SyntaxError: Unexpected token 'with'`：本地是 Node 22，服务器上是 20，代码里用了 ESM 的 JSON 导入属性。
 
-问题不在代码，在「交付物」：你交的是**源码**，运行它的环境还在你机器上。Dockerfile 要交的是**源码 + 运行环境 + 启动方式**，三者写进一份可重复执行的文本（[Dockerfile reference](https://docs.docker.com/reference/dockerfile/) 是完整指令表），`docker build` 出来的镜像在谁的机器上都一样（镜像和容器的关系第 29 章讲过）。
+问题不在代码，在「交付物」：你交的是**源码**，运行它的环境还留在你机器上。Dockerfile 要交的是**源码 + 运行环境 + 启动方式**，三样写进一份可以重复执行的文本（[Dockerfile reference](https://docs.docker.com/reference/dockerfile/) 是完整指令表）。`docker build` 出来的镜像在谁的机器上都一样——镜像和容器的关系，第 29 章第一次讲过：镜像是模具，容器是照着模具做出来的那一份。
 
-这一章从一个不依赖任何第三方库的小服务开始，写完第一份 Dockerfile。本机没有 Docker，所以 `docker build`/`docker run` 的输出都标注为示例输出；前半段在宿主机上跑服务的输出是真实的。
+这一章从一个不依赖任何第三方库的小服务开始，写完第一份 Dockerfile。本机没有 Docker，所以 `docker build`/`docker run` 的输出都标了「示例输出，未实测」；前半段在宿主机上跑服务的输出是真跑过的。
 
 ## 先写服务，先在宿主机跑通
 
-把依赖拿掉，只留 Node 标准库，这样问题范围最小。目录长这样：
+把依赖拿掉，只留 Node 标准库，这样出问题时范围最小。目录长这样：
 
 ```text
 docker-first/
@@ -65,7 +65,7 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 ```
 
-`0.0.0.0` 这行在容器里是关键：只听 `127.0.0.1` 的话，端口映射进来了也访问不到。先在宿主机验证：
+`0.0.0.0` 这行在容器里是关键。你可以把它想成「门牌挂在哪一面墙上」：只听 `127.0.0.1`，相当于门只朝屋里开，端口映射从外面进来也敲不到门；监听 `0.0.0.0` 才是朝所有网卡开门。先在宿主机验证：
 
 ```bash
 PORT=3100 node server.js
@@ -88,9 +88,15 @@ kill -TERM $(lsof -ti:3100)
 
 ## 第一份 Dockerfile
 
-先分清三个词。**基础镜像**（`FROM`）是起点，它本身已经是一套能跑 Node 的完整用户空间，你只是在它上面加东西。**层**（layer）是每条指令的产出，Docker 缓存没变化的层，所以指令顺序直接决定一次构建是几秒还是几分钟。**构建上下文**（`docker build` 最后那个 `.`）是发送给构建器的目录，`COPY` 只能从里面取文件——它决定要传多少数据，也决定会不会把 `.env`、`.git` 打进镜像。
+先分清三个词，它们后面会一直出现。
 
-还有两个阶段别混：`docker build` 只产出镜像，`docker run` 才把镜像跑成容器。Dockerfile 不管镜像推到哪、也不管多机编排，那是 031 和 034 的事。
+**基础镜像**（`FROM`）是起点，像买现成的毛坯房：里面已经有一套能跑 Node 的完整用户空间，你只是在它上面添家具。没有它，你得从空内核开始装系统，那就不是写 Dockerfile 了。
+
+**层**（layer）是每条指令的产出，像千层饼，一层压一层。Docker 会缓存没变化的层，所以指令顺序直接决定一次构建是几秒还是几分钟。它和「镜像」的区别是：镜像是整块饼，层是做饼时留下的每一层。
+
+**构建上下文**（`docker build` 最后那个 `.`）是你送进车间的材料目录，`COPY` 只能从里面取文件。它决定要传多少数据，也决定会不会把 `.env`、`.git` 打进镜像。
+
+还有两个阶段别混：`docker build` 只产出镜像，`docker run` 才把镜像跑成容器。Dockerfile 不管镜像推到哪、也不管多机编排，那是第 31、34 章的事。
 
 在项目根目录建 `Dockerfile`：
 
@@ -183,7 +189,11 @@ node
 
 ## 为什么要有 tini 这一层
 
-`/proc/1` 是容器里的 1 号进程。这里它是 `tini`，Node 是它的子进程。把 `tini` 去掉，直接 `CMD ["node", "server.js"]` 也能跑——Node 自己注册了 SIGTERM 处理函数，`docker stop` 同样能优雅退出。
+`/proc/1` 是容器里的 1 号进程。这里它是 `tini`，Node 是它的子进程。
+
+先搞清 1 号进程是什么。在 Linux 里，1 号进程是「所有进程的祖宗」，它要负责两件杂事：把别人发给它的信号转给该收的人，以及给死掉的进程收尸（回收孤儿进程）。容器里没有完整的 init 系统，你 `CMD` 里写的那条命令就直接当了祖宗。
+
+把 `tini` 去掉，直接 `CMD ["node", "server.js"]` 也能跑——Node 自己注册了 SIGTERM 处理函数，`docker stop` 同样能优雅退出。
 
 但只要你写成 shell 形式：
 
@@ -193,7 +203,7 @@ CMD npm start
 
 PID 1 就变成了 `/bin/sh -c "npm start"`。`docker stop` 发的 SIGTERM 打到 shell 上，shell 不会转发给 node，等满 10 秒后 Docker 发 SIGKILL，退出码 137。日志里看不到你写的 `SIGTERM received, closing`，数据库连接、在途请求全部硬断。
 
-`tini` 解决两件事：转发信号给子进程、回收孤儿进程。代价是一个很小的二进制。判断标准很简单——**只要启动命令不是 exec 数组形式，或者进程本身不处理信号，就该加**。
+`tini` 就是这个「专职传话、顺手收尸」的角色。它解决两件事：转发信号给子进程、回收孤儿进程，代价是一个很小的二进制。判断标准很简单——**只要启动命令不是 exec 数组形式，或者进程本身不处理信号，就该加**。
 
 ```mermaid
 flowchart LR
@@ -214,7 +224,7 @@ flowchart LR
 
 ## 改一行代码，看哪几层还在缓存
 
-层缓存是 Dockerfile 里最影响日常体验的部分：Docker 按指令顺序逐层构建，某条指令的输入变了，它和它之后的所有层都要重算；前面的层没变就复用。
+层缓存是 Dockerfile 里最影响日常体验的部分。规则只有一句：Docker 按指令顺序逐层构建，某条指令的输入变了，它和它之后的所有层都要重算；前面的层没变就复用。像叠积木，抽掉中间一块，上面的全得重摆。
 
 改一下 `server.js` 里的日志文案，带 `--progress=plain` 重新构建：
 
@@ -242,7 +252,7 @@ RUN pnpm install --frozen-lockfile
 
 你改任何一个 `.ts` 文件，`COPY . .` 的缓存就失效，`pnpm install` 跟着重跑。依赖没变却每次等几分钟，这是最典型的 Dockerfile 写坏的方式。
 
-缓存也不是永久有效：换基础镜像、改构建参数、加 `--no-cache` 都会让它失效；CI 里想跨机器复用，还得配 cache backend，031 会讲。想只让某一层重跑，Docker 28 还支持 `--no-cache-filter=<stage>`，调试构建阶段时比整个 `--no-cache` 省时间。
+缓存也不是永久有效：换基础镜像、改构建参数、加 `--no-cache` 都会让它失效；CI 里想跨机器复用，还得配 cache backend，第 31 章会讲。想只让某一层重跑，Docker 28 还支持 `--no-cache-filter=<stage>`，调试构建阶段时比整个 `--no-cache` 省时间。
 
 ## 构建上下文和 .dockerignore
 
@@ -282,13 +292,13 @@ coverage
 
 再补几条：
 
-- **`EXPOSE` 只是元数据**，不发布端口、也不改运行时行为；端口靠 `-p` 映射。同理 `STOPSIGNAL` 只换信号，进程不处理 `SIGTERM` 的话，`docker stop` 照样等满 10 秒再 137。- **别在 `RUN`/`ENV`/`ARG` 里写密钥**。镜像层会保留历史，`docker history` 能看到；`ARG` 也会进镜像元数据。运行时用 `-e`、secret mount 或编排平台的 Secret。
-- **alpine 不是所有依赖都能装**。带原生扩展的包要针对 musl 编译，`sharp`、`bcrypt` 这类先确认有没有预编译版本，再决定换不换 `slim`。031 会具体算这笔账。
+- **`EXPOSE` 只是元数据**，不发布端口、也不改运行时行为；端口靠 `-p` 映射。同理 `STOPSIGNAL` 只换信号，进程不处理 `SIGTERM` 的话，`docker stop` 照样等满 10 秒再 137。
+- **别在 `RUN`/`ENV`/`ARG` 里写密钥**。镜像层会保留历史，`docker history` 能看到；`ARG` 也会进镜像元数据。运行时用 `-e`、secret mount 或编排平台的 Secret。
+- **alpine 不是所有依赖都能装**。带原生扩展的包要针对 musl 编译，`sharp`、`bcrypt` 这类先确认有没有预编译版本，再决定换不换 `slim`。第 31 章会具体算这笔账。
 - **tag 别只用 `latest`**。`docker-first:0.1.0` 至少能让你知道线上跑的是哪次构建，回滚有坐标。
 
 一个小服务能跑起来之后，Nest 项目会多出四件事：TypeScript 要先编译、pnpm 依赖要分层、Prisma 8 的契约产物要带上、非 root 用户要能写日志目录。下一章把这些一次理顺。
 
-想更深入的话，官方文档里有这几页可以接着看：[Dockerfile reference](https://docs.docker.com/reference/dockerfile/)（每条指令的准确定义，写第一份 Dockerfile 时拿不准属主、启动命令怎么写就翻它）、[Building best practices](https://docs.docker.com/build/building/best-practices/)（官方给的层顺序、缓存和瘦身建议，对应“改一行代码，看哪几层还在缓存”）、[.dockerignore](https://docs.docker.com/build/building/context/#dockerignore-files)（忽略文件的匹配规则，以及它和构建上下文的关系，对应正文构建上下文那节）、[tini](https://github.com/krallin/tini)（这个小 init 进程转发哪些信号、怎么回收孤儿进程，对应“为什么要有 tini 这一层”）。
 
 <!-- chapter-nav:start -->
 ---

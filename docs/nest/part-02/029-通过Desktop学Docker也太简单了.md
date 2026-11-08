@@ -1,16 +1,20 @@
 # 第 29 章 通过 Desktop 学 Docker 也太简单了
 
-新同事周一入职，clone 完仓库，`pnpm install` 跑了四分钟，`pnpm start:dev` 报 `Error: connect ECONNREFUSED 127.0.0.1:5432`。你让他装 PostgreSQL 17，他装完发现端口被本机另一个数据库占了；改完端口，Prisma 迁移又因为版本差了一个小号失败。一个上午没了。
+clone 完仓库，`pnpm install` 跑四分钟，`pnpm start:dev` 报 `Error: connect ECONNREFUSED 127.0.0.1:5432`。装上 PostgreSQL 17，端口又被本机另一个数据库占了；改完端口，Prisma 迁移因为版本差一个小号失败。一个上午就这么过去了。
 
-这类问题的根源不是谁技术差，而是**「运行环境」这件事从来没被当成代码来管理**。Node 版本、系统库、数据库、环境变量，散落在每个人的机器上，靠口头约定同步。Docker 做的事很朴素：把应用和它需要的那一层环境一起打包，变成可以复制、可以版本化的东西。
+问题不在操作的人，真正的原因是「程序跑起来需要的那套环境」一直没被当成代码管：Node 版本、系统库、数据库、环境变量，散落在每个人自己的电脑上，靠口头约定同步。Docker 干的事很朴素——把程序和它脚下那层环境一起打包，变成一个能复制、能存版本的东西。
 
-这一章不碰内核（033 再拆），先把「镜像、容器、卷、网络」四个对象的关系摆正，再真跑一个 Postgres。本机没装 Docker，所以下面的命令输出都标注为示例输出，结构和字段与真实 `docker` 一致，但没在你这台机器上跑过。
+这一章先不拆内核（第 33 章再拆），只把「镜像、容器、卷、网络」四个东西的关系摆正，然后真跑一个 Postgres。本机没装 Docker，所以下面的命令输出都标了「示例输出，未实测」：结构和字段与真实 `docker` 一致，但没在你这台机器上跑过。
 
 ## 先拆掉一个误解：容器不是小虚拟机
 
-这是学 Docker 第一个要纠正的直觉。虚拟机虚拟出整套硬件，每台跑自己的内核；容器不虚拟硬件，它只是宿主机上**被隔离的进程**——用 **namespace** 隔开进程能看到的东西（网络、文件系统挂载、PID），用 **cgroup** 限制它能用的资源（CPU、内存）。用白话讲：namespace 决定「你看得见什么」，cgroup 决定「你最多能用多少」；两者都是 Linux 内核能力，033 会拆到系统调用层。[Docker overview](https://docs.docker.com/get-started/docker-overview/) 和 [namespaces(7)](https://man7.org/linux/man-pages/man7/namespaces.7.html) 可以先扫一眼。
+这是学 Docker 第一个要纠正的直觉。
 
-两个直接后果：容器启动是毫秒到秒级，不是虚拟机的几十秒；容器里不能换内核、也不能跑一个架构不同的镜像。
+虚拟机像单独租一整套房：它虚拟出整套硬件，每台跑自己的内核，水电表全独立。容器更像合租房里隔出来的一间：墙是隔出来的，你看不见隔壁，但你用的还是整栋楼的水电，房东也还是宿主机。
+
+技术上就两句：**namespace** 决定容器「看得见什么」，把网络、文件系统挂载、进程号隔开；**cgroup** 决定容器「最多能用多少」，限制 CPU 和内存。两个都是 Linux 内核本来就有的能力，第 33 章会拆到系统调用那一层。[Docker overview](https://docs.docker.com/get-started/docker-overview/) 和 [namespaces(7)](https://man7.org/linux/man-pages/man7/namespaces.7.html) 可以先扫一眼。
+
+由此有两个直接后果：容器启动是毫秒到秒级，不是虚拟机的几十秒；容器里换不了内核，也跑不了架构不同的镜像。
 
 ```mermaid
 flowchart TB
@@ -30,20 +34,20 @@ flowchart TB
   D --> C2
 ```
 
-Mac 上 `docker info` 看到的 `OSType` 是 `linux`，不是 `darwin`，因为 `dockerd` 跑在 Desktop 拉起的那台 Linux 虚拟机里。你在终端敲的 `docker` 只是客户端，通过 socket（默认是 `/var/run/docker.sock` 这个 Unix 套接字）把请求送进去。Windows 用 WSL2 做同一件事。
+Mac 上 `docker info` 看到的 `OSType` 是 `linux` 不是 `darwin`，因为 `dockerd` 跑在 Desktop 拉起的那台 Linux 虚拟机里。你在终端敲的 `docker` 只是客户端，通过 socket（默认 `/var/run/docker.sock` 这个 Unix 套接字）把请求送进去。Windows 用 WSL2 做同一件事。
 
 ## 四个对象，一次说清
 
-后面所有命令，本质上都在操作这四个东西：
+后面所有命令，本质上都在操作这四个东西。先把类比记住，再看定义：
 
-- **镜像**（image）：只读模板，按层叠好的文件系统快照加一份启动配置。`postgres:17-alpine` 就是一份镜像，`docker pull` 只把它拉到本地，它不会运行。
-- **容器**（container）：镜像的一次运行实例。Docker 在只读层之上加一个可写层，再启动镜像里声明的进程。进程退出，容器就变成 `Exited`——`docker ps` 里显示 `Up`，靠的是那个前台进程还活着。
-- **卷**（volume）：由 Docker 管理的持久化存储，生命周期和容器解耦。容器换多少个，卷里的数据都在。
-- **网络**（network）：决定容器能看见谁。同一个自定义网络里，容器名可以直接当主机名用。
+- **镜像**（image）：做菜的菜谱，或者一副模具。它是只读模板，按层叠好的文件系统快照加一份启动配置。`postgres:17-alpine` 就是一份镜像，`docker pull` 只是把它拉到本地，它不会运行。没有镜像，容器就没有「照什么做」。
+- **容器**（container）：照着模具做出来的那一个成品，也是镜像的一次运行实例。Docker 在只读层之上加一个可写层，再启动镜像里声明的进程。进程退出，容器就变成 `Exited`——`docker ps` 里显示 `Up`，靠的是那个前台进程还活着。它和镜像最容易混：镜像是模板，容器是模板跑起来的那一份。
+- **卷**（volume）：外接硬盘。由 Docker 管理的持久化存储，生命周期和容器解耦。容器换多少个，卷里的数据都在。没有它，容器一删数据就没了。
+- **网络**（network）：楼里的内线电话。它决定容器能看见谁；同一个自定义网络里，容器名可以直接当主机名用。没有它，两个容器只能靠 IP 互访，IP 还会变。
 
 理解「可写层」是理解后面所有坑的钥匙：容器里写的文件，写在可写层；`docker rm` 删容器，可写层一起消失。数据库把数据目录放在可写层里，等于拿容器的命当磁盘用。
 
-镜像这边还有一个「分层」的性质，直接决定了 030 怎么写 Dockerfile：镜像由一层层只读文件系统叠起来，每条构建指令加一层。相同的基础层在不同镜像之间共享，磁盘上只存一份，`docker pull` 也只拉本地缺的层。所以「换一个更小的基础镜像」能省下的空间，往往比删几个文件多得多——后者只是在最上层记了一笔「已删除」，底下的层还在。真要减体积，得让被删的东西从一开始就不进入那一层。
+镜像还有个「分层」的性质，直接决定第 30 章怎么写 Dockerfile：镜像由一层层只读文件系统叠起来，每条构建指令加一层。相同的基础层在不同镜像之间共享，磁盘上只存一份，`docker pull` 也只拉本地缺的层。所以「换一个更小的基础镜像」能省下的空间，往往比删几个文件多得多——后者只是在最上层记了一笔「已删除」，底下的层还在。真要减体积，得让被删的东西从一开始就不进入那一层。
 
 ## 从 hello-world 到真的 Postgres
 
@@ -216,7 +220,7 @@ psql: error: connection to server at "localhost" (::1), port 5432 failed: Connec
 
 每个容器有自己的网络命名空间，`localhost` 指向它自己，而那个一次性客户端里没有 Postgres。`-p` 发布的是「宿主机 → 容器」的入口，不是「容器 → 容器」的入口。容器要访问宿主机上的服务，Desktop 用 `host.docker.internal`；Linux 上得加 `--add-host=host.docker.internal:host-gateway`。
 
-这也是 031 写连接串时最容易错的地方：`DATABASE_URL` 里的 host，取决于**这段配置在容器里跑还是在宿主机跑**，同一个值换个执行位置就不成立。
+这也是第 31 章写连接串时最容易错的地方：`DATABASE_URL` 里的 host，取决于**这段配置在容器里跑还是在宿主机跑**，同一个值换个执行位置就不成立。
 
 ## 每天都会用的几条
 
@@ -244,7 +248,6 @@ psql: error: connection to server at "localhost" (::1), port 5432 failed: Connec
 
 四个对象摆正之后，`docker run` 那串参数就不再是死记硬背：`-p` 是网络、`-v` 是卷、`-e` 是启动配置、镜像名决定里面有什么。下一章反过来——不用别人的镜像，自己写一个 Dockerfile，把 Node 服务打成镜像。
 
-想更深入的话，官方文档里有这几页可以接着看：[Docker overview](https://docs.docker.com/get-started/docker-overview/)（镜像、容器、卷、网络这几个对象的关系，对应“四个对象，一次说清”）、[Volumes](https://docs.docker.com/engine/storage/volumes/)（卷存在哪、怎么挂、容器删了为什么还在，对应“删掉容器，数据还在吗”）、[Bridge network driver](https://docs.docker.com/engine/network/drivers/bridge/)（默认网络怎么给容器分 IP、容器名怎么互相访问，对应“容器之间不叫 localhost”）、[docker run](https://docs.docker.com/reference/cli/docker/container/run/)（`-p`、`-v`、`-e` 这些参数各自管什么，对应文末“四个对象摆正之后”）。
 
 <!-- chapter-nav:start -->
 ---

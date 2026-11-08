@@ -1,28 +1,76 @@
 # 第 35 章 快速入门 PostgreSQL
 
-## 关系数据库：先弄懂表、行、主键和外键
+## 两个人订到同一间房，问题出在哪
 
-PostgreSQL 是关系数据库。「关系」不是说表与表之间有关系，而是数据按二维表组织：一张表只放一类东西，一行是一条完整记录，一列是一个字段。会议室预订这套东西天然分成三张表：`users` 存人，`rooms` 存房间，`bookings` 存「谁在什么时候订了哪间房」。每列都有类型，`start_time` 是时间、`seats` 是整数；类型不只决定「能存什么」，还决定怎么比较、怎么排序、能不能带时区。下面那场事故的根子就在类型上。
+A301 在同一时段出现了两条预订。两行 `start_time` 都是 `09:00`，字段类型是 `timestamp`——一条按北京时间填，一条按 UTC 填，两串数字一模一样，含义差了八小时。谁都没填错，是字段类型把时区吞了。
 
-光有表还不够。一行数据得能被唯一指认，否则「改陈默的手机号」可能改到两个人——这就是主键（primary key）：选定一列（或几列）当这一行的身份证，值不能重复、不能为 NULL。`users.id`、`rooms.id`、`bookings.id` 都是主键。另一张表要引用某一行时，就存那一行主键的值，这一列叫外键（foreign key）。`bookings.room_id` 是外键，指向 `rooms.id`：数据库会保证插进来的房间真实存在，删除房间时也会按事先约定的动作处理它的预订，而不是留下一堆找不到房间的孤儿行。
+再往前追一步，这两条记录本来就不该同时存在。现在的流程是「一间会议室一张 Excel，谁要订口头说一声，行政去改表」，问题从第一天就埋下了：
 
-索引是另一件常被跳过的事。没有索引时，`WHERE id = '...'` 要从第一行扫到最后一行；索引像书后面的目录，先查到位置再取那一行。主键和唯一约束会自动建索引，普通外键列在 PostgreSQL 里不会——第 37 章会看到这条规则怎么让删除变慢。
+- 数据有两个副本，两个人同时打开、各存各的，后保存的把前一个覆盖了。
+- 日期是手打的字符串，`11/4 上午` 和 `2026-11-04 09:00` 混在一列里，排序靠肉眼。
+- 想统计「上周哪间房最忙」，只能一格格数；数错了也没有任何东西会报警。
 
-把这些规则写进数据库、而不是只写在 Nest 的 DTO 里，是这一章的主线：`NOT NULL`、`UNIQUE`、`CHECK`、外键、`EXCLUDE`（禁止两行在指定范围上重叠）这些约束，让坏数据在入口就被拒绝。每个约束具体怎么写，下面用三张表的 DDL 逐个过；这里先知道它们各自在管什么就够。
+数据库接管的就是这三件事：**同一份数据只有一个地方存**，谁改了别人下一次查就能看到；**每列有类型**，日期就是日期，塞不进一句话；**可以按条件问它**，不用自己数格子。
+
+它不是一个更快的 Excel。它是个会替你守规矩的程序——规矩写进库里之后，绕过你写的 Nest 代码、直接敲 SQL 也破不了。这一章从最基础的几个词讲起，然后用 PostgreSQL 17 把会议室预订的三张表建起来，灌进 14 条数据，最后从 Node 里查一次。往后六章的查询、JOIN、事务，都在这套表和数据上做。
+
+选 PG 不选 MySQL 的理由很实在：时区错一小时、金额差几分、两个人同时订到同一间房，这三件事在 PG 的类型和约束里有直接答案（`timestamptz`、`numeric`、`EXCLUDE`，第 41 章细讲），MySQL 的对应写法后面会随手标出来。
+
+先说清一件事：下面所有输出都是**示例输出**，命令未实测。写作环境里没有真的跑起 PostgreSQL 17，数值是按这章灌进去的 14 条预订推算的，报错文本取自 PG 17 文档。你在自己机器上跑，UUID 和耗时会对不上，行数和结论应该一致。
+
+## 表、行、列，先把词对上
+
+关系数据库把数据放在二维表里。「关系」这个词跟表与表之间的关系没关系，它指的是数据按行和列摆整齐，是数学史留下来的包袱，先不用管。
+
+- **表（table）**：一类东西的集合。`users` 表只放人，`rooms` 只放会议室，`bookings` 只放「谁在什么时候订了哪间房」。类比：文件柜的一层抽屉，里面每张卡片格式都一样。
+- **行（row）**：表里的一条完整记录。`users` 的一行是一个用户，`bookings` 的一行是一次预订。也叫记录（record）。
+- **列（column）**：一条记录里的一个字段。`users` 有 `name`、`email`、`created_at` 这几列，每列放同一类信息。也叫字段（field）。
+
+为什么非要拆成行和列？把所有信息塞进一张大表也行——预订 id、用户名、房间名、房间容量、开始时间全在一行。问题是同一间房的容量会在几十条预订里重复几十遍，改一次要改几十行，改漏一行就出现「同一个房间两个容量」。这种重复叫冗余，第 38 章会讲怎么拆开。
+
+每列都有一个**类型**：`start_time` 是时间，`seats` 是整数，`status` 是一小撮固定字符串。类型不只决定「能存什么」，还决定怎么比较、怎么排序、能不能带时区。开头那场事故的根子就在类型上：`timestamp` 不存时区，谁写进来的字面量就是什么，两个人各自以为的「九点」被存成了同一个数字。
+
+## 主键：这一行的身份证
+
+一行数据得能被唯一指认，否则「改陈默的手机号」这句话，数据库不知道你指哪一行——万一有两个陈默。
+
+**主键（primary key）** 就是选定一列（或几列）当这一行的身份证：值不能重复、不能为空，一张表只能有一个主键。`users.id`、`rooms.id`、`bookings.id` 都是主键。
+
+没有它会卡在哪？`UPDATE users SET phone = ...` 少写一个 `WHERE`，全表所有人的手机号一起被改；想删掉某一条预订，只能靠「房间名 + 时间 + 备注」拼条件，拼漏一个字段就删错。有主键，改和删都只说一句「id 等于这个」。
+
+它跟唯一约束（`UNIQUE`）差在哪：两者都禁止重复，但主键额外禁止 `NULL`，而且一张表只能有一个；`UNIQUE` 可以有好几个，也允许 `NULL`（PG 认为两个 `NULL` 不算撞车）。一句话记：主键是身份，唯一约束是「这列不许重复」。
+
+## 外键：指向另一张表的那一行
+
+`bookings` 里存的是 `room_id`，不是房间名字。这个值必须是 `rooms` 里真实存在的一行，这条规则叫**外键（foreign key）**。类比：借条上写的「借款人身份证号」，得是派出所能查到的那个人；写个假号，借条就废了。
+
+没有它会卡在哪？应用里一个手滑，`bookings` 里出现一个指向不存在房间的 `room_id`：报表按房间分组时多出一行「幽灵房」，JOIN 一查还是空，而且半年后你才发现，已经不知道该修哪一条。
+
+外键和主键最容易混：主键回答「我是谁」，外键回答「我指向谁」。外键是子表上的列，值必须能在父表主键里找到。
+
+外键顺带还决定了一件事：删掉父表那一行时，子表这些行怎么办。这个动作叫**级联**，`ON DELETE CASCADE` 是跟着删，`ON DELETE RESTRICT` 是拦住你。第 37 章会用「删一间会议室」把五种动作过一遍。
+
+## 索引：书后面的目录
+
+没有索引时，`WHERE id = '...'` 要从第一行扫到最后一行，几万行还能忍，几百万行就是每次查询都在等磁盘。
+
+**索引（index）** 像书后面的目录：先查到位置，再直接翻到那一页。它是额外维护的一份有序结构，代价是每次写入都要顺手更新它。
+
+它和主键的区别：主键底下**自动**配一个索引，但索引不等于主键——你可以在任意列上建索引，一个表也能建很多个。反过来，普通外键列在 PostgreSQL 里**不会**自动建索引，第 37 章会看到这条规则怎么让删房间变慢。
+
+## 约束：把规矩写进库里
+
+把这些规则写进数据库、而不是只写在 Nest 的 DTO 里，是这一章的主线。
+
+理由很直接：DTO 只拦得住走你这个接口的请求。运维手敲一条 SQL、另一个服务直连、迁移脚本跑错，都绕过 DTO。而 `NOT NULL`、`UNIQUE`、`CHECK`、外键、`EXCLUDE`（禁止两行在指定范围上重叠）这些**约束**写在表上，谁进来都得先过这一关，坏数据在入口就被拒绝。
+
+每个约束具体怎么写，下面用三张表的 DDL 逐个过；这里先知道它们各自在管什么就够。
 
 官方文档（先看懂正文再点）：
-- [关系模型与建表](https://www.postgresql.org/docs/17/tutorial-table.html)：讲一张表怎么建、每列放什么，对应开头「表、行、主键」那段。
+- [关系模型与建表](https://www.postgresql.org/docs/17/tutorial-table.html)：讲一张表怎么建、每列放什么，对应开头「表、行、列」那段。
 - [DDL](https://www.postgresql.org/docs/17/ddl.html)：建表、改表语句的总目录，后面三张表的写法都从这里查。
-- [约束](https://www.postgresql.org/docs/17/ddl-constraints.html)：`NOT NULL`、`UNIQUE`、`CHECK`、外键各管什么，对应「把规则写进 DDL」。
-- [索引](https://www.postgresql.org/docs/17/indexes.html)：为什么没有索引就要全表扫，对应开头讲索引的那段。
-
-现在看一个真实事故。
-
-周一早上九点，前台在群里贴了两张截图：A301 同一时段被销售和市场各订了一次。你登进库核对，两行的 `start_time` 都是 `09:00`，字段类型是 `timestamp`——销售填的是北京时间，市场以为自己填的是 UTC，两串数字一模一样，含义差了八小时。谁都没填错，是字段类型把时区吞了。
-
-先把 PostgreSQL 17 跑起来，用会议室预订的三张表把「数据该长什么样」定下来。往后六章的查询、JOIN、事务，都在这套表和数据上做。选 PG 不选 MySQL 的理由很实在：时区错一小时、金额差几分、两个人同时订到同一间房，这三件事在 PG 的类型和约束里有直接答案（`timestamptz`、`numeric`、`EXCLUDE`，第 41 章细讲），MySQL 的对应写法后面会随手标出来。
-
-先说清一件事：下面所有输出都是**示例输出**。写作环境里没有真的跑起 PostgreSQL，数值是按这章灌进去的 14 条预订推算的，报错文本取自 PG 17 文档。你在自己机器上跑，UUID 和耗时会对不上，行数和结论应该一致。
+- [约束](https://www.postgresql.org/docs/17/ddl-constraints.html)：`NOT NULL`、`UNIQUE`、`CHECK`、外键各管什么，对应上面「把规矩写进库里」。
+- [索引](https://www.postgresql.org/docs/17/indexes.html)：为什么没有索引就要全表扫，对应「索引」那段。
 
 > **图 35-1** 从应用和 psql 到三张表的路径
 
@@ -74,7 +122,9 @@ docker exec pg17 pg_isready -U postgres -d booking
 docker exec -it pg17 psql -U postgres -d booking
 ```
 
-提示符变成 `booking=#`。MySQL 的层级是「库 → 表」，PG 中间多一层 schema，所以一张表的完整名字是 `database.schema.table`——跨 database 查询在 PG 里做不到，要跨库只能上 `postgres_fdw` 或者在应用层拼。
+提示符变成 `booking=#`。`psql` 是 PG 自带的命令行客户端，相当于「直接进数据库里说话」的窗口，不经任何应用代码。
+
+MySQL 的层级是「库 → 表」，PG 中间多一层 **schema**。类比：database 是一栋楼，schema 是楼层，table 是抽屉——你要找东西，得先说哪栋楼、哪层、哪个抽屉。所以一张表的完整名字是 `database.schema.table`。跨 database 查询在 PG 里做不到，要跨库只能上 `postgres_fdw` 或者在应用层拼。
 
 ```text
 booking=# \dn
@@ -89,7 +139,7 @@ Did not find any relations.
 
 `public` 是默认 schema，库刚建出来时它就是空的；`template0` / `template1` 是建库模板，别往里写业务数据。还有一个容易误会的点：`public` 不等于「公共可写」，PG 15 起它默认就不再对所有人开放建表权限，后面授权那一节会撞上。
 
-几个够用的元命令：
+几个够用的元命令（反斜杠开头，是 psql 自己的命令，不是 SQL）：
 
 | 命令 | 作用 |
 | --- | --- |
@@ -101,11 +151,15 @@ Did not find any relations.
 | `\x` | 切换扩展显示，宽表必备 |
 | `\timing` | 打开后每条语句显示耗时 |
 
-`\dt` 查的是 `search_path` 里的 schema，默认 `"$user", public`。建表时没写 schema 就落在 `public`；哪天 `search_path` 被改过，`\dt` 看不见表不代表表没了，`\dt *.*` 才是全库扫。psql 里还有一条隐式规则要习惯：不加双引号的标识符会被折叠成小写，`CREATE TABLE Users` 建出来其实叫 `users`；只有加了引号的 `"Users"` 才保留大小写，之后每次查询也都得带引号。这是从 MySQL 迁过来最常见的「表明明建了却说不存在」。
+`\dt` 查的是 `search_path` 里的 schema，默认 `"$user", public`。建表时没写 schema 就落在 `public`；哪天 `search_path` 被改过，`\dt` 看不见表不代表表没了，`\dt *.*` 才是全库扫。
+
+psql 里还有一条隐式规则要习惯：不加双引号的标识符会被折叠成小写，`CREATE TABLE Users` 建出来其实叫 `users`；只有加了引号的 `"Users"` 才保留大小写，之后每次查询也都得带引号。这就像门牌号默认不区分大小写，你非要用大写登记，之后每次找它都得一字不差地念。这是从 MySQL 迁过来最常见的「表明明建了却说不存在」。
 
 ## 三张表，把规则写进 DDL
 
-会议室系统的核心就三张表：谁（`users`）、在哪（`rooms`）、订了什么时段（`bookings`）。建表用的 `CREATE TABLE` 属于 DDL（数据定义语言），和 `SELECT`/`INSERT` 那类 DML 分开记；PG 的 DDL 是事务性的，`BEGIN; ALTER TABLE ...; ROLLBACK;` 真的能撤销，MySQL 的 DDL 会隐式提交，写迁移脚本时这条差异很关键。
+会议室系统的核心就三张表：谁（`users`）、在哪（`rooms`）、订了什么时段（`bookings`）。
+
+建表用的 `CREATE TABLE` 属于 **DDL**（数据定义语言），管的是「结构」；`SELECT`/`INSERT` 那类属于 DML，管的是「数据」。第 36 章会给你一张四类语句的对照表，这里先记住一件事：**PG 的 DDL 是事务性的**，`BEGIN; ALTER TABLE ...; ROLLBACK;` 真的能撤销；MySQL 的 DDL 会隐式提交，写迁移脚本时这条差异很关键——迁移失败时 PG 能把半截 DDL 一起回滚，MySQL 可能给你留一个改了一半的表。
 
 ```sql
 CREATE TABLE users (
@@ -149,17 +203,19 @@ CREATE INDEX idx_bookings_user ON bookings (user_id);
 
 这段 DDL 里有几处是在「把规则写进库里」，值得逐个交代：
 
-- **主键（primary key）** 是能唯一标识一行的列，隐含 `NOT NULL` + `UNIQUE`，底下自动配一个 B-tree 索引；没有它，两行就分不开，`UPDATE` 可能改错行。这里用 `uuid`：订单 id 一进 URL，自增整数就等于把「这个月有多少单」写给所有人看。代价是 16 字节、v4 随机分布会打散 B-tree 的页，写放大高一点——会议室这个量级不用纠结。
-- **`timestamptz` 存绝对时刻**。它内部是 UTC（微秒精度），显示时按会话的 `TimeZone` 换算；`timestamp` 只存字面量，谁写进来就永远是什么，跨时区必出事。`now()` 返回的也是 `timestamptz`，两者能直接比。
+- **主键** 是能唯一标识一行的列，隐含 `NOT NULL` + `UNIQUE`，底下自动配一个 B-tree 索引；没有它，两行就分不开，`UPDATE` 可能改错行。这里用 `uuid`：订单 id 一进 URL，自增整数就等于把「这个月有多少单」写给所有人看。代价是 16 字节、v4 随机分布会打散 B-tree 的页，写放大高一点——会议室这个量级不用纠结。
+- **`timestamptz` 存绝对时刻**。它内部是 UTC（微秒精度），显示时按会话的 `TimeZone` 换算；`timestamp` 只存字面量，谁写进来就永远是什么，跨时区必出事。开头那场事故就是 `timestamp` 干的。`now()` 返回的也是 `timestamptz`，两者能直接比。
 - **`CHECK` 是写在表上的规则**，绕过 Nest 直接跑 SQL 的脚本也破不了。注意它的三值逻辑：表达式结果是 `NULL` 时视为通过——所以 `end_time > start_time` 要真的兜住，两列都得 `NOT NULL`。
 - **外键动作（`ON DELETE`）先想清楚语义**。用户注销，他的预订跟着 `CASCADE` 删掉；会议室不能删，历史预订要留证据，所以用 `RESTRICT` 挡住。`NO ACTION` 默认也是拒绝，但可以配 `DEFERRABLE` 延迟到事务末尾检查，日常写 `RESTRICT` 表意更明确。
-- **索引（index）** 是为了不必全表扫而额外维护的有序结构，代价是每次写入都要维护它。查「某间房某天有没有空」走 `(room_id, start_time)`；复合索引只能从最左列开始用，`WHERE start_time > ...` 单独出现时用不上它。第三列 `end_time` 帮不上过滤，它的价值是让「只取这三列」的查询走覆盖索引，少回表。
+- **索引** 是为了不必全表扫而额外维护的有序结构，代价是每次写入都要维护它。查「某间房某天有没有空」走 `(room_id, start_time)`；复合索引只能从最左列开始用，`WHERE start_time > ...` 单独出现时用不上它。第三列 `end_time` 帮不上过滤，它的价值是让「只取这三列」的查询走覆盖索引，少回表。
 
 `equipment` 用 `text[]` 存标签，比逗号拼接好查：`@>` 判断包含，`&&` 判断有交集，都能直接用 GIN 索引；逗号串只能 `LIKE '%projector%'`，既走不了索引，还会把 `projector2` 误匹配进来。
 
 ## 别让应用拿超级用户连
 
-现在表是 `postgres` 建的。应用继续用超级用户连，等于把整台库交给一个刚毕业的 ORM 配置错误：一条拼错的 `DELETE`、一次误执行的迁移，都没有第二道闸。建一个只够用的角色：
+现在表是 `postgres` 建的。应用继续用超级用户连，等于把整栋楼的万能钥匙交给一个刚毕业的 ORM 配置错误：一条拼错的 `DELETE`、一次误执行的迁移，都没有第二道闸。
+
+建一个只够用的角色：
 
 ```sql
 ALTER DATABASE booking SET timezone TO 'Asia/Shanghai';
@@ -176,7 +232,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO booking_app;
 ```
 
-这几类权限是分层的，缺一层就报错：`CONNECT` 决定能不能连库，`USAGE ON SCHEMA` 决定能不能「看见」这个 schema 里的对象（少了它连上去也报 `permission denied for schema public`），表级 `SELECT/INSERT/...` 才决定能做什么。`ALTER DATABASE ... SET timezone` 只对新会话生效，验证要重连：
+这几类权限是分层的，缺一层就报错，像进楼的三道门禁：`CONNECT` 决定能不能进这栋楼（连库），`USAGE ON SCHEMA` 决定能不能看见这一层（少了它连上去也报 `permission denied for schema public`），表级 `SELECT/INSERT/...` 才决定进屋能做什么。
+
+`ALTER DATABASE ... SET timezone` 只对新会话生效，验证要重连：
 
 ```text
 booking=# \c booking
@@ -192,24 +250,26 @@ booking=# SHOW timezone;
 
 ## 灌 14 条预订
 
-用户和会议室直接插，注意 `equipment` 的数组字面量写法：
+用户和会议室直接插。注意 `equipment` 的数组字面量写法是 `'{projector,whiteboard}'`：
 
 ```sql
-INSERT INTO users (name, email, password_hash, role) VALUES
-  ('林岚', 'linlan@example.com', '$2b$12$demo', 'ADMIN'),
-  ('陈默', 'chenmo@example.com', '$2b$12$demo', 'USER'),
-  ('周雨', 'zhouyu@example.com', '$2b$12$demo', 'USER'),
-  ('赵启', 'zhaoqi@example.com', '$2b$12$demo', 'USER'),
-  ('孙禾', 'sunhe@example.com', '$2b$12$demo', 'USER'),
-  ('吴桐', 'wutong@example.com', '$2b$12$demo', 'USER');
+INSERT INTO users (id, name, email, password_hash, role) VALUES
+  ('11111111-1111-4111-8111-111111111111', '林岚', 'linlan@example.com', '$2b$12$demo', 'ADMIN'),
+  ('22222222-2222-4222-8222-222222222222', '陈默', 'chenmo@example.com', '$2b$12$demo', 'USER'),
+  ('33333333-3333-4333-8333-333333333333', '周雨', 'zhouyu@example.com', '$2b$12$demo', 'USER'),
+  ('44444444-4444-4444-8444-444444444444', '赵启', 'zhaoqi@example.com', '$2b$12$demo', 'USER'),
+  ('55555555-5555-4555-8555-555555555555', '孙禾', 'sunhe@example.com', '$2b$12$demo', 'USER'),
+  ('66666666-6666-4666-8666-666666666666', '吴桐', 'wutong@example.com', '$2b$12$demo', 'USER');
 
-INSERT INTO rooms (name, capacity, location, equipment, status) VALUES
-  ('A301', 8,  'A 座 3 层', '{projector,whiteboard}', 'AVAILABLE'),
-  ('A302', 12, 'A 座 3 层', '{projector,video,speakerphone}', 'AVAILABLE'),
-  ('B201', 4,  'B 座 2 层', '{whiteboard}', 'AVAILABLE'),
-  ('B202', 20, 'B 座 2 层', '{projector,video,speakerphone,whiteboard}', 'AVAILABLE'),
-  ('C101', 6,  'C 座 1 层', '{tv}', 'MAINTENANCE');
+INSERT INTO rooms (id, name, capacity, location, equipment, status) VALUES
+  ('a1111111-1111-4111-8111-111111111111', 'A301', 8,  'A 座 3 层', '{projector,whiteboard}', 'AVAILABLE'),
+  ('a2222222-2222-4222-8222-222222222222', 'A302', 12, 'A 座 3 层', '{projector,video,speakerphone}', 'AVAILABLE'),
+  ('a3333333-3333-4333-8333-333333333333', 'B201', 4,  'B 座 2 层', '{whiteboard}', 'AVAILABLE'),
+  ('a4444444-4444-4444-8444-444444444444', 'B202', 20, 'B 座 2 层', '{projector,video,speakerphone,whiteboard}', 'AVAILABLE'),
+  ('a5555555-5555-4555-8555-555555555555', 'C101', 6,  'C 座 1 层', '{tv}', 'MAINTENANCE');
 ```
+
+用户和会议的 `id` 都是手写的，没用 `gen_random_uuid()` 的默认值。因为后面几章要反复按固定 id 查：A301 是 `a1111111-...`，陈默是 `22222222-...`。随机生成的 id 每台机器都不一样，示例和输出就对不上了。默认值只在没给 id 时兜底。
 
 预订表要引真实 id，手写 14 条子查询太脏，用 `VALUES` 拼一张临时表，再 `JOIN` 换出 id：
 
@@ -236,7 +296,9 @@ JOIN users u ON u.email = v.email
 JOIN rooms r ON r.name = v.room;
 ```
 
-`+08` 是时区偏移，`timestamptz` 认；写成 `'2026-11-02 09:00'` 会按会话时区解释，换台机器结果就变——这正是开头那场事故的另一种形态。这 14 条覆盖四种状态、五个工作日，后面章节的统计都基于它。`INSERT ... SELECT` 从 `VALUES` 读数据、再按邮箱和房名换真实 id，比手写 14 条子查询清爽，也不怕 id 顺序变；`JOIN users` 在这里兼当校验，邮箱写错的行会直接插不进去，而不是塞一条对不上人的预订。
+`+08` 是时区偏移，`timestamptz` 认；写成 `'2026-11-02 09:00'` 会按会话时区解释，换台机器结果就变——这正是开头那场事故的另一种形态。
+
+这 14 条覆盖四种状态、五个工作日，后面章节的统计都基于它。`INSERT ... SELECT` 从 `VALUES` 读数据、再按邮箱和房名换真实 id，比手写 14 条子查询清爽，也不怕 id 顺序变；`JOIN users` 在这里兼当校验，邮箱写错的行会直接插不进去，而不是塞一条对不上人的预订。
 
 ## 写进去，马上把行拿回来
 
@@ -293,7 +355,9 @@ ERROR:  duplicate key value violates unique constraint "users_email_key"
 DETAIL:  Key (email)=(chenmo@example.com) already exists.
 ```
 
-约束名 `users_email_key` 是「表名 + 列名 + key」拼出来的。应用里按 `err.constraint` 判断「邮箱已注册」比匹配整段错误文本稳——错误文案随语言环境变，约束名是你自己定的。要「有就跳过、没有就插」，用 `ON CONFLICT (email) DO NOTHING` 或 `DO UPDATE`，它只处理你指定的冲突目标，不会把别的唯一约束一起吞掉，也就是 MySQL `INSERT ... ON DUPLICATE KEY UPDATE` 的对应物。
+约束名 `users_email_key` 是「表名 + 列名 + key」拼出来的。应用里按 `err.constraint` 判断「邮箱已注册」比匹配整段错误文本稳——错误文案随语言环境变，约束名是你自己定的。
+
+要「有就跳过、没有就插」，用 `ON CONFLICT (email) DO NOTHING` 或 `DO UPDATE`，它只处理你指定的冲突目标，不会把别的唯一约束一起吞掉，也就是 MySQL `INSERT ... ON DUPLICATE KEY UPDATE` 的对应物。
 
 ## 从 Node 里查一次
 
@@ -319,7 +383,7 @@ export const pool = new Pool({
 });
 ```
 
-`Pool` 维持一组长连接，用完归还，省掉每次请求重新握手。`max` 是上限，不是越大越好：数据库的连接数、内存、CPU 都有限，十个并发配十个连接通常够用，调到 100 只会让锁等待更长。`connectionTimeoutMillis` 必须设，否则数据库挂掉时请求一直排队，直到把整个进程拖死。
+`Pool` 维持一组长连接，用完归还，像一叠预先办好的月卡：不用每个请求都排队办卡（重新握手、认证），代价是占着资源。`max` 是上限，不是越大越好：数据库的连接数、内存、CPU 都有限，十个并发配十个连接通常够用，调到 100 只会让锁等待更长。`connectionTimeoutMillis` 必须设，否则数据库挂掉时请求一直排队，直到把整个进程拖死。
 
 ```ts
 // src/rooms/rooms.repository.ts
@@ -359,7 +423,11 @@ ORDER BY capacity DESC;
 
 C101 不在结果里，因为它的 `status` 是 `MAINTENANCE`。还有个 `pg` 特有的坑：`integer` 会解析成 JS `number`，`numeric` 默认返回**字符串**，因为 JS 的 `number` 是双精度浮点，装不下任意精度。金额字段别顺手 `parseFloat`，要么保持字符串交给 `decimal` 库，要么在 SQL 里 `::float8` 并明确接受精度损失。
 
-上面那个 `Room` 类型是照着 `SELECT` 的列手写的，它是一个 **PO**（Persistent Object，持久化对象）：字段和表列一一对应，只负责把行装回来。再给它加上 `reschedule()` 这类行为，就更接近 **Entity**（实体）——有唯一标识、生命周期可追踪的业务对象。把查询收在 `rooms.repository.ts` 这种文件里、方法名用业务语义（`findAvailableRooms`），就是 **Repository**；贴着表写、方法粒度是「按表 + 条件」的叫 **DAO**，小项目里两者常合成一个文件，关键不是叫法，是别让 SQL 散进 Controller 和 Service。接口那一层用的是另外两个词：**DTO** 是请求形状（`CreateBookingDto`，第 20 章用 `ValidationPipe` 校验），**VO** 是给页面裁剪过的展示形状（只留 id、name、capacity）。example 项目里 `src/modules/bookings/bookings.service.ts` 放业务规则，`src/modules/bookings/dto/create-booking.dto.ts` 放接口形状。
+上面那个 `Room` 类型是照着 `SELECT` 的列手写的，它是一个 **PO**（Persistent Object，持久化对象）：字段和表列一一对应，只负责把行装回来。再给它加上 `reschedule()` 这类行为，就更接近 **Entity**（实体）——有唯一标识、生命周期可追踪的业务对象。类比：PO 是「从抽屉里拿出来的一张卡片」，Entity 是「这张卡片背后那个能改期、能取消的会议」。
+
+把查询收在 `rooms.repository.ts` 这种文件里、方法名用业务语义（`findAvailableRooms`），就是 **Repository**；贴着表写、方法粒度是「按表 + 条件」的叫 **DAO**。小项目里两者常合成一个文件，关键不是叫法，是别让 SQL 散进 Controller 和 Service。
+
+接口那一层用的是另外两个词：**DTO** 是请求形状（`CreateBookingDto`，第 20 章用 `ValidationPipe` 校验），**VO** 是给页面裁剪过的展示形状（只留 id、name、capacity）。example 项目里 `src/modules/bookings/bookings.service.ts` 放业务规则，`src/modules/bookings/dto/create-booking.dto.ts` 放接口形状。
 
 等第 45 章接入 Prisma，这些 SQL 会被 `db.orm.public.Room` 取代，但「Service 不关心 SQL」这条边界仍然保留——分层不是文件数量，是依赖方向。
 
@@ -394,9 +462,8 @@ C101 不在结果里，因为它的 `status` 是 `MAINTENANCE`。还有个 `pg` 
 
 最后一条在 CI 里特别常见：`-it` 会报 `the input device is not a TTY`，换成 `-i` 或直接 `psql -c "..."` 就好。这类错误不影响数据，但会让流水线在第一步就红，排查时先看环境有没有 TTY，别去怀疑密码。
 
-库跑起来了，三张表带着约束，连接串也能通，你还知道主键、外键、约束、索引分别在哪一层起作用。下一章把运营每天在群里问的那几个问题——「今天还剩哪间房」「谁订得最多」「哪间最闲」——逐个写成查询，顺便看清同一条需求为什么能写出三种结果不同的 SQL。
+库跑起来了，三张表带着约束，连接串也能通，你现在知道表、行、主键、外键、约束、索引分别在哪一层起作用。下一章把运营每天问的那几个问题——「今天还剩哪间房」「谁订得最多」「哪间最闲」——逐个写成查询，顺便看清同一条需求为什么能写出三种结果不同的 SQL。
 
-想更深入的话，官方文档里有这几页可以接着看：[PostgreSQL 17 Tutorial](https://www.postgresql.org/docs/17/tutorial.html)（从装库到第一条查询的完整入门，比本章多了数据导入导出）、[官方镜像说明](https://hub.docker.com/_/postgres)（`docker run` 那些环境变量和挂卷参数的解释，对应起容器那节）、[`psql` 元命令](https://www.postgresql.org/docs/17/app-psql.html)（`\d`、`\l` 这些反斜杠命令的清单，正文进 psql 时用过几个）、[GRANT](https://www.postgresql.org/docs/17/sql-grant.html)（表、列、函数权限的完整写法，对应「别让应用拿超级用户连」）、[数据类型](https://www.postgresql.org/docs/17/datatype.html)（`timestamptz`、`numeric` 的取值范围和精度，对应文末的时区事故）。
 
 <!-- chapter-nav:start -->
 ---

@@ -1,27 +1,41 @@
 # 第 36 章 SQL 查询语句的所有语法和函数（PostgreSQL 版）
 
-## SQL 查询在做什么
+## 一条查询在做什么
 
-一条 SQL 查询的输入是一张或多张表，输出也是一张表：若干行、若干列，叫作结果集（result set）。它可能 0 行，可能 1 行，也可能几万行；`SELECT` 后面写哪些列，结果就长什么样。数据库不会把表原样还给你，它按你描述的条件筛、拼、分组、排序，最后交回结果集。
+一条查询的输入是一张或多张表，输出也是一张表：若干行、若干列，叫结果集（result set）。可能 0 行，可能 1 行，也可能几万行；`SELECT` 后面写哪些列，结果就长什么样。数据库不会把表原样还给你，它按你描述的条件筛、拼、分组、排序，最后交回结果集。
 
-写查询时只描述「要什么」，不描述「怎么扫、走哪个索引、先连哪张表」。同一句需求可以写好几种 SQL，结果一样、执行路径可能差几十倍——先写对，再看快不快。
+拿点菜打比方：你只说「一份宫保鸡丁，不要花生」，不会进厨房指挥先热锅还是先切鸡。SQL 也是这样，你描述「要什么」，不描述「怎么扫、走哪个索引、先连哪张表」——那是规划器的事，第 37 章会用 `EXPLAIN` 把它的选择打出来看。
 
-查询由几个部件拼起来：`FROM` / `JOIN` 决定从哪些表取行，`WHERE` 过滤行，`GROUP BY` 把行分组，`HAVING` 过滤组，`SELECT` 算列，`ORDER BY` 排序，`LIMIT` 截断。聚合函数（`count`、`sum`、`avg`）把一组行压成一个值；窗口函数不压行，只在每行旁边多算一列。这两类后面都会单独讲。
+同一句需求可以写好几种 SQL，结果一样、执行路径可能差几十倍。先写对，再看快不快。
+
+查询由这几个部件拼起来，先混个眼熟：
+
+| 部件 | 一句人话 | 最小例子 |
+| --- | --- | --- |
+| `FROM` / `JOIN` | 从哪张表取行，两张表怎么拼 | `FROM bookings b JOIN rooms r ON r.id = b.room_id` |
+| `WHERE` | 按条件筛掉不要的行 | `WHERE b.status = 'APPROVED'` |
+| `GROUP BY` | 按某列分组，一组压成一行 | `GROUP BY r.id` |
+| `HAVING` | 分组之后再筛组 | `HAVING count(*) >= 3` |
+| `SELECT` | 结果里出现哪些列、怎么算 | `SELECT r.name, count(*)` |
+| `ORDER BY` | 排序 | `ORDER BY r.name` |
+| `LIMIT` / `OFFSET` | 只取前几行 / 跳过前几行 | `LIMIT 20 OFFSET 40` |
+
+聚合函数（`count`、`sum`、`avg`）把一组行压成一个值；窗口函数不压行，只在每行旁边多算一列。这两类下面各有一节。
 
 同一份数据，过滤条件不同、聚合方式不同，答出来的数就不同。问「哪间房最忙」，得先定义「忙」：按场次算还是按占用小时算？驳回和取消算不算？这个定义就是口径。口径没对齐，两条 SQL 都合法，答案却打架。
 
 官方文档（先看懂正文再点）：
-- [SELECT](https://www.postgresql.org/docs/17/sql-select.html)：`SELECT` 每个部件（`FROM`、`WHERE`、`GROUP BY`、`ORDER BY`）的完整语法，对着本章开头的部件表看。
+- [SELECT](https://www.postgresql.org/docs/17/sql-select.html)：`SELECT` 每个部件（`FROM`、`WHERE`、`GROUP BY`、`ORDER BY`）的完整语法，对着上面那张部件表看。
 - [聚合函数](https://www.postgresql.org/docs/17/functions-aggregate.html)：`count`、`sum`、`avg` 这些把一组行压成一个值的函数，本章讲聚合那几段用得到。
-- [窗口函数](https://www.postgresql.org/docs/17/tutorial-window.html)：不压行、只在每行旁边多算一列的写法，和正文「窗口函数不压行」那句对着看。
+- [窗口函数](https://www.postgresql.org/docs/17/tutorial-window.html)：不压行、只在每行旁边多算一列的写法，和下面「窗口函数」那节对着看。
 
 现在看一个真实事故。
 
-运营在群里问：上周哪间房最忙？你回 A302。她回得很快：那当然，五场会都在那儿。你再看一遍，A302 那五场里有一场被驳回、一场取消，真正占用的只有四小时；把状态收窄之后，A301 以五小时反超。数字刚对上，`count(*)` 和 `count(remark)` 又差 1。
+上周哪间房最忙？按 `count(*)` 排，A302 排第一：五场会都在那儿。再看一遍，A302 那五场里有一场被驳回、一场取消，真正占用的只有四小时；把状态收窄之后，A301 以五小时反超。数字刚对上，`count(*)` 和 `count(remark)` 又差 1。
 
-两条 SQL 都没有语法错，错的是口径。这一章从「哪间房最忙」这类日常问题出发，把 `SELECT` 的主要部件走一遍：过滤、排序分页、聚合、窗口、JSON、写回。下面的结果都是**示例输出**，按第 35 章那 14 条预订推算——你自己跑，值会对得上，代价数字对不上。
+两条 SQL 都没有语法错，错的是口径。这一章从「哪间房最忙」这类日常问题出发，把 `SELECT` 的主要部件走一遍：过滤、排序分页、聚合、窗口、JSON、写回。下面的结果都是**示例输出**，命令未实测——写作环境没连 PostgreSQL，值是按第 35 章那 14 条预订推算的，你自己跑，值会对得上，代价数字对不上。
 
-## 先看一条 SELECT 是怎么执行的
+## 你写的顺序，不是它执行的顺序
 
 开头说的「只描述要什么」，执行时由规划器接手：它看统计信息、索引和代价模型，决定怎么扫表、走哪个索引、先连哪张表。你能控制的是写法，控制不了它最终选哪条路。
 
@@ -83,7 +97,9 @@ ORDER BY b.start_time;
 (2 rows)
 ```
 
-时间范围一律写成「左闭右开」：`>= 当天零点` 且 `< 次日零点`。别用 `BETWEEN`，它对 `timestamptz` 是闭区间，最后一毫秒会被算进第二天；也别对列做 `date(start_time) = '2026-11-04'`，那会让索引失效——B-tree 存的是 `start_time` 的原值，套上函数之后每行都要现算，规划器只能全表扫。这种「列上套函数导致索引不可用」的写法，术语叫**不满足 sargability**（不能按索引范围搜索），是所有数据库通用的性能陷阱。`+08` 写明偏移，比依赖会话时区可靠。
+时间范围一律写成「左闭右开」：`>= 当天零点` 且 `< 次日零点`，把当天 24 小时全包住，又不碰第二天零点。别用 `BETWEEN`，它对 `timestamptz` 是闭区间，最后一毫秒会被算进第二天；也别对列做 `date(start_time) = '2026-11-04'`，那会让索引失效——B-tree 存的是 `start_time` 的原值，套上函数之后每行都要现算，规划器只能全表扫。
+
+这种「列上套函数导致索引不可用」的写法，术语叫**不满足 sargability**（不能按索引范围搜索），是所有数据库通用的性能陷阱。`+08` 写明偏移，比依赖会话时区可靠（`timestamptz` 为什么不存字面量，第 35 章讲过）。
 
 ## 分页：排序键定不了序，翻页就会重复
 
@@ -103,22 +119,26 @@ LIMIT 2 OFFSET 2;
 (2 rows)
 ```
 
-只写 `ORDER BY capacity DESC`，容量相同的行顺序由 PG 自己定，翻页时可能重复或漏掉。`OFFSET` 越大越慢，因为它仍然要把前面的行扫出来再丢掉——`OFFSET 100000` 不是「跳过」，是「数完再扔」。翻到几百页以后，改成拿「上一页最后一行的 `(capacity, name)`」做游标条件：
+只写 `ORDER BY capacity DESC`，容量相同的行顺序由 PG 自己定，翻页时可能重复或漏掉。`ORDER BY` 后面多补一个能定序的列，就是给「并列」加一条死规矩。
+
+`OFFSET` 越大越慢，因为它仍然要把前面的行扫出来再丢掉——`OFFSET 100000` 不是「跳过」，是「数完再扔」。翻到几百页以后，改成拿「上一页最后一行的 `(capacity, name)`」做游标条件：
 
 ```sql
 SELECT name, capacity
 FROM rooms
 WHERE status = 'AVAILABLE'
   AND (capacity, name) < (8, 'A301')
-ORDER BY capacity DESC, name
+ORDER BY capacity DESC, name DESC
 LIMIT 2;
 ```
 
-行构造器比较 `(a, b) < (x, y)` 等价于「a 更小，或 a 相等且 b 更小」，正好接上 `ORDER BY capacity DESC, name`。代价是页码不能随机跳，只能「下一页」；这是体验和成本之间的取舍，不是纯技术选择。
+行构造器比较 `(a, b) < (x, y)` 的意思是「a 更小，或 a 相等且 b 更小」，正好接上「两列都按降序」的排序。要是把 `name` 改成升序，容量相同的那几行就会被跳过——要么两列同方向，要么把条件拆成 `capacity < 8 OR (capacity = 8 AND name > 'A301')` 慢慢写。
+
+代价是页码不能随机跳，只能「下一页」；这是体验和成本之间的取舍，不是纯技术选择。
 
 ## 时间轴：让数据库把格子生成出来
 
-前端要一条 9 点到 11 点、每半小时一格的时间轴，不必在 Node 里循环拼。`generate_series` 是集合返回函数，给起点、终点、步长，它直接生成一行行数据：
+前端要一条 9 点到 11 点、每半小时一格的时间轴，不必在 Node 里循环拼。`generate_series` 是集合返回函数——给它起点、终点、步长，它直接吐出一行行数据，可以像表一样放在 `FROM` 后面：
 
 ```sql
 SELECT s.slot_start, count(b.id) AS hits
@@ -147,11 +167,15 @@ ORDER BY s.slot_start;
 (5 rows)
 ```
 
-`LEFT JOIN` 保证没有预订的格子也留在结果里，所以 10:30 之后两格是 0 而不是消失。条件都写在 `ON` 里：挪到 `WHERE`，没有匹配的格子会被 `NULL` 比较过滤掉，时间轴直接缺几格。`09:30` 命中 2 条，因为两场会确实重叠——这正是第 41 章要处理的问题。时间轴只要「有没有人」，判断 `count(b.id) > 0`；要算占用率，得先把重叠区间合并，不能直接把 `hits` 加起来。
+`LEFT JOIN` 保证没有预订的格子也留在结果里，所以 10:30 之后两格是 0 而不是消失。条件都写在 `ON` 里：挪到 `WHERE`，没有匹配的格子会被 `NULL` 比较过滤掉，时间轴直接缺几格。
+
+`09:30` 命中 2 条，因为两场会确实重叠——这正是第 41 章要处理的问题。时间轴只要「有没有人」，判断 `count(b.id) > 0`；要算占用率，得先把重叠区间合并，不能直接把 `hits` 加起来。
 
 ## 周报：聚合、FILTER 和 HAVING
 
-**聚合函数**（`count`、`sum`、`avg`）把多行压成一行，**`GROUP BY`** 决定「按什么压」，**`HAVING`** 在分组之后筛组。周报就是这三个东西的组合：
+三个词先分清。**聚合函数**（`count`、`sum`、`avg`）把多行压成一个值；**`GROUP BY`** 决定「按什么压」，同一组的行最后只剩一行；**`HAVING`** 在分组之后筛组，和 `WHERE` 筛行不是一回事。
+
+周报就是这三个东西的组合：
 
 ```sql
 SELECT r.name,
@@ -183,9 +207,21 @@ ORDER BY hours DESC, r.name;
 
 先看第一列：`count(*)` 数的是连接后的行，C101 没有预订也会被数成 1；`count(b.id)` 只数真正匹配上的行，所以是 0。这个差别在 `LEFT JOIN` 的报表里天天出现，而且不报错，只让数字悄悄大 1。
 
+几个聚合写法，一句一个：
+
+| 写法 | 一句人话 |
+| --- | --- |
+| `count(*)` | 数行，空行也算 |
+| `count(b.id)` | 数这一列非空的行 |
+| `count(DISTINCT b.user_id)` | 数不重复的非空值 |
+| `sum(x) FILTER (WHERE ...)` | 只把满足条件的行加进 `sum` |
+| `coalesce(x, 0)` | `x` 是 `NULL` 时换成 `0` |
+
+`FILTER` 是 PG 的方言，等价于 `sum(CASE WHEN ... THEN ... END)`，但读起来是一句话，而且只扫一遍。注意它和 `WHERE` 的分工：`WHERE` 会先砍掉行，`FILTER` 是「这些行还在，只是不参与这个聚合」——上面取消数就是靠它和总数并排出现。
+
 再看状态过滤的位置。把 `b.status IN (...)` 从 `ON` 挪到 `WHERE`，C101 会连行都不剩——`WHERE` 在连接之后过滤，`NULL` 参与比较为假，外连接退化成内连接。规则是：**外连接里，对被保留侧的过滤放 `ON`，对结果集的过滤才放 `WHERE`**。
 
-`FILTER` 是 PG 的方言，等价于 `sum(CASE WHEN ... THEN ... END)`，但读起来是一句话，而且只扫一遍。时长用 `extract(epoch FROM interval)` 换成秒：`interval` 直接相加会得到 `1 day 02:30:00`，前端不一定接得住；换成秒再除 3600，单位才是小时。`round(..., 1)` 保留一位小数，`coalesce(..., 0)` 处理「整组没有行」——`sum` 在空集上返回 `NULL`，不是 0。
+时长用 `extract(epoch FROM interval)` 换成秒：`interval` 直接相加会得到 `1 day 02:30:00`，前端不一定接得住；换成秒再除 3600，单位才是小时。`round(..., 1)` 保留一位小数，`coalesce(..., 0)` 处理「整组没有行」——`sum` 在空集上返回 `NULL`，不是 0。
 
 分组之后筛组，用 `HAVING`：
 
@@ -207,9 +243,11 @@ ORDER BY bookings DESC, u.name;
 (3 rows)
 ```
 
-`GROUP BY u.id` 就够了，`u.name` 可以直接选——因为 `id` 是主键，PG 知道其余列函数依赖于它（函数依赖）。MySQL 默认的 `ONLY_FULL_GROUP_BY` 不认这条，迁移时别照抄。`HAVING count(*) >= 3` 里的 `count(*)` 会在分组后重新算，别指望它复用 `SELECT` 里的别名。
+`GROUP BY u.id` 就够了，`u.name` 可以直接选——因为 `id` 是主键（第 35 章讲过），PG 知道其余列函数依赖于它（函数依赖）。MySQL 默认的 `ONLY_FULL_GROUP_BY` 不认这条，迁移时别照抄。`HAVING count(*) >= 3` 里的 `count(*)` 会在分组后重新算，别指望它复用 `SELECT` 里的别名。
 
-回到开头那个差 1：`count(*)` 是 14，`count(remark)` 是 13，因为有一条备注是 `NULL`。聚合函数**跳过 NULL**，这是 SQL 的约定，不是 bug：`count(*)` 数行，`count(列)` 数非空值，`count(DISTINCT 列)` 数非空且不重复的值。同理，`WHERE remark <> '周会'` 只返回 12 行，`NULL` 既不等于也不不等于任何值；要把它算进来，写 `remark IS DISTINCT FROM '周会'`，返回 13。`IS DISTINCT FROM` 是「NULL 安全的不等」，`IS NOT DISTINCT FROM` 是「NULL 安全的等」，可空列上做比较时比 `=`/`<>` 可靠。
+回到开头那个差 1：`count(*)` 是 14，`count(remark)` 是 13，因为有一条备注是 `NULL`。聚合函数**跳过 NULL**，这是 SQL 的约定，不是 bug：`count(*)` 数行，`count(列)` 数非空值，`count(DISTINCT 列)` 数非空且不重复的值。
+
+同理，`WHERE remark <> '周会'` 只返回 12 行，`NULL` 既不等于也不不等于任何值；要把它算进来，写 `remark IS DISTINCT FROM '周会'`，返回 13。`IS DISTINCT FROM` 是「NULL 安全的不等」，`IS NOT DISTINCT FROM` 是「NULL 安全的等」，可空列上做比较时比 `=`/`<>` 可靠。
 
 ## 日期和字符串：在库里格式化
 
@@ -236,13 +274,25 @@ LIMIT 4;
 (4 rows)
 ```
 
-`to_char` 负责给人看，`date_trunc` 负责按天、按周分组，`extract(isodow ...)` 把周一算成 1（`dow` 则把周日算成 0，报表里经常差一天）。`format` 比一堆 `||` 好读，`concat_ws` 会自动跳过 `NULL`。
+这几个函数的分工是：
 
-时区仍然要盯住：`date_trunc('day', timestamptz)` 用的是会话时区，服务器切到 UTC，同一条预订会被分到前一天。要固定按北京时间切，写 `date_trunc('day', b.start_time AT TIME ZONE 'Asia/Shanghai')`，返回的是不带时区的本地时间，正好用来分组。`AT TIME ZONE` 的方向容易记反：`timestamptz AT TIME ZONE 'zone'` 得到该时区的本地墙上时间（`timestamp`），`timestamp AT TIME ZONE 'zone'` 反过来，把墙上时间解释成该时区的时刻（`timestamptz`）。夏令时切换那天的 02:30 可能不存在或出现两次，做跨时区排班要用 `tstzrange` 或明确规则，别用「加 24 小时」凑。
+| 函数 | 一句人话 |
+| --- | --- |
+| `to_char(时间, 格式)` | 把时间按格式转成字符串，给人看 |
+| `date_trunc('day', 时间)` | 把时间截到天/周/月的整点，给分组用 |
+| `extract(isodow FROM 时间)` | 取出星期几，周一算 1 |
+| `format('%s', 值)` | 拼字符串，比一串 `||` 好读 |
+| `concat_ws('-', a, b)` | 用分隔符拼，自动跳过 `NULL` |
 
-## 窗口函数：排名、上一行、累计
+`extract(isodow ...)` 和 `extract(dow ...)` 差一天：前者周一算 1、周日算 7，后者周日算 0。报表里「周一那行跑到周日去了」基本都是这个。
 
-**窗口函数**和聚合长得像，作用完全不同：聚合把多行压成一行，窗口不压行，它给每一行算一个「和它所在分组有关」的值，比如组内排名、上一行、累计和。
+时区仍然要盯住：`date_trunc('day', timestamptz)` 用的是会话时区，服务器切到 UTC，同一条预订会被分到前一天。要固定按北京时间切，写 `date_trunc('day', b.start_time AT TIME ZONE 'Asia/Shanghai')`，返回的是不带时区的本地时间，正好用来分组。
+
+`AT TIME ZONE` 的方向容易记反：`timestamptz AT TIME ZONE 'zone'` 得到该时区的本地墙上时间（`timestamp`），`timestamp AT TIME ZONE 'zone'` 反过来，把墙上时间解释成该时区的时刻（`timestamptz`）。记法：**左边有时区，就换成墙上时间；左边没时区，就补上时刻**。夏令时切换那天的 02:30 可能不存在或出现两次，做跨时区排班要用 `tstzrange` 或明确规则，别用「加 24 小时」凑。
+
+## 窗口函数：不压行，只在每行旁边加一列
+
+**窗口函数**和聚合长得像，作用完全不同：聚合把多行压成一行，窗口不压行，它给每一行算一个「和它所在分组有关」的值，比如组内排名、上一行、累计和。类比：聚合是「把一桌菜合成一盆」，窗口是「每盘菜旁边贴一张小纸条，写着它在本桌排第几」。
 
 「每间房最近一次预订」是典型的 Top-N-per-group：先算序号，再在外层筛。
 
@@ -272,7 +322,15 @@ ORDER BY name;
 (4 rows)
 ```
 
-`row_number` 遇到并列也给不同序号；要并列同名次，用 `rank`；要并列后不跳号，用 `dense_rank`。三者在「两个 100 分」时分别给出 1、2 / 1、1 / 1、1，下一个名次则分别是 3 / 3 / 2。不能直接在同一层 `WHERE rn = 1`，窗口在 `WHERE` 之后才算，必须再套一层子查询（或用 `WITH` 命名的 CTE，第 39 章细讲）。
+`OVER (...)` 里写两件事：`PARTITION BY` 怎么切组，`ORDER BY` 组内怎么排。三个排名函数只差并列怎么处理：
+
+| 函数 | 一句人话 | 两个并列第一时 |
+| --- | --- | --- |
+| `row_number()` | 硬编号，并列也分先后 | 1、2 |
+| `rank()` | 并列同名次，后面的名次跳号 | 1、1、3 |
+| `dense_rank()` | 并列同名次，后面的名次不跳 | 1、1、2 |
+
+不能直接在同一层 `WHERE rn = 1`，窗口在 `WHERE` 之后才算，必须再套一层子查询（或用 `WITH` 命名的 CTE，第 39 章细讲）。
 
 `PARTITION BY` 只决定窗口怎么切，不减少行数；`GROUP BY` 会把行压成每组一行。这是两者最容易混的地方：排名用窗口，报表用聚合，需要「每组一行再加组内排名」时才把两者套在一起。
 
@@ -324,11 +382,13 @@ ORDER BY 1;
 (5 rows)
 ```
 
-`sum(count(*))` 看着怪，但合法：`count(*)` 先按天聚合成一行，窗口函数再在这批结果上累加，窗口比聚合晚一步。默认框架是 `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`，`RANGE` 会把与当前行排序值相同的行一起算进来；同一天有多行时，你可能看到累计值「跳一下」，那不是算错，是框架按值而不是按行。要严格按行累计，写 `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`。
+`sum(count(*))` 看着怪，但合法：`count(*)` 先按天聚合成一行，窗口函数再在这批结果上累加，窗口比聚合晚一步。
 
-## JSONB 和模糊搜索
+默认框架是 `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`，`RANGE` 会把与当前行排序值相同的行一起算进来；同一天有多行时，你可能看到累计值「跳一下」，那不是算错，是框架按值而不是按行。要严格按行累计，写 `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`。
 
-前端要「每间房当天的时间轴」，也不必查两次再在 Node 里拼：
+## JSONB：把多行塞进一个字段
+
+前端要「每间房当天的时间轴」，也不必查两次再在 Node 里拼。`jsonb_agg` 把一组行聚成一个 JSON 数组，`jsonb_build_object` 把几个值拼成一个对象：
 
 ```sql
 SELECT r.name,
@@ -362,9 +422,20 @@ ORDER BY r.name;
 
 没有 `FILTER (WHERE b.id IS NOT NULL)`，空房间会得到 `[null]` 而不是 `[]`：`LEFT JOIN` 补出来的那一行仍然会被 `jsonb_agg` 数进去。`coalesce` 只是为了给整组没有行的情况兜底。
 
-`->` 取出来还是 `jsonb`，`->>` 取出来才是 `text`；`@>` 判断包含，`jsonb_path_query` 走路径。给 JSONB 列建 GIN 索引用 `USING gin (payload jsonb_path_ops)`，适合「包含某个键值」的查询，不适合范围扫描。JSONB 不是万能收纳箱：经常被查询、需要约束、需要外键的字段，还是老老实实开列；它适合「结构会变、整体读写」的扩展信息，比如第三方回调的原始报文。
+几个 JSON 操作符，一句一个：
 
-搜索框的模糊匹配：
+| 写法 | 一句人话 |
+| --- | --- |
+| `payload -> 'a'` | 取字段，结果还是 `jsonb` |
+| `payload ->> 'a'` | 取字段，结果转成 `text` |
+| `payload @> '{"a":1}'` | 判断左边是否包含右边这个片段 |
+| `jsonb_path_query(payload, '$.a')` | 按路径取，适合嵌套结构 |
+
+`->` 和 `->>` 的差别是最常咬人的：拿 `->` 去和字符串比会报类型错，和数字比则要看字段里存的到底是 JSON 数字还是字符串。给 JSONB 列建 GIN 索引用 `USING gin (payload jsonb_path_ops)`，适合「包含某个键值」的查询，不适合范围扫描。
+
+JSONB 不是万能收纳箱：经常被查询、需要约束、需要外键的字段，还是老老实实开列；它适合「结构会变、整体读写」的扩展信息，比如第三方回调的原始报文。`jsonb` 和 `json` 只差一个字母，前者存二进制、可索引、键会去重，后者存原始文本、保留空格和重复键——业务字段一律 `jsonb`。
+
+## 模糊搜索：ILIKE 与 pg_trgm
 
 ```sql
 SELECT name, capacity
@@ -381,7 +452,9 @@ ORDER BY name;
 (2 rows)
 ```
 
-`ILIKE` 是大小写不敏感的 `LIKE`，PG 独有（MySQL 的默认排序规则本来就不区分大小写，反而没有这个开关）。前后都带 `%` 用不上 B-tree 索引；量大了装 `pg_trgm`，建 `USING gin (name gin_trgm_ops)`，`%30%` 也能走索引。索引能救「匹配」，救不了「排序」：模糊搜索按相关度排，得用 `similarity()` 或全文检索 `tsvector`，那是另一套东西。
+`ILIKE` 是大小写不敏感的 `LIKE`，PG 独有（MySQL 的默认排序规则本来就不区分大小写，反而没有这个开关）。`LIKE` 和 `ILIKE` 的差别只在「要不要忽略大小写」，`%` 和 `_` 的用法一样。
+
+前后都带 `%` 用不上 B-tree 索引；量大了装 `pg_trgm`，建 `USING gin (name gin_trgm_ops)`，`%30%` 也能走索引。索引能救「匹配」，救不了「排序」：模糊搜索按相关度排，得用 `similarity()` 或全文检索 `tsvector`，那是另一套东西。
 
 ## 写操作：RETURNING 和 UPSERT
 
@@ -432,7 +505,9 @@ ROLLBACK;
 ROLLBACK
 ```
 
-`ON CONFLICT (name)` 依赖 `name` 上的唯一约束，没有约束就直接报错。`EXCLUDED` 是「这次想插入的那行」，冲突时用它覆盖旧值。`xmax = 0` 是判断「插入还是更新」的常用技巧，但它读的是系统列，属于实现细节；业务代码更稳的做法是先查再决定，或者接受「upsert 后统一按更新处理」。还有个坑：`ON CONFLICT DO NOTHING` 在冲突时不返回任何行，如果你写了 `RETURNING id` 并指望拿到 id，冲突那次会拿到空结果——要么改成 `DO UPDATE SET ...`（即使值不变也会返回），要么冲突后补一次查询。
+`ON CONFLICT (name)` 依赖 `name` 上的唯一约束，没有约束就直接报错。`EXCLUDED` 是「这次想插入的那行」，冲突时用它覆盖旧值。`xmax = 0` 是判断「插入还是更新」的常用技巧，但它读的是系统列，属于实现细节；业务代码更稳的做法是先查再决定，或者接受「upsert 后统一按更新处理」。
+
+还有个坑：`ON CONFLICT DO NOTHING` 在冲突时不返回任何行，如果你写了 `RETURNING id` 并指望拿到 id，冲突那次会拿到空结果——要么改成 `DO UPDATE SET ...`（即使值不变也会返回），要么冲突后补一次查询。
 
 `MERGE`（PG 15+）适合「源表与目标表批量对齐」，比如把一批 CSV 的服务价目同步进 `services`；单行 upsert 用 `ON CONFLICT` 更直接。别为了用一个新语法，把简单的插入写成三段式。
 
@@ -455,7 +530,6 @@ ROLLBACK
 
 查询能筛能算，但数据还是一张张平表。下一章把表真正连起来：一对一、各种 JOIN，以及删一条主表记录时，子表到底该跟着走还是拦住你。
 
-想更深入的话，官方文档里有这几页可以接着看：[SELECT](https://www.postgresql.org/docs/17/sql-select.html)（查询语句的总入口，补全正文没展开的 `DISTINCT`、`LIMIT` 等子句）、[聚合函数](https://www.postgresql.org/docs/17/functions-aggregate.html)（所有聚合函数和 `FILTER` 用法的清单）、[窗口函数](https://www.postgresql.org/docs/17/functions-window.html)（排名、累计求和这类「行旁边多一列」的函数参考）、[日期时间函数](https://www.postgresql.org/docs/17/functions-datetime.html)（按天、按周截断和加减时间的函数，算空档会用到）、[JSON 函数](https://www.postgresql.org/docs/17/functions-json.html)（把 JSON 列拆开、取字段的函数，遇到半结构化数据时翻）。
 
 <!-- chapter-nav:start -->
 ---

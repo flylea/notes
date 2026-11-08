@@ -1,31 +1,30 @@
 # 第 37 章 一对一、JOIN 查询与级联
 
-## 拆表之后，怎么把数据拼回来
-
-一张表塞下所有字段，列表页查一次就要拖着面积、隔音这些平时不用的列；所以常把「热」的字段留在主表，把「冷」的详情拆到另一张表。拆完，取一条完整信息就得把两张表按某个条件拼起来，这个动作叫 JOIN。条件通常就是「子表的外键 = 父表的主键」。
-
-JOIN 的结果取决于你保留谁。`INNER JOIN` 只留下两边都匹配上的行：C101 没有详情，内连接一拼就整行消失——不报错，也不给你空值。`LEFT JOIN` 保留左表所有行，右表匹配不上就补 NULL，C101 因此能带着空详情回来。`RIGHT JOIN` 反过来，`FULL JOIN` 两边都保留。选哪种不取决于 SQL 好不好写，而取决于业务上「谁必须出现」。
-
-外键（第 35 章见过）是子表列上的约束：值必须能在父表主键里找到。它顺带决定删父行时子行怎么办，这叫级联：`RESTRICT` 拦住删除，`CASCADE` 连子行一起删，`SET NULL` 把子行的外键置空。删除 A301 之前，先想清楚它的预订该不该跟着没。
-
-官方文档（先看懂正文再点）：
-- [JOIN 教程](https://www.postgresql.org/docs/17/tutorial-join.html)：用两张小表演示内连接、左连接的结果差在哪，对应本章「JOIN 保留谁」那段。
-- [外键与级联动作](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)：`RESTRICT`、`CASCADE`、`SET NULL` 在删父行时各做什么。
-- [SELECT 的 JOIN 语法](https://www.postgresql.org/docs/17/sql-select.html#SQL-FROM)：`FROM` 里写连接条件的完整语法，写复杂连接时查。
-
-现在看一个真实事故。
+## 详情页少了一间房
 
 你给会议室加了个详情页，要显示面积、窗户、隔音。SQL 写完，列表里五间房，详情页只认得四间——C101 不见了。它没有报错，也没有空值，是整行消失：维护中的 C101 从来没人录过详情。
 
-把这条查询改对外连接，C101 回来了，值是空的。沿着这条查询往下走：先看一对一怎么拆，再看六种 JOIN 各留下谁，最后看删房间时预订怎么办。下面的输出都是**示例输出**，写作环境没连 PostgreSQL。
+查一下你写的那句：
 
-## 能不能不拆表？
+```sql
+SELECT r.name, r.capacity, d.area_sqm
+FROM rooms r
+JOIN room_details d ON d.room_id = r.id;
+```
 
-拆表不是为了「看起来规范」。列表页只要名称、容量、位置，详情字段（面积、窗户、隔音、备注）只有点进去才看；塞在一张表里，每次列表查询都要拖着这些不用的列，单页能放的行数变少、缓存命中变差。拆开之后 `rooms` 保持窄而热，`room_details` 冷而宽，各取所需。
+`JOIN` 只留下两边都匹配上的行，C101 在 `room_details` 里没有对应记录，整行就被扔了。（六种连接各留下谁：[JOIN 语法](https://www.postgresql.org/docs/17/queries-table-expressions.html)）这一章就沿着这条查询往下走：先看这两张表为什么拆成两张，再看一对一该怎么建、六种 JOIN 各留下谁，然后换成外连接把 C101 找回来，最后处理删房间时那一堆预订该不该跟着没，以及怎么用执行计划确认查询没在偷偷扫全表。
 
-代价是「取一条完整信息」要再拼一次。拆之前先回答一个问题：两行怎么算同一条？这就是**基数（cardinality）**，描述两张表行与行的对应关系——一间房最多一条详情是一对一，一间房多条预订是一对多。**外键**（第 35 章讲过）是子表上的约束，声明「这一列的值必须能在父表主键里找到」，由数据库检查，应用绕不过去。
+下面的输出都是**示例输出**，命令未实测——写作环境没连 PostgreSQL 17。
 
-## 一对一：主键同时是外键
+## 为什么把冷字段拆出去
+
+拆表不是为了「看起来规范」。列表页只要名称、容量、位置，详情字段（面积、窗户、隔音、备注）只有点进去才看。
+
+全塞在一张表里会怎么样？列表页每次查 20 行，都要拖着四个平时不用的列：单页能放的行数变少，同样的内存装下的缓存条目变少，命中率跟着掉。拆开之后 `rooms` 保持「窄而热」——列少、查得勤；`room_details` 「冷而宽」——列多、查得少，各取所需。
+
+代价是「取一条完整信息」要再拼一次，也就是 JOIN。另外还得提前回答一个问题：两行怎么算同一条？这就是**基数（cardinality）**，描述两张表行与行的对应关系——一间房最多一条详情是一对一，一间房多条预订是一对多。**外键**（第 35 章讲过）是子表上的约束，声明「这一列的值必须能在父表主键里找到」，由数据库检查，应用绕不过去。
+
+## 一对一：让主键兼职外键
 
 ```sql
 CREATE TABLE room_details (
@@ -37,9 +36,11 @@ CREATE TABLE room_details (
 );
 ```
 
-`room_id` 既是主键又是外键，一行就锁死了「一间房最多一条详情」。主键的本质是「唯一标识一行」，它自带唯一索引；`REFERENCES` 只是加一条「值必须存在于 rooms」的检查。两条约束落在同一列，语义正好是一对一。
+看第一行：`room_id` 既是主键又是外键。
 
-换成普通 `id` 主键 + `room_id` 外键，就必须再补 `UNIQUE (room_id)`，否则同一间房能插两条，一对一悄悄变成一对多。判断是不是真一对一，看约束，不看业务口头怎么说。
+主键的职责是「唯一标识一行」，一张表只能有一个，自带唯一索引；`REFERENCES` 的职责是「值必须存在于 rooms」，是个检查。两条约束落在同一列上，效果就是「这间房最多一条详情」——插第二条时主键当场拦下。类比：一张身份证只能对应一个人，同时这个人必须是户籍册里登记过的。
+
+换成普通 `id` 主键 + `room_id` 外键行不行？行，但必须再补 `UNIQUE (room_id)`，否则同一间房能插两条，一对一悄悄变成一对多。判断是不是真一对一，看约束，不看业务口头怎么说。
 
 | 建法 | 唯一性靠什么 | 代价 |
 | --- | --- | --- |
@@ -57,7 +58,7 @@ INSERT INTO room_details (room_id, area_sqm, has_window, soundproof, note) VALUE
   ('a4444444-4444-4444-8444-444444444444', 80.0, true,  false, '大屏在讲台左侧');
 ```
 
-回到开头那条查询：
+回到开头那条查询，把 `JOIN` 换成 `LEFT JOIN`：
 
 ```sql
 SELECT r.name, r.capacity, d.area_sqm, d.has_window
@@ -77,9 +78,9 @@ ORDER BY r.name;
 (5 rows)
 ```
 
-把 `LEFT` 换成 `JOIN`，只剩 4 行。一对一不会像一对多那样放大行数（`room_id` 是主键，最多配一条），它只会让整行消失。这就是「空也要显示」必须用外连接的原因。
+C101 回来了，面积和窗户是空的。`LEFT JOIN` 的意思是「左表每一行都留着，右表配不上就补 `NULL`」。一对一不会像一对多那样放大行数（`room_id` 是主键，最多配一条），它只会让整行消失——所以「空也要显示」必须用外连接。
 
-再往前一步，想筛「没有详情的房」，条件不能写 `WHERE d.area_sqm <> 20`：`NULL <> 20` 的结果是 `unknown`，不是 `true`，C101 又会被过滤掉。正确写法是 `WHERE d.room_id IS NULL`。同理，`WHERE d.area_sqm > 20` 会把外连接主动退化成内连接——这是三值逻辑定的，不是优化器多事。
+想筛「没有详情的房」，条件不能写 `WHERE d.area_sqm <> 20`：`NULL <> 20` 的结果是 `unknown`，不是 `true`，C101 又会被过滤掉。正确写法是 `WHERE d.room_id IS NULL`。同理，`WHERE d.area_sqm > 20` 会把外连接主动退化成内连接——这是三值逻辑定的，不是优化器多事。
 
 约束也不是摆设。给 A301 再插一条详情，主键当场拦下：
 
@@ -95,11 +96,17 @@ DETAIL:  Key (room_id)=(a1111111-1111-4111-8111-111111111111) already exists.
 
 用的是 `id` 主键 + `UNIQUE (room_id)` 的话，报错会换成 `room_details_room_id_key`，效果一样；区别只是主键本身就是一个唯一索引，查详情直接走它，不必再维护第二条。
 
-这条查询接到 Nest 里，还有一个类型上的坑：
+C101 这一行回到页面，前端又炸了一次：
 
 ```ts
 // src/rooms/room-detail.repository.ts
-const { rows } = await pool.query(
+type RoomDetailRow = {
+  name: string;
+  capacity: number;
+  area_sqm: string | null;
+};
+
+const { rows } = await pool.query<RoomDetailRow>(
   `SELECT r.name, r.capacity, d.area_sqm
      FROM rooms r
      LEFT JOIN room_details d ON d.room_id = r.id
@@ -109,7 +116,7 @@ const { rows } = await pool.query(
 // rows[0].area_sqm 是 '28.5'（字符串）或 null，不是 number
 ```
 
-`numeric` 为了不丢精度，node-postgres 默认按字符串返回；只有 `int`、`float8` 会变成 JS 的 `number`。前端拿 `'28.5'` 去调 `toFixed` 会直接抛错。要么在 SQL 里写 `d.area_sqm::float8`，要么在映射层 `Number()`；C101 那行是 `null`，类型得写 `string | null`，别图省事写成 `number`。
+`numeric` 为了不丢精度，node-postgres 默认按字符串返回；只有 `int`、`float8` 会变成 JS 的 `number`（第 35 章讲过这条）。前端拿 `'28.5'` 去调 `toFixed` 会直接抛错。要么在 SQL 里写 `d.area_sqm::float8`，要么在映射层 `Number()`；C101 那行是 `null`，类型必须写 `string | null`，别图省事写成 `number`——TypeScript 不会拦你，运行时才炸。
 
 这层代码的归位也顺手说一下：`room-detail.repository.ts` 就是第 35 章说的 **Repository**——方法名按业务语义起（`findDetailByRoomId`），SQL 收在这里，`RoomsService` 只拿结果不拼 SQL。它返回的 `rows` 更接近表结构的 **PO**，要变成接口契约里的 DTO，还得显式映射一层（把 `area_sqm` 转成 `number`、补一个 `hasDetail` 布尔）。
 
@@ -207,7 +214,9 @@ ORDER BY r.name;
 
 同一个需求上一章用窗口函数写过：先给所有行编号，再筛 `rn = 1`，`bookings` 只扫一遍，数据量大时通常更快；`LATERAL` 是每间房一次索引查找，房间少、每间房预订多时更划算。两种都对，取决于行数分布。
 
-## 级联：删一间房，预订去哪
+## 级联：删一间房，那堆预订去哪
+
+详情页这条线走完了，删房的问题还在。
 
 第 35 章建表时已经写死了两条规则：`bookings.room_id` 是 `ON DELETE RESTRICT`，有预订的会议室删不掉；`room_details.room_id` 是 `ON DELETE CASCADE`，房没了详情也没意义。
 
@@ -259,9 +268,9 @@ ROLLBACK;
 
 还有一个更狠的：`TRUNCATE rooms CASCADE` 会连 `bookings` 一起清空。它不触发 `DELETE` 触发器，也不走 `RESTRICT` 的逐行检查，生产环境别随手敲。
 
-## 执行计划里看什么
+## 回到详情页：看一眼执行计划
 
-**执行计划**是数据库为一条 SQL 选的取数路径，`EXPLAIN` 把这条路径打印出来，加 `ANALYZE` 会真的执行并报告实际行数。
+C101 修好了，删房也想清楚了，还剩一件事：这条 `LEFT JOIN` 到底跑得快不快，有没有偷偷扫全表。**执行计划**就是数据库为一条 SQL 选的取数路径，`EXPLAIN` 把这条路径打印出来，加 `ANALYZE` 会真的执行并报告实际行数。
 
 ```sql
 EXPLAIN (ANALYZE, BUFFERS)
@@ -286,9 +295,7 @@ Execution Time: 0.101 ms
 
 读法：外层 `rooms` 扫出 4 行，每行拿 `r.id` 去 `room_details` 的主键索引查一次，`loops=4` 就是查了四次。这是「小外表 + 内表连接键有索引」时最理想的 `Nested Loop`。估算 `rows=2`、实际 4，是因为表刚建完没跑统计信息，`ANALYZE rooms;` 之后估算会贴近。统计信息是规划器的输入，大批量写入后不更新，计划可能一直选错。
 
-`BUFFERS` 会多打一行 `Buffers: shared hit=... read=...`：`hit` 是命中共享缓冲区，`read` 才是真的从磁盘读。
-
-`EXPLAIN ANALYZE` 会真的执行。对 `UPDATE`/`DELETE` 要看计划，先包在 `BEGIN; ... ROLLBACK;` 里，否则「分析」完数据也改完了。
+`BUFFERS` 会多打一行 `Buffers: shared hit=... read=...`：`hit` 是命中共享缓冲区，`read` 才是真的从磁盘读。`EXPLAIN ANALYZE` 会真的执行。对 `UPDATE`/`DELETE` 要看计划，先包在 `BEGIN; ... ROLLBACK;` 里，否则「分析」完数据也改完了。
 
 ## 几个容易踩的边界
 
@@ -305,7 +312,6 @@ Execution Time: 0.101 ms
 
 「空也要显示」翻译成 SQL 就是「以谁为主表，就用 `LEFT JOIN` 把谁保住」。这句话在下一章会更重要：一对多和多对多会把行数放大，主表保错了，合计和明细会一起错。
 
-想更深入的话，官方文档里有这几页可以接着看：[JOIN 语法](https://www.postgresql.org/docs/17/queries-table-expressions.html)（`FROM` 子句里各种连接写法的完整说明）、[外键与级联](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)（建外键时可选的级联动作清单）、[`EXPLAIN`](https://www.postgresql.org/docs/17/using-explain.html)（看数据库打算怎么执行这条 JOIN，判断有没有走索引）、[`LATERAL`](https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-LATERAL)（连接时右边能引用左边当前行的写法，解决「每行再查一次」的需求）。
 
 <!-- chapter-nav:start -->
 ---

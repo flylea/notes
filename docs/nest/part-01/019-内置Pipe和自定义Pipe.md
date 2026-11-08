@@ -1,24 +1,30 @@
 # 第 19 章 内置 Pipe 和自定义 Pipe
 
-## 先弄懂：管道和“类型在运行时不存在”
+## 快递单上写“易碎”，箱子不会变结实
 
-TypeScript 的类型只在编译期存在。`id: number` 是写给编译器和编辑器看的，编译成 JavaScript 后，类型标注被整段擦掉，运行时没有“number 类型”这回事。从 URL 和查询串进来的值都是字符串，请求体则是 `JSON.parse` 出来的普通对象，字段类型全凭客户端；`@Param('id') id: number` 不会让 Nest 自动把它变成数字。TypeScript 官方把这件事叫“类型擦除”（Erased Types）。
+寄快递时，你在单子上写“易碎”。箱子本身不会因为这三个字变结实，搬运工也不会因此就轻拿轻放——单子只是给眼睛看的。
 
-**管道（Pipe）**就是 Nest 在“外部值进入 handler”这个位置留的钩子：一个实现 `PipeTransform` 的类，`transform(value, metadata)` 拿到原始值和参数信息，返回转换后的值，或者抛异常拒绝。它一次处理一个参数，在守卫之后、handler 之前执行；抛出的 `HttpException` 会由异常过滤器按它的状态码返回（常见的是 400）。内置的 `ParseIntPipe`、`ParseUUIDPipe` 做单值转换，`ValidationPipe` 做对象校验（第 20 章讲）。
+TypeScript 的类型标注就是这张单子。`id: number` 是写给编译器和编辑器看的，编译成 JavaScript 之后，类型标注被整段擦掉，运行时根本没有“number 类型”这回事。TypeScript 官方管这个叫“类型擦除”。
 
-没有管道行不行？能跑，但每个 handler 都得自己 `Number(id)`、自己检查 `pageSize` 上限，漏一个入口就出一个洞。更麻烦的是类型标注会让人误以为已经安全了——编译期通过，运行时照样拿到字符串。这一章的事故就是这两件事撞在一起。
+后果很具体：从 URL、查询串进来的值永远是字符串；请求体是 `JSON.parse` 出来的普通对象，字段类型全凭客户端。所以 `@Param('id') id: number` 不会让 Nest 自动把 `'2'` 变成 `2`。
+
+**管道（Pipe）**是 Nest 在“外面的值进入 handler（真正处理这个接口的方法）”这个位置留的一道安检：一个实现 `PipeTransform` 的类，`transform(value, metadata)` 拿到原始值和参数信息，返回处理后的值，或者抛异常把人拦下。它一次只检查一个参数，站在守卫之后、handler 之前。守卫回答“你能不能进这个接口”，管道回答“你带来的东西对不对”；拦截器包的是 handler 和返回值，不改 handler 的参数（第 18 章）。这五类组件的位置，第 9 章画过一张图。
+
+没有管道行不行？能跑，但每个 handler 都得自己 `Number(id)`、自己检查 `pageSize` 上限，漏一个入口就出一个洞。更麻烦的是类型标注会让人误以为已经安全了——编译期通过，运行时照样拿到字符串。
 
 官方文档（先看懂正文再点）：
 - [TypeScript 类型擦除](https://www.typescriptlang.org/docs/handbook/2/basic-types.html)：类型只在编译期存在、编译后整段消失，对应开头“类型在运行时不存在”。
 - [Pipes](https://docs.nestjs.com/pipes)：官方管道的定义、内置清单和三种挂法，对应 `PipeTransform` 签名。
 
-现在看一个真实事故。
+## 第 2 条记录，跳到了第 21 条
 
 线上有个预约详情页，链接是 `/bookings/2`。详情接口把 `id` 原样返回，前端拿它算“下一条”：`id + 1`。本地测试一直正常，直到有人点了第 2 条，页面跳到了 `/bookings/21`。
 
 后端查了一下，`@Param('id') id: number` 打印出来是 `'2'`，`'2' + 1` 当然是 `'21'`。把类型改成 `number` 再重启，结果不变——TypeScript 的类型在编译后已经被擦掉，Nest 从 URL 里拿到的永远是字符串。
 
-同一个接口还有另一个入口：`GET /bookings?pageSize=100000` 会把整张表拖回来。没有上限，也没有类型检查。两件事指向同一个位置：外部数据进入 handler 之前，需要有人做转换和拦截。Nest 把这个位置单独抽出来，叫**管道**（Pipe）。
+同一个接口还有另一个入口：`GET /bookings?pageSize=100000` 会把整张表拖回来。没有上限，也没有类型检查。两件事指向同一个位置：外部数据进入 handler 之前，需要有人做转换和拦截。Nest 把这个位置单独抽出来，叫管道。
+
+## 类型是写给编译器看的
 
 管道是一个实现 `PipeTransform` 的类，只有一个必须实现的方法：
 
@@ -26,21 +32,7 @@ TypeScript 的类型只在编译期存在。`id: number` 是写给编译器和�
 transform(value: unknown, metadata: ArgumentMetadata): unknown
 ```
 
-它一次处理一个参数。`@Param('id')`、`@Query('page')`、`@Body()` 各是一个参数，各自可以挂管道，管道按声明顺序从左到右执行。返回值会替换掉原来的参数值；抛异常则请求到此为止，handler 一行都不会执行，异常交给异常过滤器变成 400。
-
-管道站在守卫之后、handler 之前。守卫回答“你能不能进这个接口”，管道回答“你带来的东西对不对”，拦截器回答“返回给客户端之前要不要再包一层”。三者位置不同，职责也别混：把权限判断写进管道，管道拿不到完整的执行上下文；把类型转换写进守卫，守卫又会在参数解析之前执行。
-
-> **图 19-1** 查询参数从 HTTP 字符串变成 handler 参数的过程。
-
-```mermaid
-flowchart LR
-  A["GET /demo/page?page=2&amp;pageSize=500"] --> B["@Query() 原始对象<br/>page='2', pageSize='500'"]
-  B --> C["PaginationPipe<br/>补默认值 → 转数字 → 上限检查"]
-  C -->|通过| D["handler<br/>pagination: Pagination"]
-  C -->|非法值| E["BadRequestException<br/>→ 400"]
-```
-
-## 类型标注在运行时不存在
+它一次处理一个参数。`@Param('id')`、`@Query('page')`、`@Body()` 各是一个参数，各自可以挂管道，管道按声明顺序从左到右执行。返回值会替换掉原来的参数值；抛异常则请求到此为止，handler 一行都不会执行，异常交给异常过滤器，按异常自带的状态码返回（管道里最常见的是 400）。
 
 `@Param('id') id: number` 里的 `number` 只是给编译器看的。Nest 确实能从参数上读到 `metatype = Number`，但没有任何内置逻辑会因为 `metatype === Number` 就自动把字符串转成数字——真正做转换的是你显式挂上去的 `ParseIntPipe`。
 
@@ -51,7 +43,7 @@ flowchart LR
 | `type` | `'body'`、`'query'`、`'param'`、`'custom'` | 自定义装饰器的参数是 `'custom'`，默认不参与校验 |
 | `metatype` | 参数类型的构造函数 | 参数是 interface、泛型、或没写类型时是 `Object` 或 `undefined` |
 | `data` | 装饰器里的键名，如 `@Query('page')` 的 `'page'` | `@Body()` 不传键名时是 `undefined` |
-| `schema` | 参数装饰器上挂的 Standard Schema | Nest 12 新增，由 `StandardSchemaValidationPipe` 读取 |
+| `schema` | 参数装饰器上挂的通用校验描述 | Nest 12 新增，由 `StandardSchemaValidationPipe` 读取 |
 
 两个后果值得记牢：
 
@@ -60,7 +52,7 @@ flowchart LR
 
 管道里只应该抛 `HttpException` 及其子类。抛一个普通 `Error`，Nest 会把它当成未处理的服务端错误，客户端收到 500，日志里多一条本可以避免的堆栈。
 
-## 内置管道：单值转换先交给它们
+## 单个值，先让内置管道干
 
 Nest 自带一组 `Parse*` 管道，常用的有：
 
@@ -89,11 +81,11 @@ status?: BookingStatus
 @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
 ```
 
-它先把 `undefined` 补成 `1`，再交给 `ParseIntPipe`。顺序不能反——反过来 `ParseIntPipe` 先看到 `undefined`，直接 400，默认值根本没机会生效。
+它先把 `undefined` 补成 `1`，再交给 `ParseIntPipe`。顺序不能反——反过来 `ParseIntPipe` 先看到 `undefined`，直接 400，默认值根本没机会生效。像进门前先填一张默认登记表，再去安检；安检在前，人已经被拦下了，表还没填。
 
 这两种写法都只处理 `undefined` 和 `null`。`?page=` 传的是空字符串，既不是 `undefined` 也不是 `null`，`DefaultValuePipe` 不会补值，`ParseIntPipe` 会报 400。空字符串要不要当“没传”，得在业务上明确。
 
-## 跑一遍：把内置管道挂到一个控制器上
+## 挂到一个控制器上跑一遍
 
 在 `meeting-booking` 里建一个临时实验模块。先定义状态枚举和控制器：
 
@@ -210,7 +202,7 @@ import { DemoModule } from './modules/demo/demo.module.js';
 export class AppModule {}
 ```
 
-控制器上加 `@Public()`，是因为项目里有全局 JWT 守卫。实验接口没必要每次先登录拿 token；验证完把 `DemoModule` 从 `AppModule` 删掉。
+控制器上加 `@Public()`，是因为项目里有全局 JWT 守卫（检查登录令牌的守卫）。实验接口没必要每次先登录拿 token；验证完把 `DemoModule` 从 `AppModule` 删掉。
 
 启动。下面的启动日志和各条响应都是示例输出，未在本地起服务实测：
 
@@ -292,7 +284,7 @@ curl -s 'http://localhost:3000/api/demo/items/not-a-uuid' | jq
 - `ParseDatePipe` 不是“什么日期格式都收”。`2026-11-06` 按 UTC 零点解析；`2026/11/06` 在不同运行环境下可能得到不同结果。空字符串报 `Validation failed (no Date provided)`，无法解析的字符串报 `Validation failed (invalid date format)`。
 - `DefaultValuePipe` 对数组和普通对象做的是逐次复制，不是共享同一个引用。handler 修改了默认对象，不会污染下一次请求。
 
-## 组合参数：写一个分页管道
+## 一组参数：自己写一个分页管道
 
 单个值用内置管道就够了，分页却是一组参数的联合规则：`page` 默认 1、`pageSize` 默认 20、都必须是正整数、`pageSize` 有上限、`offset` 由前两者算出来。拆成三个 `@Query`，controller 里会出现三行默认值和三处校验，规则还容易改漏。
 
@@ -379,6 +371,16 @@ paginate(@Query(PaginationPipe) pagination: Pagination): Pagination {
 
 `@Query(PaginationPipe)` 不传字段名，Nest 把整个 query 对象交给管道，管道返回的 `Pagination` 直接成为 handler 参数。controller 里不再出现 `Number(query.page)`，分页规则只有一份。
 
+> **图 19-1** 查询参数从 HTTP 字符串变成 handler 参数的过程。
+
+```mermaid
+flowchart LR
+  A["GET /demo/page?page=2&amp;pageSize=500"] --> B["@Query() 原始对象<br/>page='2', pageSize='500'"]
+  B --> C["PaginationPipe<br/>补默认值 → 转数字 → 上限检查"]
+  C -->|通过| D["handler<br/>pagination: Pagination"]
+  C -->|非法值| E["BadRequestException<br/>→ 400"]
+```
+
 ```bash
 curl -s 'http://localhost:3000/api/demo/page?page=2&pageSize=2' | jq
 # { "data": { "page": 2, "pageSize": 2, "offset": 2 } }
@@ -420,7 +422,6 @@ curl -s 'http://localhost:3000/api/demo/page?pageSize=500' | jq
 
 单个参数和分页对象都收口了，但 POST body 是一整个嵌套对象：字段之间有依赖，数组元素还要逐个校验。下一章把 `ValidationPipe` 和 DTO 类接上，处理 `whitelist`、嵌套对象和错误消息路径。
 
-想更深入的话，官方文档里有这几页可以接着看：[Pipes](https://docs.nestjs.com/pipes)（官方管道章节，含 `transform` 签名和全局注册，对照正文）、[Built-in pipes](https://docs.nestjs.com/pipes#built-in-pipes)（每个内置 `Parse*` 管道接受什么参数，对应“内置管道”那节）、[Custom pipes](https://docs.nestjs.com/pipes#custom-pipes)（自定义管道怎么拿到 `ArgumentMetadata`，对应分页管道那段）。
 
 <!-- chapter-nav:start -->
 ---

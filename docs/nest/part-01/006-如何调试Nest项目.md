@@ -1,22 +1,28 @@
 # 第 6 章 如何调试Nest项目
 
-调试这件事，先把三个角色分清。**调试器（debugger）** 是你在编辑器里操作的那个客户端；**Node.js Inspector** 是 Node 自带的调试服务，启动时加 `--inspect`，它会在 `9229` 端口开一个 WebSocket，等客户端连上来下断点、单步、看作用域。`--inspect-brk` 和它的区别只有一处：额外在第一行暂停，等你接入再走。
+调试就一件事：让程序跑到某一行时先停住，你凑过去看这一刻每个变量是什么、调用栈是怎么一层层走到这儿的，看明白了再放它继续跑。
 
-你在源码某一行点的**断点**，最终要落到 V8（Node 的 JavaScript 引擎）执行的编译后 JavaScript 上，中间靠 **source map**（`.js.map` 文件）把 `dist/users/user.service.js` 的某一行映射回 `src/users/user.service.ts`。map 缺失、路径不对、调试器没去 `dist` 找，断点就绑不上，显示成灰色空心圆。
+像修水管。不用把整面墙砸开，在几个接头处拧开看一眼，哪一段没水、哪一段漏水，一下就清楚。没有调试器的时候，你只能靠 `console.log` 打印，打完改代码、重启、再看，一个来回好几分钟；调试器把这一圈压缩成"点一下、看一眼"。
 
-Nest 还多一层进程关系：`nest start` 是个 CLI 进程，它先编译 TypeScript，再 `spawn` 一个子进程去跑 `dist/main.js`。`--debug` 传给的是子进程，不是 CLI 自己；调试器如果 attach（附加）到父进程，断点自然落不到业务代码。`--watch` 让这件事更绕：每次改文件，CLI 重新编译并重启子进程，PID 变了，旧的调试连接就失效。
+不过 Nest 项目里想按下这个暂停键，中间还隔着四样东西，先认清它们，后面配起来才不会瞎试。
 
-把这三层拆开，配置就只有一句话：**让调试器连到正确的那个 node 进程，并让它读得到最新的 source map**。Node 官方的调试说明在 [Debugging](https://nodejs.org/en/learn/getting-started/debugging)，Nest 这边的入口是 [CLI usages](https://docs.nestjs.com/cli/usages) 里的 `--debug`。
+**调试器（debugger）**是你在编辑器里操作的那个面板，负责下命令和看结果，相当于遥控器。**Node.js Inspector** 是 Node 自带的调试服务，启动时加 `--inspect`，它就在 `9229` 端口开一个 WebSocket，等客户端连上来下断点、单步、看作用域——遥控器得有台电视才能用，Inspector 就是那台电视。`--inspect-brk` 和它的区别只有一处：额外在第一行暂停，等你接上再走。
+
+你在源码某一行点的**断点**，最终要落到 V8（Node 的 JavaScript 引擎）执行的编译后 JavaScript 上，中间靠 **source map**（`.js.map` 文件）把 `dist/users/user.service.js` 的某一行映射回 `src/users/user.service.ts`。这是译本和原稿的对照表：没有它，你拿着原稿的页码去译本里翻，永远翻不到那一页，断点就绑不上，显示成灰色空心圆。
+
+Nest 还多一层进程关系：`nest start` 是个 CLI 进程，它先编译 TypeScript，再 `spawn` 一个子进程去跑 `dist/main.js`。`--debug` 传给的是子进程，不是 CLI 自己；调试器如果 attach（附加）到父进程，断点自然落不到业务代码——等于遥控器对准了电视机顶盒，而不是电视。`--watch` 让这件事更绕：每次改文件，CLI 重新编译并重启子进程，PID 变了，旧的调试连接就失效。
+
+把这几层拆开，配置其实只有一句话：**让调试器连到正确的那个 node 进程，并让它读得到最新的 source map**。Node 官方的调试说明在 [Debugging](https://nodejs.org/en/learn/getting-started/debugging)，Nest 这边的入口是 [CLI usages](https://docs.nestjs.com/cli/usages) 里的 `--debug`。
 
 现在看一个真实事故。
 
-周三下午，预发环境一个 `GET /users/99` 返回 404，日志里只有一行访问记录，没有堆栈。你在 `UserService.findById` 上点了断点，按 F5，VS Code 提示 `Unbound breakpoint`，断点是个灰色空心圆。再按一次，它把整个 Nest 进程重启了，断点还是灰的。
+预发环境一个 `GET /users/99` 返回 404，日志里只有一行访问记录，没有堆栈。在 `UserService.findById` 上点了断点，按 F5，VS Code 提示 `Unbound breakpoint`，断点是个灰色空心圆。再按一次，它把整个 Nest 进程重启了，断点还是灰的。
 
-灰色的断点就是上面三层没接上：要么客户端连错了进程，要么 source map 没被读到，要么 `dist` 里还是旧产物。后面按这个顺序查。
+灰色的断点就是上面几层没接上：要么客户端连错了进程，要么 source map 没被读到，要么 `dist` 里还是旧产物。后面按这个顺序查。
 
 ## 先用日志把现场留住
 
-断点只能解决你能复现的问题。线上那 1% 的偶发错误，得靠日志把现场带回来，所以先看日志。
+断点只能解决你能复现的问题。线上那 1% 的偶发错误，等你挂上调试器早就过去了，得靠日志把现场带回来，所以调试的第一步不是断点，是日志。
 
 `Logger` 带上下文，输出里能直接看到是哪个类打的：
 
@@ -138,10 +144,10 @@ flowchart LR
 - `runtimeExecutable` / `runtimeArgs`：用 pnpm 跑脚本，和终端里的行为一致。GUI 环境里 PATH 不带 pnpm 时会报 `ENOENT`，改成 `node` 加 `dist/main.js` 的绝对路径，或者终端启动后改用 `attach`。
 - `autoAttachChildProcesses: true`：Nest CLI 会 `spawn` 子进程，这个开关让调试器自动接管它。没有它，attach 到的只是 CLI 父进程。
 - `console: integratedTerminal`：Nest 的输出带颜色、会读 TTY，集成终端里的行为和真实终端一致；`internalConsole` 下有些交互会丢。
-- `skipFiles`：单步时跳过 `node_modules` 和 Node 内部，避免一脚踩进框架源码。
+- `skipFiles`：单步时跳过 `node_modules` 和 Node 内部，避免一脚踩进框架源码出不来。
 - `sourceMaps` + `outFiles`：告诉调试器去 `dist` 找 `.map`，并把编译产物映射回 `src`。这两项是断点变实心的前提。
 
-`attach` 连一个已经在跑的进程，适合“服务已经启动，只想上去看看”。`restart: true` 表示目标进程重启后自动重连——`--watch` 下每次改代码都会重启，没有它就得手动再点一次。用之前先手动开调试：
+`attach` 连一个已经在跑的进程，适合"服务已经启动，只想上去看看"。`restart: true` 表示目标进程重启后自动重连——`--watch` 下每次改代码都会重启，没有它就得手动再点一次。用之前先手动开调试：
 
 ```bash
 pnpm start:debug
@@ -184,9 +190,9 @@ node --inspect-brk=127.0.0.1:9229 dist/main.js
 
 ## 条件断点、Logpoint 和异常断点
 
-一个列表接口循环两百次，普通断点会停两百次。在红点上右键选 `Add Conditional Breakpoint`，表达式写 `id === 99`，只有目标数据才停。排查“只有某个用户出错”时特别省时间。
+一个列表接口循环两百次，普通断点会停两百次，按到手酸。在红点上右键选 `Add Conditional Breakpoint`，表达式写 `id === 99`，只有目标数据才停。排查"只有某个用户出错"时特别省时间。
 
-不想暂停、只想看值，用 `Add Logpoint`，表达式写 `id={id}, role={user?.role}`。它不中断执行，输出打到调试控制台，适合高频路径。
+不想暂停、只想看值，用 `Add Logpoint`，表达式写 `id={id}, role={user?.role}`。它不中断执行，输出打到调试控制台，适合高频路径。它和 `console.log` 的区别是：不用改代码、不用重启，排查完把断点一删就没了。
 
 异常断点要克制。VS Code 的 `Caught Exceptions` 会在 Nest 内部每次 `try/catch` 时停下来，包括框架自己的正常控制流，基本没法用。只看 `Uncaught Exceptions`，让真正冒到顶层的错误现形。
 
@@ -224,9 +230,8 @@ source map 同理。它能把编译后的代码还原成源码，连同注释、
 | VS Code 报 `pnpm ENOENT` | GUI 环境 PATH 不含 pnpm | 用绝对路径，或终端启动后 attach |
 | 生产日志找不到请求 | 没传 / 没打 `requestId` | 入口生成并透传，日志统一带上 |
 
-调试解决的是“我看见的这个对象为什么长这样”。下一章换个问题：这个对象是谁造的、为什么是这个实现、能不能在不动业务代码的情况下换掉。答案在 `providers` 数组里。
+调试解决的是"我看见的这个对象为什么长这样"。下一章换个问题：这个对象是谁造的、为什么是这个实现、能不能在不动业务代码的情况下换掉。答案在 `providers` 数组里。
 
-想更深入的话，官方文档里有这几页可以接着看：[CLI usages](https://docs.nestjs.com/cli/usages)（`nest start` 的 `--debug`、`--watch` 这些开关的完整清单，对应本章配 `9229` 端口那段）、[Logger](https://docs.nestjs.com/application/logger)（内置日志器怎么分级、怎么关掉、怎么换成自己的实现，对应开头“先用日志把现场留住”）。
 
 <!-- chapter-nav:start -->
 ---

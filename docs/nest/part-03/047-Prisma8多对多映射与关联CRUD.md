@@ -1,34 +1,34 @@
 # 第 47 章 Prisma 8 多对多映射与关联 CRUD
 
-## 多对多为什么必须多一张表
+一条预订可以加好几个增值服务（投影、茶歇、白板），一个服务也会被很多条预订选中。这种「两边都是一堆」的关系叫**多对多**。
 
-多对多是「两边都可以对应多条」：一个预订可以选多个服务，一个服务也可以被多个预订选。前面的一对一、一对多都能用「一张表存另一张表的外键」解决，多对多不行——外键只能存一个值，放在 `bookings` 上就变成「一条预订只能选一个服务」，放在 `services` 上就变成「一个服务只能被一条预订选」。关系数据库的列没有数组类型，硬要存就得把多个 id 塞进一个字符串或 JSON 列，代价是没法用外键约束、没法按服务反查、索引也基本失效。
+它难的地方不在概念，在存法。一对多只需要在「多」的那边放一列外键；多对多两边都是「多」，放哪边都会把另一头压成一条。`bookings` 上放 `service_id`，一条预订就只能选一个服务；`services` 上放 `booking_id`，一个服务就只能被一条预订选。把多个 id 拼成 `"1,2,3"` 塞进字符串？外键约束没了，按服务反查要靠 `LIKE`，索引也基本失效。
 
-标准解法是加一张**连接表（join table）**：表里放两条外键，一条指向 `bookings`，一条指向 `services`，每一行表示「某条预订选了某个服务」。这样 N:M 就被拆成两个 1:N——预订对连接表是一对多，服务对连接表也是一对多。连接表还可以带自己的字段，比如数量、下单时的单价；这些字段描述的是「这一次关联」，不属于任何一边。
+生活里的解法是另起一张签到簿。一场婚礼有很多客人，一位客人也参加过很多场婚礼；请柬上写不下「参加过的所有婚礼」，宾客名单里也塞不下他参加过的每一场。门口摆一本簿子，一行写「谁 + 哪一场」，两边的「多」就都有了着落。
+
+这张簿子就是**连接表**（join table）：里面两条外键，一条指向 `bookings`、一条指向 `services`，一行表示「某条预订选了某个服务」。这样 N:M 就被拆成两个 1:N——预订对连接表是一对多，服务对连接表也是一对多。簿子上还能写「这一次」的信息：数量、下单时的单价、经手人。这些字段既不属于预订，也不属于服务，只属于这一次关联。
 
 官方文档（先看懂正文再点）：
 - [PostgreSQL 外键约束](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)：连接表的两条外键就是普通外键，规则一样。
-- [Prisma 多对多关系](https://www.prisma.io/docs/orm/fundamentals/relations-and-joins#many-to-many)：显式连接表在契约里怎么建，对应本章中间表那段。
+- [Prisma 多对多关系](https://www.prisma.io/docs/orm/fundamentals/relations-and-joins#many-to-many)：显式连接表在契约里怎么建，对应下面中间表那段。
 
-现在看一个真实事故。
-
-给预订加增值服务，第一版只改了两行：`Booking` 加 `services Service[]`，`Service` 加 `bookings Booking[]`。看上去就是 46 章的反向数组再来一份，结果 `pnpm db:emit` 退出 2：
+给预订加增值服务，第一版只改了两行：`Booking` 加 `services Service[]`，`Service` 加 `bookings Booking[]`。看上去就是上一章的反向数组再来一份，结果 `pnpm db:emit` 退出 2：
 
 ```text
 PSL_ORPHANED_BACKRELATION: ... use an explicit join model for many-to-many.
 ```
 
-报错里的 `ORPHANED_BACKRELATION` 就是这个意思：两个数组字段互相指，却没有一方持有外键。多对多必须有一个显式的连接模型，Prisma 不会替你猜表名，也不会猜连接列。
+`ORPHANED_BACKRELATION` 说的就是：两个数组字段互相指，却没有一方持有外键，关系悬空了。多对多必须有一个显式的连接模型，Prisma 不会替你猜表名，也不会猜连接列。
 
-补一张 `BookingService` 连接表之后，emit 过了，`include('services')` 也能编译。但返回的每个元素都带着 `quantity`、`unitPriceCents`，唯独没有 `name`——因为你把 `Booking.services` 写成了 `BookingService[]`。列表字段指向谁，`include` 就返回谁。
+补一张 `BookingService` 连接表之后，emit 过了，`include('services')` 也能编译。但返回的每个元素都带着 `quantity`、`unitPriceCents`，唯独没有 `name`——因为 `Booking.services` 写成了 `BookingService[]`。列表字段指向谁，`include` 就返回谁。
 
-## 连接表是张真表，不是框架代管的中间产物
+## 连接表是张真表，不是框架替你管的中间产物
 
-Prisma 8 在 PostgreSQL 上不接受隐式多对多，没有 `@ManyToMany` 让框架代管连接表，契约里必须有一个真实模型持有两条外键。这不是退步，是把「关联本身也是数据」摆到明面上：谁在什么时候订了这个服务、数量多少、下单时的价格是多少，这些字段总得有地方放。
+Prisma 8 在 PostgreSQL 上不接受隐式多对多，也没有 `@ManyToMany` 让框架代管连接表。契约里必须有一个真实模型，自己持有两条外键。这不是退步，是把「关联本身也是数据」摆到明面上：谁在什么时候订了这个服务、几份、下单时什么价，这些总得有地方放。
 
-Prisma 5/6 的项目里，你可能习惯只写两边的 `tags Tag[]`，让迁移工具自动建一张 `_PostToTag`。把这种契约原样抄到 8，emit 会停在 `PSL_ORPHANED_BACKRELATION`；它不会猜表名，也不会猜连接列。另一种常见误解是「两侧裸数组会被推导成 N:M，并自动带上 through 元数据」，在 rc.29 上同样不成立。连接模型、复合主键、两侧列表字段，三样都写出来，`include` 才有东西可穿。
+Prisma 5/6 的项目里，你可能习惯只写两边的 `tags Tag[]`，让迁移工具自动建一张 `_PostToTag`。把这种契约原样抄到 8，emit 会停在 `PSL_ORPHANED_BACKRELATION`。另一种常见误解是「两侧裸数组会被推导成 N:M，并自动带上 through 元数据」，在 rc.29 上同样不成立。连接模型、复合主键、两侧列表字段，三样都写出来，`include` 才有东西可穿。
 
-连接表怎么建模，取决于它有没有业务字段。只有两条外键时，它是纯关联，可以在查询里透明穿过；一旦带上数量、下单价、授权人，它自己就是 Entity/PO——有主键、有生命周期，要单独读、单独写。
+连接表怎么建模，取决于它有没有业务字段。只有两条外键时，它是纯关联，查询里可以透明穿过；一旦带上数量、下单价、授权人，它自己就是 Entity/PO——有主键、有生命周期，要单独读、单独写。
 
 先写连接模型，再把两侧的列表字段指向对方：
 
@@ -63,11 +63,13 @@ model BookingService {
 }
 ```
 
-`BookingService` 的主键恰好是 `bookingId + serviceId`，这告诉 Prisma：它可以被当作 `Booking` 与 `Service` 之间的连接模型，`include` 能透明穿过。但这不代表它在业务上不是实体——有 payload 时，读数量、单价仍然要单独查它。两侧列表字段再分别指向 `Service` 和 `Booking`，`include` 才会把中间表当透明管道。三个条件缺一个，你要么拿到连接行，要么 emit 直接拒绝。
+`BookingService` 的主键恰好是 `bookingId + serviceId`，这告诉 Prisma：它可以被当作 `Booking` 与 `Service` 之间的连接模型，`include` 能透明穿过。像签到簿上「婚礼 + 客人」这一对只能出现一次，同一人同一场签两回，就说明簿子记错了。
 
-payload（连接行上除两条外键之外的业务字段，比如 `quantity`、`unitPriceCents`）不能进主键。它们描述的是「这一次关联」，放进 `@@id` 会让同一对预订与服务可以重复出现，连接就失去唯一性。它们放在主键之外，连接行仍然唯一，业务字段照样能带。
+但这不代表它在业务上不是实体——有 payload 时，读数量、单价仍然要单独查它。payload（连接行上除两条外键之外的业务字段，比如 `quantity`、`unitPriceCents`）不能进主键：它们描述的是「这一次关联」，放进 `@@id` 会让同一对预订与服务可以重复出现，连接就失去唯一性。随礼金额属于「这一次参加」，不能拿来当签到的身份，是一个道理。
 
-`@@index([serviceId])` 不是可有可无的装饰。复合主键的索引以 `bookingId` 开头，按预订查服务很快；从服务反查预订只带 `serviceId`，用不上这棵索引，PostgreSQL 也不会因为外键自动补一个。这份契约如果没写这一行，反查就会退化成全表扫。
+两侧列表字段再分别指向 `Service` 和 `Booking`，`include` 才会把中间表当透明管道。三个条件缺一个，你要么拿到连接行，要么 emit 直接拒绝。
+
+`@@index([serviceId])` 不是可有可无的装饰。复合主键的索引以 `bookingId` 开头，按预订查服务很快；从服务反查预订只带 `serviceId`，用不上这棵索引，PostgreSQL 也不会因为外键自动补一个。这份契约如果没写这一行，反查就会退化成全表扫。像签到簿按婚礼装订成册，按婚礼翻很快；想按客人查，得另做一本客人索引。
 
 `onDelete` 两边不同：删预订，连接行跟着 `Cascade` 清掉；删服务，`Restrict` 挡住，因为历史订单里还留着价格快照，服务本身不该被物理删除。要下架服务，把 `active` 改成 `false`，别删行。
 
@@ -106,7 +108,7 @@ erDiagram
   }
 ```
 
-## 读：include 穿过中间表，payload 回连接表拿
+## 读：让 include 穿过连接表，payload 另查
 
 按预订读服务，列表字段指向 `Service` 之后，`include` 的返回就是服务数组：
 
@@ -205,9 +207,9 @@ async createWithServices(input: {
 
 ## N+1：别在预订列表里逐条查连接表
 
-N+1 的含义 46 章已经拆过：1 次列表查询，加 N 次逐行查询。放到多对多上，逐行查的就是连接表。
+N+1 第 46 章讲过：1 次列表查询，加 N 次逐行查询。放到多对多上，逐行查的就是连接表。
 
-列表页最容易写成这样：先取 20 条预订，再对每条 `BookingService.where({ bookingId }).all()`。21 条 SQL，和 46 章的循环查子表一模一样。
+列表页最容易写成这样：先取 20 条预订，再对每条 `BookingService.where({ bookingId }).all()`。21 条 SQL，和上一章的循环查子表一模一样。
 
 - 只需要服务名：一次 `Booking.include('services')`，中间表透明。
 - 需要数量和单价：用这一页的预订 id 一次性查连接行，再在内存里按 `bookingId` 分组：
@@ -235,7 +237,6 @@ const lines = await this.db.orm.public.BookingService
 
 多对多的复杂度不在语法，在「连接行是不是业务实体」这个判断。纯关联可以完全透明，`include` 直接穿过去；一旦带上数量、价格、授权人，就得承认它是一张有自己生命的表，读要走它，写也要走它。下一章离开查询，把契约改动到数据库落地的整条命令链走一遍：emit 之后的迁移规划、审查、应用和漂移校验，每一步都有独立的退出码。
 
-想更深入的话，官方文档里有这几页可以接着看：[多对多关系](https://www.prisma.io/docs/orm/fundamentals/relations-and-joins#many-to-many)（隐式和显式两种多对多的区别）、[写数据](https://www.prisma.io/docs/orm/fundamentals/writing-data)（关联写入时 `connect`、`create` 怎么选）、[迁移工作流](https://www.prisma.io/docs/orm/migrations/how-migrations-work)（连接表改动怎么进迁移）。
 
 <!-- chapter-nav:start -->
 ---

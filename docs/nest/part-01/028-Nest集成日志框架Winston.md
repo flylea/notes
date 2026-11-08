@@ -2,13 +2,15 @@
 
 ## 两套 API 长得像，参数却不是一回事
 
-Nest 的 `Logger` 只是门面：`new Logger('DemoService')` 里的字符串是 context，`log(message, ...optionalParams)` 后面可以跟任意个参数。真正决定日志写到哪的是 `LoggerService` 接口的实现；默认实现是 `ConsoleLogger`，`WinstonModule.forRoot()` 提供 Winston 实例，启动时还要 `app.useLogger(...)` 才真正换掉默认实现。
+先把这件事说清楚：把 Winston 接进 Nest，真正要接的不是「日志」，而是**两边对不上的那句话**。同一行 `logger.log('user created', { userId: 1 })`，Nest 认为那个对象是「要一起记下来的字段」，适配层却可能把它当成「谁打的」这个标签。就像给外国电器配转换插头：电是一样的，插脚形状不一样，硬插要么不通，要么烧掉。
+
+Nest 的 `Logger` 只是门面：`new Logger('DemoService')` 里的字符串是 context，`log(message, ...optionalParams)` 后面可以跟任意个参数。真正决定日志写到哪的是 `LoggerService` 接口的实现；默认实现是 `ConsoleLogger`（第 26 章拆过这层），`WinstonModule.forRoot()` 提供 Winston 实例，启动时还要 `app.useLogger(...)` 才真正换掉默认实现。
 
 Winston 的 API 是 `logger.info(message, meta)`，第二个参数是一个对象。两套签名都叫「日志」，形状却不同：Nest 的 context 是构造时传的字符串，适配层通常把 `{ context: 'DemoService' }` 塞进 meta。如果图省事，把 Nest 的 `optionalParams` 整个当 meta，就会出现下面这种「context 变成对象、DemoService 不见了」的输出。
 
 可以对照 [Nest Logger 文档](https://docs.nestjs.com/techniques/logger) 和 [nest-winston](https://github.com/gremo/nest-winston) 看这层适配。
 
-现在看一个真实事故。
+## 先看接错的样子
 
 Winston 配好了，`WinstonModule.forRoot(...)` 也写进 `AppModule` 了，服务能启动。你随手在 Service 里打一条：
 
@@ -38,10 +40,10 @@ logger.log('user created', { userId: 1, plan: 'pro' });
 这三层各有各的职责，拆开看：
 
 - **门面**：`@nestjs/common` 的 `Logger` 类。业务代码 `new Logger(OrdersService.name)` 拿到的就是它，`log/warn/error/debug/verbose/fatal` 六个方法。
-- **接口**：`LoggerService`。谁实现它，谁就接管门面背后所有的输出。
+- **接口**：`LoggerService`，第 26 章讲过，它就是「门面背后真正干活的那个实现」要满足的合同。谁实现它，谁就接管门面背后所有的输出。
 - **装配点**：`app.useLogger(instance)`。启动时调用一次，把门面背后的实现换成你的。
 
-关键在第三层：`useLogger` 换的不只是业务代码的 `Logger`，还包括框架内部那些不走依赖注入的组件——`NestFactory` 的启动日志、`RoutesResolver` 的路由映射、`ExceptionsHandler` 的异常捕获，全都通过同一个静态门面输出。所以只要适配器写对，框架日志和业务日志会落到同一个文件、同一套字段。
+关键在第三层：`useLogger` 换的不只是业务代码的 `Logger`，还包括框架内部那些不走依赖注入的组件——`NestFactory` 的启动日志、`RoutesResolver` 的路由映射、`ExceptionsHandler` 的异常捕获（异常过滤器是第 21 章的内容），全都通过同一个静态门面输出。所以只要适配器写对，框架日志和业务日志会落到同一个文件、同一套字段。
 
 ```mermaid
 flowchart LR
@@ -54,15 +56,15 @@ flowchart LR
   E --> F3["HTTP → Loki / OTLP"]
 ```
 
-图上那条从框架组件指向门面的线，是很多人漏掉的：他们只把自己的 Service 改成注入 Winston，结果框架日志还是走默认 `ConsoleLogger`，一个请求的日志散在两个地方。
+图上那条从框架组件指向门面的线，是很多人漏掉的：他们只把自己的 Service 改成注入 Winston，结果框架日志还是走默认 `ConsoleLogger`，一个请求的日志散在两个地方。像公司换了对讲机，只给销售部发了新的，保安和前台还用旧的，出事时两边对不上话。
 
 `LoggerService` 接口一共七个方法：`log`、`error`、`warn`、`debug`、`verbose`、`fatal` 六个输出方法，加一个可选的 `setLogLevels`。只有 `log/error/warn` 是必选的，其余带 `?`。`setLogLevels` 会被 `app.useLogger(['error', 'warn'])` 这种调用触发——也就是说，你传数组时，Nest 调的是当前实现的 `setLogLevels`，而不是换一个实现。想让运行中改级别生效，适配器里得实现它，否则这个调用会被静默忽略。
 
-还有一点容易误解：`new Logger('X')` 每次 new 出来的都是新对象，但它们共享同一个静态 `staticInstanceRef`。`app.useLogger()` 改的是这个静态引用，所以你在任意模块、任意层级 new 出来的 `Logger`，输出都会跟着变。这也是为什么适配器必须是个单例——如果每个模块各 new 一个自己的 Winston logger，框架那部分日志仍然走静态引用，两边就分叉了。
+还有一点容易误解：`new Logger('X')` 每次 new 出来的都是新对象，但它们共享同一个静态 `staticInstanceRef`。`app.useLogger()` 改的是这个静态引用，所以你在任意模块、任意层级 new 出来的 `Logger`，输出都会跟着变。这也解释了为什么适配器必须是个单例——如果每个模块各 new 一个自己的 Winston logger，框架那部分日志仍然走静态引用，两边就分叉了。
 
 ## 方案一：nest-winston 的三行接法
 
-社区包 `nest-winston` 提供了现成的 `WinstonModule` 和适配器。装好之后，`AppModule` 里这样配：
+社区包 `nest-winston` 提供了现成的 `WinstonModule` 和适配器。装好之后，`AppModule` 里这样配。`forRoot()` 收的就是一份 Winston 配置：`level` 管过滤、`format` 管形状、`transports` 管去处（第 27 章拆过这三件套），原样搬过来即可。
 
 ```ts
 import { Module } from '@nestjs/common';
@@ -97,7 +99,7 @@ const app = await NestFactory.create(AppModule, { bufferLogs: true });
 app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 ```
 
-`bufferLogs: true` 让 Nest 在 `useLogger` 生效之前先把启动日志缓冲住，等适配器装好再一次性 flush。没有它，`NestFactory` 最早那几行日志会走默认实现，直接打到终端，不进文件。缓冲有上限，默认在 `NestApplication` 初始化时自动 flush；如果你在 `create` 之后、`useLogger` 之前又打了大量日志，可以手动 `app.flushLogs()` 提前排空，免得缓冲区被截断。
+`bufferLogs: true` 让 Nest 在 `useLogger` 生效之前先把启动日志缓冲住，等适配器装好再一次性 flush——就是第 26 章那个摆渡车的办法：人先上车等着，登机口定了再一起走。没有它，`NestFactory` 最早那几行日志会走默认实现，直接打到终端，不进文件。缓冲有上限，默认在 `NestApplication` 初始化时自动 flush；如果你在 `create` 之后、`useLogger` 之前又打了大量日志，可以手动 `app.flushLogs()` 提前排空，免得缓冲区被截断。
 
 跑起来，`logs/nest.log` 里是这样：
 
@@ -153,7 +155,7 @@ if (message instanceof Error) {
 1. `error: message` 直接放了 `Error` 实例。`JSON.stringify(new Error('x'))` 的结果是 `{}`——`message`、`stack` 都是不可枚举属性。所以日志里 `"error":{}`。
 2. `stack: [trace || stack]` 包了一层数组。Winston 的 `format.errors({ stack: true })` 只处理顶层 `stack` 是字符串的情况，数组原样透传。
 
-日志平台里 `error.message` 查不到、`stack` 不是字符串，告警规则全部要重写。
+日志平台里 `error.message` 查不到、`stack` 不是字符串，告警规则全部要重写。这就像把一封信装进信封又套了个箱子：地址写在信封上，你却只把箱子递给邮局，邮局只能看到箱子。
 
 ## 方案二：写一个 40 行的适配器
 
@@ -256,7 +258,7 @@ curl -s http://localhost:3000/api/chunked/boom
 
 ## 让 requestId 自动出现
 
-适配器只管格式，不负责请求上下文。要在每条日志上带 `requestId`，用 `AsyncLocalStorage` 最省事。
+适配器只管格式，不负责请求上下文。要在每条日志上带 `requestId`，用 `AsyncLocalStorage` 最省事。它像是给每个进门的人发一个手环，之后不管走到哪个柜台，工作人员抬手就能看到编号（第 27 章讲 `child()` 时提过同样的思路，这里是它在 Nest 里的落地）。
 
 ```ts
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -282,7 +284,7 @@ format: winston.format.combine(withTrace(), winston.format.timestamp(), winston.
 
 `withTrace()` 必须放在 `json()` 之前。format 是管道，后面的函数拿到的是前面函数的返回值，顺序错了字段就进不去。
 
-验证方式很直接：同一个请求里打三条日志，`grep requestId logs/custom.log` 应该三条都命中；不同请求的 `requestId` 不同。异步并发的场景（`Promise.all` 里各打一条）也要验一次，`AsyncLocalStorage` 在 `await` 之后仍然能拿到正确的 store——这是它相对「全局变量存 requestId」的唯一优势。
+验证方式很直接：同一个请求里打三条日志，`grep requestId logs/custom.log` 应该三条都命中；不同请求的 `requestId` 不同。异步并发的场景（`Promise.all` 里各打一条）也要验一次，`AsyncLocalStorage` 在 `await` 之后仍然能拿到正确的 store——这是它相对「全局变量存 requestId」的唯一优势，也是必须用它的理由。
 
 ## 日志轮转：别让文件无限长
 
@@ -340,7 +342,6 @@ logs/
 
 下一篇换场景：代码要打包上服务器了。Docker 是什么、为什么前端也要懂它，从一个能双击安装的桌面应用讲起。
 
-想更深入的话，官方文档里有这几页可以接着看：[Nest Logger](https://docs.nestjs.com/techniques/logger)（适配器要实现的接口和替换默认 logger 的约定，对应正文“接缝到底在哪”）、[nest-winston](https://github.com/gremo/nest-winston)（现成适配器的配置项和它怎么处理错误对象，对应方案一和“Error 被序列化成空对象”那个坑）、[winston-daily-rotate-file](https://github.com/winstonjs/winston-daily-rotate-file)（按天切文件时大小上限、保留个数、压缩的实际含义，对应日志轮转那节）。
 
 <!-- chapter-nav:start -->
 ---

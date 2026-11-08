@@ -1,20 +1,22 @@
 # 第 31 章 Nest 项目如何编写 Dockerfile
 
+第 30 章那个小服务只有两个文件，Dockerfile 怎么写都不太会错。换成真正的 Nest 项目，事情一下子多出四件：TypeScript 要先编译成 JS、pnpm 的依赖分「构建用」和「运行用」、Prisma 8 的契约产物要跟着进镜像、非 root 用户还得有地方写日志。
+
+最直觉的做法是把第 30 章那份 Dockerfile 原样套到 `meeting-booking` 上。它大概率能构建成功，然后你得到两个新问题：镜像 1.9GB，安全扫描报告里躺着三百个来自构建工具链的 CVE；CI 每次构建八分钟，其中六分钟在装 `devDependencies`。
+
+这 1.9GB 里，TypeScript、Nest CLI、测试框架、类型定义占了大头；这六分钟里，装的全是只在「把源码变成 `dist/`」那一刻有用的东西。它们被一起发到了生产环境，而生产环境一行都用不到。
+
+所以这一章要解决的不是「怎么让镜像跑起来」，而是「怎么只把该带的东西带进去」。用的办法叫多阶段构建，第 30 章第一次讲过镜像和层，这里是在层的基础上做减法。
+
 ## 先弄清「构建依赖」和「运行依赖」
 
-一个 Node 服务跑起来只需要两样东西：编译后的 JS，和运行时真正 import 的包。TypeScript、Nest CLI、Jest、`@types/*` 只在把源码变成 `dist/` 的那一刻有用，运行时一行都用不到。单阶段 Dockerfile 把两者装进同一个镜像，于是镜像里多出几百 MB 工具链，也多出几百个 CVE（公开披露的漏洞编号）。
+一个 Node 服务跑起来只需要两样东西：编译后的 JS，和运行时真正 import 的包。
 
-多阶段构建（multi-stage build）就是为这件事设计的：一个 Dockerfile 里写多个 `FROM`，每个 `FROM` 开一个新阶段，用 `AS 名字` 命名；前面的阶段负责装依赖、编译，最后一个阶段只 `COPY --from=构建阶段 /app/dist` 和运行时依赖。中间阶段的文件不会进入最终镜像，除非你显式 COPY。这样「构建需要什么」和「运行需要什么」就可以用两套完全不同的环境。[Docker 的多阶段构建文档](https://docs.docker.com/build/building/multi-stage/) 有最小例子，[Nest 的部署章节](https://docs.nestjs.com/deployment) 讲运行时该带哪些文件。
+你可以把构建依赖想成装修队：电钻、脚手架、切割机，盖房子时缺一不可，但住户搬进来那天它们必须撤走。运行依赖是家具家电，住户真正要用的。TypeScript、Nest CLI、`@types/*` 就是电钻，`@nestjs/common`、`pg` 这些才是家具。
 
-理解了这个结构，下面这组数字就不难解释。
+单阶段 Dockerfile 把两者装进同一个镜像，等于交房时把装修队和脚手架一起锁在屋里。多出来的不只是几百 MB，还有几百个 CVE（公开披露的漏洞编号）——每多一个包，扫描器就多一行要处理的东西。
 
-现在看一个真实事故。
-
-把 030 那份 Dockerfile 原样套到 `meeting-booking` 上，大概率能构建成功，然后你得到两个新问题：镜像 1.9GB，安全扫描报告里躺着三百个来自构建工具链的 CVE；CI 每次构建八分钟，其中六分钟在装 `devDependencies`。
-
-1.9GB 里，TypeScript、Nest CLI、测试框架、类型定义占了大头；八分钟里，六分钟在重复安装这些只服务构建的包。它们全都被一起发到了生产环境。
-
-落到这份 Dockerfile 里，就是多个 `FROM ... AS 名字`：前面的阶段负责产出文件，最后一个阶段只 `COPY --from=阶段名` 拿走要用的。中间阶段不进最终镜像，用完就丢。
+多阶段构建（multi-stage build）就是为这件事设计的：一个 Dockerfile 里写多个 `FROM`，每个 `FROM` 开一个新阶段，用 `AS 名字` 命名；前面的阶段负责装依赖、编译，最后一个阶段只 `COPY --from=构建阶段 /app/dist` 和运行时依赖。中间阶段的东西不会进入最终镜像，除非你显式 COPY。等于工地和成品房分开，交房时只把家具搬进去。[Docker 的多阶段构建文档](https://docs.docker.com/build/building/multi-stage/) 有最小例子，[Nest 的部署章节](https://docs.nestjs.com/deployment) 讲运行时该带哪些文件。
 
 ```mermaid
 flowchart LR
@@ -33,7 +35,7 @@ flowchart LR
 
 体积差多少？`node:22-alpine` 本身约 130MB，生产依赖约 40MB，`dist` 只有几 MB，最终镜像 200MB 上下。单阶段把 TypeScript、Nest CLI、ESLint、测试框架全带上，1GB 起步。差的这 800MB 不只是磁盘，还有每次拉取、每次扫描、每个 CVE 的成本。
 
-先说清楚运行时约定，后面每个决定都依赖它：Nest 12.3.x、Node 22、ESM（`"type": "module"`）、pnpm 11、PostgreSQL 17 + Prisma 8。`tsconfig.build.json` 把 `rootDir` 固定成 `./src`，所以 `nest build` 的产物是 `dist/main.js`；`src/generated/prisma8/` 下的契约产物已提交，构建时不连数据库、也不重新生成。
+先把运行时约定说清楚，后面每个决定都依赖它：Nest 12.3.x、Node 22、ESM（`"type": "module"`）、pnpm 11、PostgreSQL 17 + Prisma 8。`tsconfig.build.json` 把 `rootDir` 固定成 `./src`，所以 `nest build` 的产物是 `dist/main.js`；`src/generated/prisma8/` 下的契约产物已提交，构建时不连数据库、也不重新生成。
 
 ## 写 Dockerfile
 
@@ -171,7 +173,7 @@ docker run -d --name meeting-booking \
   meeting-booking:1.0.0
 ```
 
-`--add-host` 让容器里的 `host.docker.internal` 指向宿主机，Linux 上必须加，Docker Desktop 默认就能解析。真实部署时这个值从 Secret 注入，不要打进镜像。
+`--add-host` 让容器里的 `host.docker.internal` 指向宿主机，Linux 上必须加，Docker Desktop 默认就能解析。为什么不能写 `localhost`？第 29 章讲过：每个容器有自己的网络空间，`localhost` 指的是容器自己。真实部署时这个值从 Secret 注入，不要打进镜像。
 
 ```bash
 docker logs --tail 5 meeting-booking
@@ -211,7 +213,7 @@ real    0m0.6s
 
 （示例输出，未实测。）`1000` 说明 `USER node` 生效；`22` 说明基础镜像和 `engines` 对得上；健康检查在 `start-period` 内显示 `starting`，十几秒后再查；`0.6s` 说明 SIGTERM 到了 Node，`enableShutdownHooks()` 关掉了连接。
 
-如果 `docker stop` 等满 10 秒、退出码 137，说明信号没到 Node。最常见的原因是 `CMD` 写成 shell 形式，或者外面又包了一层 `npm start`。`HEALTHCHECK` 也要理解边界：它只给容器打个状态标签，Docker 引擎**不会**因为 `unhealthy` 自动重启，采取动作的是外层编排。没有这个标签，编排只能看「进程还在不在」，而事件循环堵死、依赖断开时进程往往还活着——这正是健康检查存在的理由。
+如果 `docker stop` 等满 10 秒、退出码 137，说明信号没到 Node。最常见的原因是 `CMD` 写成 shell 形式，或者外面又包了一层 `npm start`（信号和 1 号进程的关系，第 30 章用 tini 讲过）。`HEALTHCHECK` 也要理解边界：它只给容器打个状态标签，Docker 引擎**不会**因为 `unhealthy` 自动重启，采取动作的是外层编排。没有这个标签，编排只能看「进程还在不在」，而事件循环堵死、依赖断开时进程往往还活着——这正是健康检查存在的理由。
 
 ## Prisma 8 的契约产物放哪
 
@@ -238,12 +240,11 @@ Prisma 8 是 contract-first：`prisma/contract.prisma` 是唯一事实来源，`
 
 - `EXPOSE` 不发布端口，`-p` 才是入口；应用显式 `listen(port, '127.0.0.1')` 时容器外永远访问不到，生产写死 `0.0.0.0`。
 - `/api/health` 只是存活检查，不查数据库。要就绪检查用 `@nestjs/terminus` 加数据库 ping，别把「进程还在」当「依赖正常」。
-- tag 用 `1.0.0` 这种可追踪版本，别推 `latest` 上生产。要锁死还得固定基础镜像 digest，032 讲。
+- tag 用 `1.0.0` 这种可追踪版本，别推 `latest` 上生产。要锁死还得固定基础镜像 digest，第 32 章讲。
 - `.dockerignore` 至少排除 `node_modules`、`dist`、`.git`、`.env*`；带 token 的 `.npmrc` 不要 `COPY`，用 BuildKit（Docker 的现代构建器，较新版本默认启用）的 secret mount。
 
 镜像能跑、能停、能查健康状态，这条链路就闭合了。下一章不满足于「能跑」，从体积、构建速度、攻击面三个方向再压一轮。
 
-想更深入的话，官方文档里有这几页可以接着看：[Deployment](https://docs.nestjs.com/deployment)（Nest 应用上生产要考虑的构建、启动和健康检查清单，和本章 Dockerfile 的每个阶段能对上）、[Containerize a Node.js application](https://docs.docker.com/language/nodejs/containerize/)（官方 Node 容器化教程，同样的分层思路换一种写法，可以对照本章的依赖分层）、[pnpm Docker](https://pnpm.io/docker)（pnpm 在镜像里怎么装依赖、缓存和锁文件怎么处理，对应正文“构建依赖和运行依赖”）、[Build cache](https://docs.docker.com/build/cache/)（构建缓存什么时候命中、什么时候失效，对应正文层顺序和路径那两段）。
 
 <!-- chapter-nav:start -->
 ---

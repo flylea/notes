@@ -6,19 +6,27 @@
 this.client = new PaymentClient(process.env.PAY_KEY, process.env.PAY_SECRET, cert);
 ```
 
-第一周没问题。第二周加沙箱模式，构造器里多一个 `if`；第三周运维要轮换密钥，得重启所有实例；第四周你发现结算模块和退款模块各自建了一个客户端，各握一份连接池，关都关不干净。业务类不该知道这些，它只需要一个能收款的客户端。
+第一周没问题。第二周加沙箱模式，构造器里多一个 `if`；第三周运维要轮换密钥，得重启所有实例；第四周你发现结算模块和退款模块各自建了一个客户端，各握一份连接池，关都关不干净。
 
-第 5 章讲的是容器怎么找对象，这一章讲另一半：**这个对象到底怎么造**。在模块的 `providers` 数组里，Provider 更准确的意思是“一条创建规则”，而不是对象本身。最简写 `GreetingService` 等价于 `{ provide: GreetingService, useClass: GreetingService }`；`provide` 那一项是 **token（令牌）**，容器查找实例用的键；配方是 `useClass` / `useValue` / `useFactory` / `useExisting` 四选一，决定实例从哪来。`@Inject()` 用在消费端：token 不是类时，TypeScript 的类型标注给不了运行时线索，必须显式告诉容器用哪把钥匙。
+代码本身没写错，错的是"这个客户端由谁造、造几份、什么时候造"被塞进了业务类里。业务类只想要一个能收款的客户端，不该知道证书从哪来、连的是沙箱还是生产。
 
-四种配方对应四种复杂度：换实现只要换个类名；配置对象已经现成，没必要再包一层；要读环境变量、异步拉证书、按条件选实现，得用函数；多个 token 指向同一个实例时，只能用别名，否则会悄悄多造一份。选错的后果不是语法错误，是实例数量或初始化时机不对，这类 bug 往往过几天才浮现。
+第 5 章讲的是容器怎么把对象送到需要它的人手里；这一章讲更靠前的一步：**这些对象是谁造的、按什么规矩造**。答案就在模块的 `providers` 数组里。那一项不是对象本身，更像一张**领用单**：写清楚"叫什么名字"和"从哪来"。
 
-## `providers: [X]` 只是一句简写
+名字叫 **token（令牌）**，就是取件码。容器不认"这个类很重要"这种说法，它只按 token 查：你报一个码，它把对应的东西递给你。最常用的一种码是类名本身，所以平时你感觉不到它的存在。
+
+"从哪来"叫**配方**，一共四种：`useClass`、`useValue`、`useFactory`、`useExisting`。拿做饭打比方，`useClass` 是现做一份新的；`useValue` 是买现成的直接端上桌；`useFactory` 是照菜谱现场加工，可以等、也可以按条件换做法；`useExisting` 是菜已经做好了，再拿一个盘子指过去——东西还是那一份，只是多了一个名字。
+
+非得分成四种，是因为这四件事的代价不一样。配置对象已经现成了，再包一层 `useClass` 纯属浪费；要读环境变量、异步拉证书，`useValue` 给不了你"等它准备好"的能力；同一个实例想被两个名字找到，写成 `useClass` 会悄悄多造一份。选错的后果不是语法报错，是实例数量或初始化时机不对——这种 bug 往往过几天才以"数据偶尔不对"的形式冒出来。
+
+和最容易混的那一对先划清：`useClass` 和 `useExisting` 都会让容器参与依赖装配，差别只在**新建还是复用**。
+
+## 配方四种，先看一张表
 
 先记住这个等式：`providers: [GreetingService]` 就是 `providers: [{ provide: GreetingService, useClass: GreetingService }]`。
 
 `provide` 是 token，`useClass` 是配方。类名做 token 时两者同名，所以能简写；一旦 token 不是类，或者创建方式不是 `new`，就必须写完整对象。
 
-| 配方 | 适用场景 | 是否新建实例 | 工厂 / 值能否注入依赖 |
+| 配方 | 什么时候用 | 是否新建实例 | 工厂 / 值能否注入依赖 |
 | --- | --- | --- | --- |
 | `useClass` | 换实现，实例交给容器管理 | 是 | 是 |
 | `useValue` | 现成配置、常量、第三方客户端 | 否，直接用这个值 | 否 |
@@ -27,7 +35,7 @@ this.client = new PaymentClient(process.env.PAY_KEY, process.env.PAY_SECRET, cer
 
 选错的代价很具体：该用 `useExisting` 的地方写了 `useClass`，你会得到两个实例，内存状态各一份；该用 `useFactory` 的地方写了 `useValue`，异步初始化来不及，应用启动时拿到一个半成品。
 
-机制再补两句。`useValue` 的值不经过容器实例化，所以它内部的依赖不会被注入——你在值里塞一个类实例，那个实例的构造器参数得自己解决。`useFactory` 的返回值就是实例，Nest 不会对它做二次注入；需要什么依赖，在 `inject` 数组里列，工厂函数按位置接收。`useClass` 和 `useExisting` 都会让容器参与依赖装配，区别只在“新建”还是“复用”。
+机制再补两句。`useValue` 的值不经过容器实例化，所以它内部的依赖不会被注入——你在值里塞一个类实例，那个实例的构造器参数得自己解决。`useFactory` 的返回值就是实例，Nest 不会对它做二次注入；需要什么依赖，在 `inject` 数组里列，工厂函数按位置接收。`useClass` 和 `useExisting` 都会让容器参与依赖装配，区别只在"新建"还是"复用"。
 
 ## token 不一定是类
 
@@ -35,16 +43,18 @@ this.client = new PaymentClient(process.env.PAY_KEY, process.env.PAY_SECRET, cer
 
 token 有四种常见写法：
 
-- **类**：`provide: GreetingService`，最常见。
-- **抽象类**：`provide: Clock`，运行时仍然存在，可以当 token。
-- **字符串**：`provide: 'GREETING_OPTIONS'`，简单，但容易拼错、容易冲突。
-- **Symbol**：`provide: GREETING_OPTIONS`，唯一且可读，本教程首选。
+- **类**：`provide: GreetingService`，最常见，类名就是码。
+- **抽象类**：`provide: Clock`，编译后仍然存在，可以当 token。
+- **字符串**：`provide: 'GREETING_OPTIONS'`，简单，但像拿"张三"当取件码——容易重名，也容易喊错。
+- **Symbol**：`provide: GREETING_OPTIONS`，创建时就唯一，像身份证号，本教程首选。
 
-接口不行。TypeScript 的 `interface` 编译后完全消失，运行时没有这个值，容器无法用它做 key。想要“面向接口”，用抽象类或 `Symbol` 做 token，接口只用来约束类型。
+接口不行。TypeScript 的 `interface` 编译后完全消失，运行时没有这个值，容器手里没有码可查。想要"面向接口"，用抽象类或 `Symbol` 做 token，接口只用来约束类型。
 
 字符串 token 的风险在全局命名空间：两个库都写 `'CONFIG'`，后注册的覆盖先注册的，而且拼错不会编译报错，只能在启动时暴露。Symbol 在模块加载时创建，天然唯一；把 Symbol 集中定义在一个文件里导出，双方 import 同一个引用，既唯一又可读。
 
-非类 token 注入时必须显式告诉 Nest 用哪把钥匙，在构造器参数上写 `@Inject(GREETING_OPTIONS)`。只写 `private readonly options: GreetingOptions`，Nest 看到的是 `Object`，解析必然失败。这不是装饰器语法问题，是类型在运行时不存在。机制和前面一样：Nest 读构造器参数的 `design:paramtypes`，非类 token 在元数据里是 `Object`，`@Inject` 的作用就是覆盖这个默认推断。字符串 token 按值比较，Symbol 按引用比较，所以 Symbol 必须双方 import 同一个，复制一份 `Symbol('X')` 是两把不同的钥匙。
+非类 token 注入时必须显式告诉 Nest 用哪把钥匙，在构造器参数上写 `@Inject(GREETING_OPTIONS)`。只写 `private readonly options: GreetingOptions`，Nest 看到的是 `Object`，解析必然失败。前台只认码，你嘴上说"我要那个配置"，它听不见，得把码递过去。
+
+这不是装饰器语法问题，是类型在运行时不存在。机制和前面一样：Nest 读构造器参数的 `design:paramtypes`，非类 token 在元数据里是 `Object`，`@Inject` 的作用就是覆盖这个默认推断。字符串 token 按值比较，Symbol 按引用比较，所以 Symbol 必须双方 import 同一个，复制一份 `Symbol('X')` 是两把不同的钥匙。
 
 > **图 7-1** 四种配方与 token 的对应关系。
 >
@@ -101,7 +111,9 @@ export class SystemClock extends Clock {
 }
 ```
 
-`Clock` 是抽象类，编译后仍然以函数形式存在，所以能当 token；`abstract` 只是 TS 层的约束，禁止你 `new Clock()`，运行时的类本身还在。`SystemClock` 之所以要单独注册，是因为 `Clock` 那条配方只是别名，真正被实例化的是 `SystemClock`；如果 `providers` 里没有它，`useExisting` 指向一个不存在的 token，启动就会报错。别名不创建目标，只改指向。
+`Clock` 是抽象类，编译后仍然以函数形式存在，所以能当 token；`abstract` 只是 TS 层的约束，禁止你 `new Clock()`，运行时的类本身还在。这一点正好和 `interface` 相反：后者编译完就没了。
+
+`SystemClock` 之所以要单独注册，是因为 `Clock` 那条配方只是别名，真正被实例化的是 `SystemClock`；如果 `providers` 里没有它，`useExisting` 指向一个不存在的 token，启动就会报错。别名不创建目标，只改指向。
 
 服务同时消费配置和时钟。两个构造器参数用的是不同的注入方式：一个是 `@Inject(Symbol)`，一个是类 token 直接注入：
 
@@ -137,7 +149,7 @@ export class GreetingService implements GreetingReader {
 }
 ```
 
-控制器再注入一次 `GREETING_READER`，用来验证“别名是不是同一个实例”。`_meta/instances` 有两个路径段，不会被 `:name` 抢走：
+控制器再注入一次 `GREETING_READER`，用来验证"别名是不是同一个实例"。`_meta/instances` 有两个路径段，不会被 `:name` 抢走：
 
 ```ts
 // src/greetings/greeting.controller.ts
@@ -247,7 +259,7 @@ curl -s http://localhost:3000/greetings/_meta/instances
 # {"shared":false,"app":{"name":"meeting-booking","version":"locale-zh-CN"}}
 ```
 
-两个 token 各自创建了一个 `GreetingService`。它们的状态暂时一样，所以业务看不出问题；等 `GreetingService` 里加了缓存、计数器或连接，bug 才会以“数据偶尔不对”的形式出现。`useExisting` 就是用来消灭这种隐性双实例的。
+两个 token 各自创建了一个 `GreetingService`。它们的状态暂时一样，所以业务看不出问题；等 `GreetingService` 里加了缓存、计数器或连接，bug 才会以"数据偶尔不对"的形式出现。`useExisting` 就是用来消灭这种隐性双实例的。
 
 再试一个：把 `Clock` 的 `useExisting` 改成 `useClass: SystemClock`。时钟没有状态，多一个实例不影响结果，但你可以用同样的方法检查任何有状态的 Provider。
 
@@ -255,13 +267,13 @@ curl -s http://localhost:3000/greetings/_meta/instances
 
 **`useValue` 不复制对象。** 容器把同一个引用注入给所有消费者。一个消费者改了配置对象，其他消费者立刻看到脏数据。用 `Object.freeze` 把它冻住，或者只读约定；别把可变对象当配置。
 
-**`useFactory` 的返回值可以是 `undefined`。** 工厂里忘了 `return`，Nest 不会报“工厂没返回值”，只会在注入处给你 `undefined`。工厂写短一点，最后一行明确 `return`。
+**`useFactory` 的返回值可以是 `undefined`。** 工厂里忘了 `return`，Nest 不会报"工厂没返回值"，只会在注入处给你 `undefined`。工厂写短一点，最后一行明确 `return`。
 
-**可选依赖要判空。** `inject: [{ token: METRICS, optional: true }]` 在没注册时给 `undefined`，不是抛错。适合“有监控就上报，没有就跳过”的场景，但消费方必须处理空值。
+**可选依赖要判空。** `inject: [{ token: METRICS, optional: true }]` 在没注册时给 `undefined`，不是抛错。适合"有监控就上报，没有就跳过"的场景，但消费方必须处理空值。
 
 **跨模块要导出 token，不只是类。** A 模块导出 `GreetingService`，B 模块能注入类 token；如果 B 要注入 `GREETING_OPTIONS`，A 的 `exports` 里也得有 `GREETING_OPTIONS`。只导出类，Symbol 在 B 模块里依然找不到。
 
-**工厂里不要做请求级的事。** Provider 默认单例，工厂只在启动时跑一次。把“当前用户”塞进工厂，等于把第一个请求的用户发给所有人。
+**工厂里不要做请求级的事。** Provider 默认单例，工厂只在启动时跑一次。把"当前用户"塞进工厂，等于把第一个请求的用户发给所有人。
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
@@ -275,9 +287,8 @@ curl -s http://localhost:3000/greetings/_meta/instances
 | 注入的是 `Object` 而不是类 | 用了 `import type` | 改成普通 `import` |
 | 跨模块注入 Symbol 失败 | 提供方只导出了类，没导出 token | `exports` 里补上 token |
 
-Provider 解决的是“对象怎么来”。对象来了之后，还有两个问题没回答：它什么时候初始化、进程退出时谁来收尾。下一章把 `@Global()` 和五个生命周期钩子放回同一条时间线上看。
+Provider 解决的是"对象怎么来"。对象来了之后，还有两个问题没回答：它什么时候初始化、进程退出时谁来收尾。下一章把 `@Global()` 和五个生命周期钩子放回同一条时间线上看。
 
-想更深入的话，官方文档里有这几页可以接着看：[Dependency injection](https://docs.nestjs.com/fundamentals/dependency-injection)（四种 Provider 写法各自解决什么问题、边界在哪，对应本章“把四种配方放进一个模块”）。
 
 <!-- chapter-nav:start -->
 ---

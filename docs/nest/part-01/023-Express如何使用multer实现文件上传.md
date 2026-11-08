@@ -1,22 +1,30 @@
 # 第 23 章 Express 如何使用 multer 实现文件上传
 
-## 上传请求为什么不是 JSON
+用户在页面上点一下“上传海报”，从电脑里挑一张图，等两秒，页面提示成功。这两秒里浏览器干的事，和平时调一个 JSON 接口完全不是一回事。
 
-浏览器上传文件，不会把文件字节塞进 `JSON.stringify`。用户选中文件后，`<input type="file">` 把它交给 `FormData`；`FormData` 收集字段，浏览器再把整个表单编码成 `multipart/form-data`：请求体被切成若干段，普通字段（标题、分类）各占一段，文件字段单独占一段，文件字节原样放在这一段里。JSON 只能装文本，二进制要先 Base64，体积涨三分之一，服务端还得先整体读进内存——文件一旦上 MB，这条路就不划算。[FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData) 和 [multipart/form-data](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types#multipartform-data) 的规范值得扫一眼。
+JSON 像一张写满字的纸：折起来塞进信封，收件人拆开就能读。图片像一箱实物：信封塞不下，硬塞就得先把它拆成一串字符（Base64），体积涨三分之一，收件人收到还得先拼回去。所以浏览器不会把文件塞进 JSON，它换了一种打包方式，叫 `multipart/form-data`。
 
-请求到了 Express，第一道关是 body parser。它看 `Content-Type` 决定谁来读请求体：`express.json()` 只接 `application/json`，`express.urlencoded()` 只接表单；multipart 不在任何一个内置解析器的名单里，所以文件字节从头到尾没人读，`req.body` 留下一个空对象，`req.file` 自然不存在。
+名字先放一边，看它解决什么问题：一次请求里既要带普通字段（标题、分类），又要带文件，还得让服务端分得清哪段是哪个。它的做法像搬家分箱——书装一箱、锅碗装一箱，每箱外面贴一张纸条，写明这箱是什么；箱子与箱子之间用一条印着随机编号的胶带隔开。这条胶带叫 **boundary**（边界），编号同时写在请求头的 `Content-Type` 里，服务端照着编号找切口。没有它，服务端收到的是一整块字节：不知道文件从哪个字节开始，也不知道标题在哪儿结束。
 
-接这份活的是 multer：一个专门解析 multipart 的中间件。它按 boundary 把请求体切开，把文件交给存储引擎（内存或磁盘），再把结果挂到 `req.file`。Express 内置的解析器覆盖 JSON、urlencoded、raw 和 text，唯独没有 multipart，所以要自己装，multer 是生态里最常见的选择。[multer 的 README](https://github.com/expressjs/multer) 把配置项列得很全，这一章就按它的四件事展开。
+它和 JSON 的差别就在这儿：JSON 靠花括号和引号分层，只能装文本；multipart 靠 boundary 分段，给二进制留了位置，文件字节原样放进去，不做编码，体积不涨。[FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData) 是浏览器里负责打包的东西，[multipart/form-data](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types#multipartform-data) 是包裹格式本身的说明。
 
-现在看一个真实事故。
+第 4 章已经用过一次 form-data，那时只关心“文件放在 body 里”，用 `@UploadedFiles()` 把文件信息取出来。这一章往下走一层：这段 body 到底由谁拆开，拆完的文件又放到哪儿。
 
-页面加了一个「上传海报」的按钮。用户选一张图，前端用 `FormData` 打包，POST 到 `/api/uploads`。接口返回了 201，可你打开日志一看：`req.body` 是 `{}`，`req.file` 是 `undefined`，磁盘上也没有任何新文件。
+## Express 的分拣员不认识 multipart
 
-请求确实到了，路由也确实进了，为什么文件凭空消失？答案就在上一节：没有解析器接手的请求，`req.body` 只剩一个空对象。下面把 multipart 的报文拆开，看看浏览器到底写了什么。
+请求进了 Express，第一道关是 body parser（请求体解析器）。你可以把它想成快递站的分拣员：只看包裹面单上的“品类”——也就是请求头的 `Content-Type`——决定送到哪个窗口。`express.json()` 只接 `application/json`，`express.urlencoded()` 只接表单，`express.raw()` 接原始字节，`express.text()` 接纯文本。multipart 这个品类不在任何窗口的名单里，包裹就原样搁在那儿，没人拆。
 
-## multipart 到底长什么样
+所以文件上传失败时，`req.body` 是个空对象，`req.file` 压根不存在。这不是文件太大，也不是字段名写错，是**没有解析器接手这个请求**。
 
-页面上只要有 `<input type="file">`，表单提交时就会编码成 `multipart/form-data`。它把请求体切成若干段，每一段叫一个 **part**，段与段之间用一串随机字符隔开，这串字符叫 **boundary**（边界）。boundary 同时写在请求头的 `Content-Type` 里，服务端照着它切段。
+先看一个真实事故。
+
+页面加了一个“上传海报”的按钮。用户选一张图，前端用 `FormData` 打包，POST 到 `/api/uploads`。接口返回了 201，可你打开日志一看：`req.body` 是 `{}`，`req.file` 是 `undefined`，磁盘上也没有任何新文件。
+
+请求确实到了，路由也确实进了，文件却凭空消失。原因就是上面那句：没人接手的请求，body 不会被拆开。下面把 multipart 的报文拆开，看看浏览器到底写了什么。
+
+## multipart 的包裹长什么样
+
+页面上只要有 `<input type="file">`，表单提交时就会编码成 `multipart/form-data`。它把请求体切成若干段，每一段叫一个 **part**，段与段之间用那串随机字符（boundary）隔开。
 
 ```text
 POST /api/uploads HTTP/1.1
@@ -34,28 +42,26 @@ Content-Type: image/png
 ------WebKitFormBoundaryXk3--
 ```
 
-每个 part 的骨架都一样：几行头、一个空行、然后是这一段的内容。普通字段的内容是文本，文件字段的内容是原始字节。最后一行 `--boundary--` 表示结束。
+每个 part 的骨架都一样：几行头、一个空行、然后是这一段的内容。普通字段的内容是文本，文件字段的内容是原始字节。最后一行 `--boundary--` 表示包裹到此结束。
 
-这就能解释 `req.body` 为什么是空的了：请求体根本不是 `{"title":"..."}` 这种结构，`JSON.parse` 无从下手。
+这就能解释 `req.body` 为什么是空的了：请求体根本不是 `{"title":"..."}` 这种结构，`JSON.parse` 无从下手。拿它当 JSON 读，就像拿菜谱去对一张装箱单，格式对不上。
 
-## express.json() 是按 Content-Type 挑活的
+顺带纠正一个很常见的误解：`express.json({ limit: '1mb' })` 里的 `limit` 对上传请求完全无效，因为这个中间件压根没处理它。上传的体积上限必须由专门拆 multipart 的中间件，或者更外层的网关来管。
 
-Express 的 body 解析靠 body-parser 这一层。它的工作方式是：看请求头的 `Content-Type`，匹配上哪个解析器就交给哪个。`express.json()` 只认 `application/json`，`express.urlencoded()` 只认 `application/x-www-form-urlencoded`，两个都不匹配时，body 原样放行，`req.body` 自然就是空的。
+有人会想：那把文件转成 Base64 塞进 JSON 不就行了？几十 KB 的小图确实能跑，但体积会涨三分之一，服务端还得先整体读进内存再解码落盘，中间任何一个字符坏掉都会让整段数据没法定位。文件一旦到 MB 级，这条路就是给自己找麻烦。
 
-所以这不是「文件太大」或者「字段名写错」，是**没有解析器接管这个请求**。顺带纠正一个很常见的误解：`express.json({ limit: '1mb' })` 里的 `limit` 对上传请求完全无效，因为这个中间件压根没处理它。上传的体积上限必须由专门解析 multipart 的中间件，或者更外层的网关来管。
+还有人用 `busboy` 自己写事件处理，或者用 `formidable`。都能干活，只是要多写一层胶水。Express 生态里最省事、Nest 也拿它当底座的，是 multer——[multer 的 README](https://github.com/expressjs/multer) 把配置项列得很全，这一章就按它的四件事展开。
 
-有人会想：那把文件转成 Base64 塞进 JSON 不就行了？小文件（几十 KB）确实能跑，但体积会涨三分之一，服务端还得先整体读进内存再解码落盘，而且中间任何一个字符损坏都会让整段数据没法定位。文件一旦到 MB 级，这条路就是给自己找麻烦。
+## multer 一次读完做四件事
 
-还有几种「看起来能跑」的替代品：`busboy` 能解析但需要自己写事件处理，`formidable` 偏表单场景，`multiparty` 维护不活跃。Express 生态里最省事的还是 multer——它是官方文档点名的那一个，也是 Nest 内置上传能力的底座。
-
-## multer 在同一次读取里做四件事
-
-multer 是一个中间件，底层用 busboy 边读边解析。它在一次请求里依次做四件事：
+multer 是一个中间件，底层用 busboy 边读边解析。你把它想成专门拆这种分箱包裹的师傅：一边拆，一边把东西放到该去的地方。它在一次请求里依次做四件事：
 
 1. 按 `limits` 限制文件大小、文件数、字段数、part 数；
 2. 对每个文件调用 `fileFilter`，决定收不收；
 3. 把文件流交给 **storage engine**（存储引擎，决定字节写内存还是写磁盘）；
 4. 把普通字段挂到 `req.body`，把文件挂到 `req.file`（多文件是 `req.files`）。
+
+存储引擎可以理解成仓库管理员：内存模式是先把货摊在前台桌上，磁盘模式是直接推进货架。`fileFilter` 则是门口保安，只看你填的申报单，不开箱。
 
 顺序很重要，它直接决定了能力边界：`fileFilter` 执行的时候，文件还没落盘，它拿到的 `mimetype`、`originalname` 全是客户端自己声明的，只能做便宜的初筛；反过来，如果你等落盘后再判断类型，攻击者的 `shell.php` 已经在磁盘上存在过一瞬间了。
 
@@ -87,7 +93,7 @@ app.post('/api/uploads', upload.single('file'), (req: Request, res: Response) =>
 app.listen(3000, () => console.log('listening on http://localhost:3000'));
 ```
 
-`upload.single('file')` 里的 `'file'` 是表单字段名，必须和前端 `FormData` 里 `append` 的 key 完全一致；写错一个字母，结果永远是 `req.file === undefined`。`dest: 'uploads/'` 是最省事的配置，multer 会自己建目录、自己起一个随机文件名。
+`upload.single('file')` 里的 `'file'` 是表单字段名，必须和前端 `FormData` 里 `append` 的 key 完全一致；写错一个字母，结果永远是 `req.file === undefined`。`dest: 'uploads/'` 是最省事的配置，multer 会自己建目录、自己起一个随机文件名——相当于寄存柜给你一张随机小票，东西在，但名字不由你定。
 
 跑起来，用一张真实的 PNG 试：
 
@@ -117,7 +123,7 @@ curl -s -F "file=@fixtures/pixel.png;type=image/png" http://localhost:3000/api/u
 
 默认的 `dest` 会把文件存成随机字符串，没有扩展名。静态服务靠扩展名猜 `Content-Type`，浏览器下载时就会把图片当成 `application/octet-stream`，要么预览不了，要么被安全策略拦下。所以生产代码几乎都会换成 `diskStorage`，自己决定目录和文件名。
 
-`diskStorage` 就是 multer 的存储引擎接口：`destination` 决定写哪个目录，`filename` 决定叫什么名字。两个回调都是异步的，第三个参数是 Node 风格的 `callback(error, value)`。
+`diskStorage` 就是 multer 的存储引擎接口：`destination` 决定写哪个目录，`filename` 决定叫什么名字。两个回调都是异步的，第三个参数是 Node 风格的 `callback(error, value)`——干完活回个电话，告诉它成功还是失败、结果是什么。
 
 ```ts
 // src/upload.ts
@@ -148,13 +154,13 @@ const storage = multer.diskStorage({
 
 第一，**落盘名绝不使用 `originalname`**。客户端可以传 `../../../etc/cron.d/evil`，也可以传一个两百字符的扩展名。统一用 UUID，原文件名只作为展示用的元数据存进数据库，永远不参与路径拼接。
 
-第二，**扩展名从声明的 MIME 推导**，而不是从原文件名截取。这样「声明 `image/png`、文件名却是 `x.php`」的请求不会写出一个 `.php` 文件。
+第二，**扩展名从声明的 MIME 推导**，而不是从原文件名截取。这样“声明 `image/png`、文件名却是 `x.php`”的请求不会写出一个 `.php` 文件。
 
 第三，`mkdirSync` 放在模块顶层执行一次。模块只加载一次，目录只建一次，比每次请求都 `mkdir` 省事。容器里如果目录是挂载卷，启动时这段代码也能保证它存在。
 
 ## 大小限制要加在解析阶段
 
-`limits` 是 multer 最容易被忽略、也最容易出事的一段配置。它不是一个「建议值」，而是边读边计数的硬闸门：字节数一超，立刻中断读取并抛 `MulterError`。
+`limits` 是 multer 最容易被忽略、也最容易出事的一段配置。它不是一个“建议值”，而是传送带上的秤：边读边称，字节数一超，立刻停带子并抛 `MulterError`。
 
 ```ts
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -174,13 +180,13 @@ export const upload = multer({
 - `fileSize` 管单个文件，单位是字节。
 - `files` 管文件个数，`files: 1` 表示多传一个就报错。
 - `fields` 管普通字段个数，`fieldSize` 管单个字段的字节数（默认 1 MB，攻击者可以用大量超长字段把内存撑爆）。
-- `parts` 管总段数，必须大于等于 `files + fields`。卡得太死，合法请求会被 `LIMIT_PART_COUNT` 误杀，而且报错信息看起来像是「文件太多」，很容易误判。
+- `parts` 管总段数，必须大于等于 `files + fields`。卡得太死，合法请求会被 `LIMIT_PART_COUNT` 误杀，而且报错信息看起来像是“文件太多”，很容易误判。
 
-为什么不能等落盘之后再 `stat` 一下大小？因为那时字节已经写完了。5 GB 的请求会把网关、磁盘和进程内存全部占满，然后你才告诉客户端「太大了」。限制必须发生在读的过程中。
+为什么不能等落盘之后再 `stat` 一下大小？因为那时字节已经写完了。5 GB 的请求会把网关、磁盘和进程内存全部占满，然后你才告诉客户端“太大了”。限制必须发生在读的过程中。这跟小区门禁是一个道理：在门口拦，别等人家把车开进地库再拦。
 
 ## MIME 声明只能当线索
 
-`fileFilter` 在落盘前执行，拿不到文件内容，只能看客户端声明。它能做的是「便宜的初筛」：类型不在白名单里就直接拒，省掉一次写盘。
+`fileFilter` 在落盘前执行，拿不到文件内容，只能看客户端声明。它能做的是“便宜的初筛”：类型不在白名单里就直接拒，省掉一次写盘。
 
 ```ts
 export class UnsupportedFileTypeError extends Error {
@@ -207,7 +213,7 @@ export const upload = multer({
 
 注意 `fileFilter` 的 `callback` 只接受两个参数：`callback(null, true)` 收下，`callback(null, false)` 跳过这个文件（不会报错，只是 `req.file` 为空），`callback(error)` 中断整个请求。用 `false` 还是 `error` 取决于你想不想让客户端看到明确原因——类型不对应该给 415，而不是静默丢弃。
 
-真正的内容判断只能读文件头。PNG 的前 8 个字节、JPEG 的前 3 个字节、WebP 的 `RIFF....WEBP` 结构，都是格式规范里写死的**magic number**（魔数）。读 12 个字节就够，不要为了判断类型把整个文件读进内存——那等于把刚省下的内存又还回去了。
+真正的内容判断只能读文件头。PNG 的前 8 个字节、JPEG 的前 3 个字节、WebP 的 `RIFF....WEBP` 结构，都是格式规范里写死的 **magic number**（魔数）。你可以把它当成文件的防伪钢印：伪装者可以把名字改成 `.png`，但开头这几个字节改不了。读 12 个字节就够，不要为了判断类型把整个文件读进内存——那等于把刚省下的内存又还回去了。
 
 ```ts
 // src/image.ts
@@ -233,17 +239,19 @@ export const detectImageMime = async (path: string): Promise<string | undefined>
 };
 ```
 
-魔数只能证明「开头像图片」，证明不了「这是一张能解码的图片」。三种绕过方式值得记住：
+魔数只能证明“开头像图片”，证明不了“这是一张能解码的图片”。三种绕过方式值得记住：
 
-- 在合法图片后面追加脚本，形成 polyglot 文件——图片解码器忽略尾部，某些解析器却会执行；
+- 在合法图片后面追加脚本，形成 polyglot 文件——一本既能当菜谱、又能当说明书的书，图片解码器忽略尾部，某些解析器却会执行；
 - 把 HTML 写成 `.png`，浏览器靠内容嗅探把它当页面渲染，这就是存储型 XSS；
-- 压缩炸弹：几百 KB 的 PNG 解压后占用几 GB 像素内存。
+- 压缩炸弹：几百 KB 的 PNG 解压后占用几 GB 像素内存，像一只巴掌大的箱子，打开弹出一座充气城堡。
 
-对头像这类会二次分发的资源，再加一步「解码后重编码」：用 `sharp` 读进来，按目标尺寸重新输出。既验证了可解码性，又剥掉了 EXIF 里的定位信息，还把上面三种情况一次性消掉。SVG 和 CSV 没有二进制魔数，这套对它们无效——只接受白名单内的二进制格式，比给每种文本格式写校验规则可靠得多。
+对头像这类会二次分发的资源，再加一步“解码后重编码”：用 `sharp` 读进来，按目标尺寸重新输出。既验证了可解码性，又剥掉了 EXIF 里的定位信息，还把上面三种情况一次性消掉。SVG 和 CSV 没有二进制魔数，这套对它们无效——只接受白名单内的二进制格式，比给每种文本格式写校验规则可靠得多。
 
 ## 把错误翻译成状态码
 
 multer 抛出的错误有两种：`MulterError`（带 `code`，比如 `LIMIT_FILE_SIZE`）和你自己抛的 `UnsupportedFileTypeError`。它们必须被翻译成不同的 HTTP 状态码，否则前端只能看到笼统的 500。
+
+把前面 `server.ts` 里的路由搬进 `app.ts`，顺手补上错误中间件。`app.ts` 只负责组装，不监听端口——监听交给后面的 `main.ts`，测试时可以直接拿 `app` 发请求，不用真的占一个端口。
 
 ```ts
 // src/app.ts
@@ -303,12 +311,21 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 ```
 
+入口单独放一个文件，负责把服务跑起来：
+
+```ts
+// src/main.ts
+import { app } from './app.js';
+
+app.listen(3000, () => console.log('upload server listening on http://localhost:3000'));
+```
+
 几个细节：
 
 - Express 5 会自动把 async handler 里抛出的 rejection 转给错误中间件，所以这里可以直接 `throw`，不用 `next(error)`。
 - 错误中间件必须**四个参数**且放在最后。少一个参数，Express 会把它当成普通中间件，错误就沉下去了。
 - 校验失败时先用 `rm` 删掉临时文件，再抛错。`diskStorage` 不会替你清理已经落盘的内容。
-- 413 表示体积超限，415 表示类型不支持，400 表示请求本身不合法。前端要按状态码或 `code` 分支，否则用户看到的永远是「网络异常」。
+- 413 表示体积超限，415 表示类型不支持，400 表示请求本身不合法。前端要按状态码或 `code` 分支，否则用户看到的永远是“网络异常”。
 
 `express.static` 只适合本地开发或内网。上传目录一旦能被同源访问，SVG 和 HTML 就可能变成存储型 XSS 的载体。生产环境把下载放到独立域名，给非图片资源加 `Content-Disposition: attachment`，或者干脆只保存对象 key，下载走对象存储的预签名 URL。
 
@@ -335,7 +352,7 @@ flowchart LR
 下面这些输出来自实际运行（Express 5.3.0、multer 2.5.0）。Node 22.18 起内置类型剥离，`node` 能直接跑 `.ts`，不需要额外的运行时——本机是更新的版本，语法一致。
 
 ```bash
-node --watch src/server.ts
+node --watch src/main.ts
 # upload server listening on http://localhost:3000
 
 # 1. 正常上传
@@ -350,7 +367,7 @@ curl -s -F "file=@README.md;filename=fake.png;type=image/png" http://localhost:3
 
 # 3. 没带文件字段
 curl -s -X POST http://localhost:3000/api/uploads
-# {"code":"FILE_REQUIRED","message":"field \"file\" is required"}
+# {"code":"FILE_REQUIRED","message":"field \\"file\\" is required"}
 
 # 4. 超过 5 MB
 head -c 6291456 /dev/zero > /tmp/too-large.png
@@ -385,7 +402,7 @@ curl -sI http://localhost:3000/files/5afa3780-....png | head -3
 | 413 但应用日志没有记录 | Nginx / Ingress 在更外层就拒了 | 同时调 `client_max_body_size` / `proxy-body-size` |
 | 上传大文件时内存飙升 | 用了默认的 `memoryStorage` | 大文件换 `diskStorage`，并限制并发 |
 | 文件是 0 字节 | 客户端中途断开，或进程在写盘时被杀 | 先写临时名，校验后原子 rename；启动时清理残留 |
-| 415 但前端提示「网络错误」 | 错误响应被 CORS 或网关改写 | 保证错误体是 JSON，CORS 暴露状态码，前端按 `code` 分支 |
+| 415 但前端提示“网络错误” | 错误响应被 CORS 或网关改写 | 保证错误体是 JSON，CORS 暴露状态码，前端按 `code` 分支 |
 | `ENOSPC` 直接把进程打挂 | 没处理写盘失败 | 捕获存储错误返回 503，磁盘水位单独监控 |
 
 还有几条适合写进 checklist 的：
@@ -398,7 +415,6 @@ curl -sI http://localhost:3000/files/5afa3780-....png | head -3
 
 Express 这边的手工接线到这里就完整了。下一章把这些能力搬进 Nest：`FileInterceptor` 会替你挂好 multer，但 storage 选内存还是磁盘、校验放在 Pipe 还是 Service，顺序变了，坑也跟着变。
 
-想更深入的话，官方文档里有这几页可以接着看：[文件上传](https://docs.nestjs.com/http/file-upload)（Nest 把 multer 包成拦截器后的官方用法，本章先手写一遍，下一章直接用它）、[Express 5 API](https://expressjs.com/en/5x/api.html)（静态目录、错误处理这些接口的准确定义，对应正文挂 `/files` 和 async 报错那两段）、[multer](https://github.com/expressjs/multer)（存储方式、大小限制、类型过滤各参数怎么配，正文那四道闸门用的就是它）。
 
 <!-- chapter-nav:start -->
 ---

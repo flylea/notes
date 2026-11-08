@@ -1,33 +1,45 @@
 # 第 26 章 Nest 里如何打印日志
 
-## 一条日志由哪几块组成
+线上出问题的时候，你不在现场。用户只会说一句「刚才下单失败了」，你能拿到的，只有程序自己留下的那几行字。
 
-日志不是「一行字」。一条能用的日志至少有五部分：时间、级别、来源（哪个类或模块）、消息、结构化字段。**级别**既是标签也是开关：生产环境设成 `warn`，`debug` 和 `verbose` 根本不会输出，省磁盘也省采集成本。**结构化字段**指 `requestId`、`orderId` 这种独立的键值对，日志平台能按它筛选、分组、报警；拼进字符串就只能靠正则碰运气。
+打印日志干的就是这件事：**趁事情发生的那一刻，把现场记下来**。谁在什么时候、对哪个订单、做了什么、结果如何，按时间顺序写到一个地方。几个小时后你赶到，靠这些记录把当时的情形拼回去。
 
-日志最后要落到一条流里：`stdout` 或 `stderr`。容器里通常由采集 agent 从这两条流收走，再送到 Loki、Elasticsearch 之类的平台。Nest 的 `Logger` 在这之上包了一层：它替你补时间、级别和 context，也能把参数序列化成 JSON。下面先看这些部分缺了会怎样。
+它像行车记录仪。没装的时候，事故怎么发生的只能靠双方各说各话；装了，至少能看到撞上前的十秒。日志也一样——它不是写给现在的你看的，是写给**出事后赶来的你**看的，可能是凌晨三点，也可能是不认识这套代码的同事。
 
-先补两个官方入口：[Nest Logger](https://docs.nestjs.com/techniques/logger) 是本章要用的 API，[Node 的 process I/O 说明](https://nodejs.org/api/process.html#a-note-on-process-io) 解释 `stdout`/`stderr` 在终端和管道下的差异。
+有个词容易跟它混：`console.log`。那东西是给正在写代码的你现看的，屏幕上刷过去，看完就没了。日志是给事后的人查的，要能留下来、能按条件搜出来、能在出事时报警。两者可以长得很像，用途完全不同——这一章讲的是后者。
 
-现在看一个真实事故。
+## 日志在干什么
 
-周一早上，订单接口的 5xx 从 0.1% 涨到 4%。你打开日志平台，搜到 37 条 `[ExceptionsHandler] Cannot read properties of undefined`，没有一条带 URL、用户或请求 ID。三个实例的日志按时间交错，你只能靠「大概在这一分钟」去猜是哪次请求。四十分钟后才查出来：上游把字段从 `orderId` 改成了 `order_id`。
+日志不是「一行字」。一行能用的日志，拆开至少有五块：时间、级别、来源（哪个类或模块）、消息、结构化字段。缺哪块会出什么事，后面挨个看。
 
-这不是「日志不够多」，而是**日志里没有可检索的字段**。一条只由字符串拼成的日志，人看着还行，机器读起来等于一段散文。
+先说最要紧的一样：**结构化字段**。它是 `requestId`、`orderId` 这种独立的键值对，日志平台能按它筛选、分组、报警。把它拼进字符串，机器就只能拿正则去碰运气——这就是很多「日志不少，就是查不出来」的根子。
 
-Nest 自带一套日志设施，默认就能解决大半问题。这章把它拆开：一条日志由什么组成、级别怎么过滤、怎么打结构化字段、生产环境怎么输出 JSON。至于什么时候需要换 Winston，下一章再说。
+日志最后要落到一条流里：`stdout`（正常输出）或 `stderr`（错误输出）。容器里通常由采集程序从这两条流把日志收走，再送到 Loki、Elasticsearch 这类平台。Nest 的 `Logger` 就包在这一层上面：它替你补时间、级别和 context，也能把参数整理成 JSON。
+
+两个官方入口先放这儿：[Nest Logger](https://docs.nestjs.com/techniques/logger) 是这一章要用的 API；[Node 的 process I/O 说明](https://nodejs.org/api/process.html#a-note-on-process-io) 解释 `stdout`/`stderr` 在终端和管道下行为为什么不同。
+
+## 一个真实的事故
+
+订单接口的 5xx 从 0.1% 涨到 4%。打开日志平台，搜到 37 条 `[ExceptionsHandler] Cannot read properties of undefined`，没有一条带 URL、用户或请求 ID。三个实例的日志按时间交错，你只能靠「大概在这一分钟」去猜是哪次请求。
+
+四十分钟后才查出来：上游把字段从 `orderId` 改成了 `order_id`。
+
+问题不在「日志不够多」，而在**日志里没有能拿去搜的字段**。一行只由字符串拼起来的日志，人读着还行，机器读起来等于一段散文。想按 `userId` 把所有相关记录捞出来？只能全文搜，搜出来还未必是同一个人。
+
+Nest 自带一套日志设施，默认就能解决大半问题。这章把它拆开看：一条日志由什么组成、级别怎么过滤、怎么打结构化字段、生产环境怎么输出 JSON。至于什么时候该换 Winston，下一章再说。
 
 ## 一条日志该带什么
 
-这些部分在 Nest 里都有对应的 API。先把词统一，后面会反复用。
+这几块在 Nest 里都有对应的 API。先把词统一，后面会反复用。
 
-- **级别**（severity）：这条信息有多急。Nest 的顺序是 `fatal > error > warn > log > debug > verbose`。级别不只是标注，也是运行时的过滤器——设成 `warn`，就只有 `warn`、`error`、`fatal` 能出来。
-- **上下文**（context）：谁打的，一般写类名。它的作用是在一行日志里回答「哪个模块」，省掉翻代码的步骤。
-- **结构化字段**（structured params）：`requestId`、`userId`、`orderId` 这类可以按值查询的键值对。它们是日志平台能 `group by`、能筛、能报警的前提。
-- **输出流**：`stdout` 还是 `stderr`。容器和采集端（agent）通常是两条流分开收，错误走 `stderr` 才能被单独告警。
+- **级别**（severity）：这条信息有多急。Nest 的顺序是 `fatal > error > warn > log > debug > verbose`。它不只是个标签，还是运行时的过滤器——设成 `warn`，就只有 `warn`、`error`、`fatal` 能出来。像小区门口的保安：`error` 是有人砸门，`log` 是正常进出，`debug` 是连谁多看了摄像头一眼都记，后者当然关掉，不然一天下来全是无用记录，真出事那条反而找不着。
+- **上下文**（context）：谁打的，一般写类名。它的作用是在一行日志里回答「哪个模块」，像快递面单上的寄件人那一栏——没有它，一堆日志全糊在一起，你得靠猜是订单模块还是支付模块在说话。
+- **结构化字段**（structured params）：`requestId`、`userId`、`orderId` 这类可以按值查询的键值对。它们是日志平台能分组、能筛、能报警的前提；和「一句话里塞进去的键值」只差一个位置——放在对象里是字段，拼进字符串就只是字。
+- **输出流**：`stdout` 还是 `stderr`。采集端通常把两条流分开收，错误走 `stderr` 才能被单独告警。像公司门口的两个信箱，普通件和加急件分开放，处理的人不用一封封拆开看。
 
-`console.log` 在这四项上全都不及格：没有级别、没有上下文、只能拼字符串、永远写 `stdout`。它的唯一优点是零成本——调试本地脚本时依然好用，进了业务代码就是负债。
+拿这几项去量 `console.log`，它一项都及不了格：没有级别、没有上下文、只能拼字符串、永远写 `stdout`。它唯一的优点是零成本——调本地脚本时依然好用，进了业务代码就是负债。
 
-`console.log` 还有两个更隐蔽的坑。一是**参数会被 `util.inspect` 处理**，打印一个类实例时输出一大堆内部结构，还可能是循环引用；二是**同步写流的代价**，在 Linux 上 `stdout` 接管道时是异步的，接终端时是同步的——同样一行代码，在本地和线上行为不同，压测时会看到莫名其妙的阻塞。
+`console.log` 还有两个不太显眼的坑。一是**参数会被 `util.inspect` 处理**，打印一个类实例时把内部字段连同嵌套引用一起倒出来，读的人分不清哪几个是你要看的；二是**写流的代价**，在 Linux 上 `stdout` 接管道时是异步的、接终端时是同步的——同一行代码，本地和线上行为不同，压测时会看到莫名其妙的阻塞。
 
 ## Nest 的 Logger 替你做了什么
 
@@ -44,9 +56,9 @@ const logger = new Logger(UploadService.name);
 logger.log('merged upload', { uploadId: 'u_1', parts: 4 });
 ```
 
-实例形态的第二个参数就是上下文，日志里会显示成 `[UploadService]`。它比静态方法好在两点：上下文只写一次，后面每行自动带上；以及这个实例能被注入、能被替换。
+实例形态的第一个参数是上下文，日志里会显示成 `[UploadService]`。它比静态方法好在两点：上下文只写一次，后面每行自动带上；这个实例还能被注入、被替换（依赖注入是什么，第 5 章讲过，这里只要知道「能被换掉」就够了）。
 
-`Logger` 本身**不负责写**，它只是入口。真正干活的是 `LoggerService` 的实现，默认是 `ConsoleLogger`。这层分离很关键：你调 `logger.log()`，Nest 把它转给当前挂着的 logger 实现，所以换实现（换成 Winston、换成 pino）不用改业务代码。
+`Logger` 本身**不负责写**，它只是入口。真正干活的是 `LoggerService` 接口的实现，默认那个叫 `ConsoleLogger`。这层分离很像餐厅前台和后厨：你在前台点菜（`logger.log()`），前台把单子递给当班的后厨（当前挂着的 logger 实现），换掉后厨不用重新教顾客点菜。所以以后换成 Winston、换成 pino，业务代码一行都不用动。
 
 ```mermaid
 flowchart LR
@@ -59,7 +71,7 @@ flowchart LR
   E --> H["stderr（error/fatal）"]
 ```
 
-注意最后两个分支：**错误不是「级别更高的普通日志」，它写的是另一个流**。这不是 Nest 的怪癖，是 Unix 的惯例——采集端可以只订阅 `stderr` 做告警，不用去解析 `stdout` 里那几十万行正常日志。
+注意最后两个分支：**错误不是「级别更高的普通日志」，它写的是另一条流**。这不是 Nest 的怪癖，是 Unix 的惯例——采集端可以只订阅 `stderr` 做告警，不用去解析 `stdout` 里那几十万行正常日志。
 
 ## 级别：什么时候用哪个
 
@@ -91,21 +103,23 @@ const app = await NestFactory.create(AppModule, {
 app.useLogger(['error', 'warn']);
 ```
 
-数组的语义要注意：**它是「按最严重级别级联」的**。传 `['log']`，`warn`、`error`、`fatal` 也会一起打开，因为它们的严重程度都在 `log` 之上。想让 `error` 出来但 `log` 不出来，得传 `['error']`，而不是 `['log']` 再想办法排除。
+数组的语义要留意：**它按「最严重级别」级联**。传 `['log']`，`warn`、`error`、`fatal` 也会一起打开，因为它们的严重程度都在 `log` 之上。想让 `error` 出来但 `log` 不出来，得传 `['error']`，而不是传 `['log']` 再想办法排除。这就像调水闸只调最低那根线：水位高过它，上游全放行。
 
-`filterLogLevels` 是 Nest 12 提供的工具，接受 `'>=warn'`、`'>warn'`、`'warn'` 和逗号列表 `'error,warn'`。它比手写数组不容易错——手写时很容易把顺序搞反，或者漏掉 `fatal`。
+`filterLogLevels` 是 Nest 12 提供的工具，接受 `'>=warn'`、`'>warn'`、`'warn'` 和逗号列表 `'error,warn'`。它比手写数组不容易错——手写很容易把顺序搞反，或者漏掉 `fatal`。
 
-运行中改级别最实用的场景是「临时开 debug」：线上出问题，把某个请求的 `debug` 打开，复现完再关掉。前提是你的日志实现支持 `setLogLevels()`，`LoggerService` 接口里它是可选方法。
+运行中改级别最实用的场景是「临时开 debug」：线上出问题，把某个请求的 `debug` 打开，复现完再关掉。前提是你的日志实现支持 `setLogLevels()`，它在 `LoggerService` 接口里是可选方法。
 
 ## 从字符串到结构化
 
-这是 Nest 12 变化最大的一块，也是最容易被旧教程带偏的地方。
+这是 Nest 12 变化最大的一块，也是旧教程最容易带偏的地方。
 
 以前要打结构化字段，只能拼字符串或者自己 `JSON.stringify`：
 
 ```ts
 logger.log(`merged upload uploadId=${uploadId} parts=${parts}`); // 老写法
 ```
+
+问题在哪？这行字对人很友好，对机器等于一句没有标点的句子。`uploadId` 的值里要是夹了个空格或换行，字段边界就没了；用户输入里塞一行伪造的内容，还能凭空造出一条假日志。
 
 v12 起，`Logger` 的方法接受「消息 + 一个纯对象」，对象会被当成 structured params，合并进同一条日志：
 
@@ -119,7 +133,7 @@ logger.log('merged upload', { uploadId: 'u_1', parts: 4 });
 {"level":"log","pid":61205,"timestamp":1793980007729,"message":"server started","params":{"port":3000,"env":"production"}}
 ```
 
-字段是固定的：`level`、`pid`、`timestamp`、`message`、`params`，有堆栈时多一个 `stack`。日志平台可以直接按 `params.userId` 建索引，不用写正则。
+字段是固定的：`level`、`pid`、`timestamp`、`message`、`params`，有堆栈时多一个 `stack`。日志平台可以直接按 `params.userId` 建索引，不用写正则。这就像快递面单从上世纪的「手写地址」变成了标准化的几个方框：内容一样，分拣效率完全不同。
 
 两个细节值得记住。第一，**只有纯对象会被当成 params**。传 `Map`、类实例、数组，行为不一样——数组会被当成格式化参数，类实例会被序列化成对象但可能丢方法。第二，`flattenParams: true` 会把 params 摊平到根，变成 `{"level":"log","userId":1,...}`，适合对接那些不支持嵌套字段的采集端。
 
@@ -145,7 +159,7 @@ const prod = new ConsoleLogger({ json: true });
 - `logLevels`：构造时直接定级别，等价于 `filterLogLevels` 的结果。
 - `compact` / `depth` / `maxArrayLength`：控制文本模式下对象的打印深度，防止一行日志打出几百 KB。
 
-一个常被忽略的事实：**JSON 模式下 `colors` 无效**。有人两个都开，然后在日志平台里看到一堆 `\u001b[32m` 转义符，还以为是采集端的问题。
+一个常被忽略的事实：**JSON 模式下 `colors` 无效**。有人两个都开，然后在日志平台里看到一堆 `\u001b[32m` 转义符，还以为是采集端的问题。给机器读的东西，本来就不该带给人看的装饰。
 
 自定义 logger 也很直接，实现 `LoggerService` 接口即可：
 
@@ -173,7 +187,7 @@ app.useLogger(app.get(AppLogger));
 await app.listen(3000);
 ```
 
-`bufferLogs: true` 让启动日志先攒着，等你挂上自定义 logger 再一起 flush。默认 `autoFlushLogs` 会在 `listen()` 时自动冲，不用手动管。如果初始化就失败了，Nest 会退回默认 logger 把缓冲打出来——所以不会丢启动错误。
+`bufferLogs: true` 让启动日志先攒着，等你挂上自定义 logger 再一起 flush。默认 `autoFlushLogs` 会在 `listen()` 时自动冲，不用手动管。如果初始化就失败了，Nest 会退回默认 logger 把缓冲打出来——所以不会丢启动错误。可以理解成机场的摆渡车：人先上车等着，等登机口定了再一起送过去，中间不会有人被落下。
 
 ## 真跑一遍
 
@@ -242,9 +256,8 @@ try {
 - **极致吞吐**，日志量大到 `ConsoleLogger` 的字符串处理成瓶颈；
 - **多进程/多服务统一格式**，需要一套跨语言的 schema。
 
-下一篇先讲清楚「为什么是 Winston」，再下一篇把它接进 Nest。中间会有不少内容和本章重叠——那是正常的，因为换库换的是实现，不是概念。
+换句话说，内置 logger 的职责到「把日志交出去」为止；日志出了进程之后的事——存多久、放哪、崩了怎么办——它不管。这正好是下一章要讲的：为什么这时候会想到 Winston。
 
-想更深入的话，官方文档里有这几页可以接着看：[日志](https://docs.nestjs.com/techniques/logger)（Nest 日志模块的总览，分级、上下文、JSON 输出这些行为都以它为准）、[`Logger` API](https://docs.nestjs.com/techniques/logger#using-the-logger-for-application-logging)（打印方法的参数顺序，对应正文“第三个参数不是 context”那个坑）。
 
 <!-- chapter-nav:start -->
 ---

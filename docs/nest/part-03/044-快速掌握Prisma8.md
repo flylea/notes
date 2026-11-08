@@ -1,27 +1,27 @@
 # 第 44 章 快速掌握 Prisma 8
 
-## 先把 ORM 和契约说清楚
-
-ORM 第 43 章提过一句：把表映射成代码里的类型和对象，用链式 API 代替手写 SQL。Prisma 是 Node 生态里最常用的 ORM 之一，替你做的事有三件——根据模型定义生成类型、把链式调用翻译成 SQL、把结果映射回对象。没有 ORM 也能开发（上一章的 `pg` 就是裸 SQL），换来的是类型安全和改表时的编译期检查，代价是多一层「模型定义」需要和数据库保持同步。
-
-Prisma 8 同步这件事的方式叫 **contract-first（契约优先）**：只保留一份 `contract.prisma` 作为唯一真相，`contract emit` 把它编译成两个产物——运行时读的 `contract.json` 和给 TypeScript 用的 `contract.d.ts`。契约（contract）就是「数据库长什么样」的声明；「优先」的意思是先改契约、再编译、再迁移，而不是先改库或先改代码。旧版 Prisma 不是这么做的，下一节会对比。
-
-官方文档（先看懂正文再点）：
-- [Prisma 文档](https://www.prisma.io/docs)：整个 Prisma 的入口，先知道有哪些块。
-- [什么是 Prisma ORM](https://www.prisma.io/docs/orm/overview/introduction/what-is-prisma)：它替你做的三件事，对应本章第一段。
-- [Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate)：改契约之后怎么落到数据库。
-
-现在看一个真实事故。
-
-周六下午，你照着半年前的教程建好 `prisma/schema.prisma`，敲下 `pnpm prisma generate`，终端只回了一行：没有 `generate` 这个命令。你以为只是改名了，换成教程评论区里说的 `contract emit`，结果又弹出一句完全看不懂的报错，说解析器在一个叫 `typeChoice` 的字段上崩了。
+照着半年前的教程建好 `prisma/schema.prisma`，敲下 `pnpm prisma generate`，终端只回了一行：没有 `generate` 这个命令。换成教程里说的 `contract emit`，又弹出一句完全看不懂的报错，说解析器在一个叫 `typeChoice` 的字段上崩了。
 
 这两句报错之间没有任何字面联系，因为它们不是同一类问题。Prisma 8 换掉的不是几个命令，是整个工作方式：从 schema-first（先写 schema 再生成客户端）变成 contract-first。不把这条流水线走通，你会一直在「命令不存在」和「看不懂的解析错误」之间打转。
 
+先补一句 ORM 是什么，免得后面全是缩写。ORM 就是把数据库表当成代码里的对象来用，省得每张表都手写 SQL（第 43 章讲过，忘了可以翻回去）。Prisma 是 Node 生态里最常用的 ORM 之一，替你做的事有三件——根据模型定义生成类型、把链式调用翻译成 SQL、把结果映射回对象。
+
+Prisma 8 跟数据库对表的方式叫 **contract-first（契约优先）**：只保留一份 `contract.prisma` 作为唯一真相，`contract emit` 把它编译成两个产物——运行时读的 `contract.json` 和给 TypeScript 用的 `contract.d.ts`。
+
+契约（contract）就是「数据库长什么样」的声明。可以把它想成户口本：家里有几口人、谁和谁什么关系，都写在这一本上。`contract emit` 像把户口本复印成两份，一份给办事窗口（运行时读的 JSON），一份给翻译（TypeScript 的类型）。「优先」的意思是先改契约、再编译、再迁移，而不是先改库或先改代码。旧版 Prisma 不是这么做的，下一节会对比。
+
+官方文档（先看懂正文再点）：
+- [Prisma 文档](https://www.prisma.io/docs)：整个 Prisma 的入口，先知道有哪些块。
+- [什么是 Prisma ORM](https://www.prisma.io/docs/orm/overview/introduction/what-is-prisma)：它替你做的三件事，对应上面那段。
+- [Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate)：改完契约之后，怎么把变化落到数据库。
+
 ## Prisma 8 改了什么
 
-Prisma 5/6/7 的流程是：写 `schema.prisma`，`prisma generate` 生成一个 `PrismaClient`，运行时 `new PrismaClient()` 连库。这里有两条真相——schema 文件和生成的客户端。升级 CLI、换 Node 版本、部署时裁掉 `node_modules`，任何一处不同步，就可能出现「类型里有、运行时没有」。Prisma 5/6 还要在镜像里带一个按平台编译的查询引擎二进制，Serverless 打包经常在这里翻车；7 开始往 driver adapter（驱动适配器，把查询交给 `pg` 这类驱动执行）方向收，但那一步只是把引擎拿掉，工作方式没变。
+Prisma 5/6/7 的流程是：写 `schema.prisma`，`prisma generate` 生成一个 `PrismaClient`，运行时 `new PrismaClient()` 连库。这里有两条真相——schema 文件和生成的客户端。升级 CLI、换 Node 版本、部署时裁掉 `node_modules`，任何一处不同步，就可能出现「类型里有、运行时没有」。这就像家里有两本账，一本记收入、一本记支出，对不上时你都不知道该信哪本。
 
-Prisma 8 把中间层整个去掉了。契约（contract）是描述模型与关系的源文件 `contract.prisma`，它是唯一真相；`contract emit` 把它编译成两个产物：`contract.json`（运行时读的契约）和 `contract.d.ts`（TypeScript 类型）。运行时没有 `PrismaClient`，也没有引擎二进制，`postgres({ contract, url })` 拿着 JSON 建一个惰性客户端，底层就是上一章那个 `pg`。
+Prisma 5/6 还要在镜像里带一个按平台编译的查询引擎二进制，Serverless 打包经常在这里翻车；7 开始往 driver adapter（驱动适配器，把查询交给 `pg` 这类驱动执行）方向收，但那一步只是把引擎拿掉，工作方式没变。
+
+Prisma 8 把中间层整个去掉了。契约是描述模型与关系的源文件 `contract.prisma`，它是唯一真相；`contract emit` 把它编译成两个产物：`contract.json`（运行时读的契约）和 `contract.d.ts`（TypeScript 类型）。运行时没有 `PrismaClient`，也没有引擎二进制，`postgres({ contract, url })` 拿着 JSON 建一个惰性客户端，底层就是上一章那个 `pg`。
 
 > **图 44-1** 契约同时流向运行时查询和迁移两条路径。
 >
@@ -36,7 +36,7 @@ flowchart LR
   C -.->|"db update（仅开发）"| DB
 ```
 
-两个产物都要提交。`contract.json` 不是缓存，是运行时真正加载的东西；`contract.d.ts` 给编辑器和 `tsc` 提供类型。CI 里不跑 `emit` 也能构建，但改了契约不重新 emit，类型和运行时就会对不上——这类问题在本地通常看不出来。
+两个产物都要提交。`contract.json` 不是缓存，是运行时真正加载的东西；`contract.d.ts` 给编辑器和 `tsc` 提供类型。CI 里不跑 `emit` 也能构建，但改了契约不重新 emit，类型和运行时就会对不上——这类问题在本地通常看不出来，像两本账各记各的，月底才发现差了一笔。
 
 代价是每一步都显式：改契约要 emit、产物要提交、迁移要 plan。跳一步，就在别处炸。
 
@@ -55,7 +55,7 @@ pnpm add @prisma/orm-postgres@8.0.0-rc.21 temporal-polyfill
 pnpm add -D prisma@8.0.0-rc.29
 ```
 
-用 `^` 或 `~` 都可能在下一次安装时把运行时升到 rc.22，而 CLI 还停在 rc.29。两个版本的契约 schema 有差异，`contract emit` 报的就是开头那句 `Cannot use 'in' operator to search for 'kind' in typeChoice`——它不会说「版本不匹配」，只会说解析器在一个字段上崩了。
+用 `^` 或 `~` 都可能在下一次安装时把运行时升到 rc.22，而 CLI 还停在 rc.29。两个版本的契约 schema 有差异，`contract emit` 报的就是开头那句 `Cannot use 'in' operator to search for 'kind' in typeChoice`——它不会说「版本不匹配」，只会说解析器在一个字段上崩了。像螺丝和螺母差了一号，拧不进去，但工具不会告诉你「型号不对」，只会说「螺纹崩了」。
 
 错配现场长这样：
 
@@ -97,7 +97,7 @@ pnpm prisma contract emit
 }
 ```
 
-`"type": "module"` 意味着相对导入要带 `.js` 后缀，入口可以用 top-level await。`tsx --env-file=.env` 是给运行时读环境变量的——Prisma CLI 只自动读 `.env`，`tsx` 不会。
+`"type": "module"` 意味着相对导入要带 `.js` 后缀，入口可以用 top-level await。`tsx --env-file=.env` 是给运行时读环境变量的——Prisma CLI 只自动读 `.env`，`tsx` 不会。这一步常被忘掉，忘了以后 `DATABASE_URL` 是空的，报错看起来却像连不上数据库。
 
 ```ts
 // prisma.config.ts
@@ -114,7 +114,7 @@ export default definePrismaConfig({
 });
 ```
 
-顶层只能有 `composer`、`orm`、`skills` 三个 section。把 `contract`、`output` 直接写在最外层，会得到 `[CLI.CONFIG_UNKNOWN_SECTION]`——从旧版配置迁移过来时最常见的错。
+顶层只能有 `composer`、`orm`、`skills` 三个 section。把 `contract`、`output` 直接写在最外层，会得到 `[CLI.CONFIG_UNKNOWN_SECTION]`——从旧版配置迁移过来时最常见的错。可以理解为表格必须填在对应的格子里，填到表头外面，收表的人直接打回。
 
 ```prisma
 // prisma/contract.prisma
@@ -139,9 +139,9 @@ enum RoomStatus {
 }
 ```
 
-首行 `// use prisma-8` 不能省。语言服务只对带这行头的文件提供补全和诊断，少了它，你得到的是一个「合法但没人管」的文本文件。
+首行 `// use prisma-8` 不能省。语言服务只对带这行头的文件提供补全和诊断，少了它，你得到的是一个「合法但没人管」的文本文件——像一份没盖公章的文件，内容都对，但没人认。
 
-几个类型映射值得记住：`Uuid` 对应 `uuid`，`TimestamptzString` 对应 `timestamptz`，`@onCreate(uuid())` 让数据库在插入时生成主键，`@@map("rooms")` 把模型名映射到表名。枚举上的 `@@type("pg/text@1")` 指定存成 `text` 而不是 PG 原生 enum——后者加值要 `ALTER TYPE`，迁移更麻烦。
+几个类型映射值得记住：`Uuid` 对应 `uuid`，`TimestamptzString` 对应 `timestamptz`，`@onCreate(uuid())` 让客户端在插入时生成主键，`@@map("rooms")` 把模型名映射到表名。枚举上的 `@@type("pg/text@1")` 指定存成 `text` 而不是 PG 原生 enum——后者加值要 `ALTER TYPE`，迁移更麻烦。
 
 ## emit 之后才有人认识这个契约
 
@@ -179,7 +179,7 @@ pnpm db:init
   └─ marker <hash>
 ```
 
-它做三件事：按契约建表、建索引和约束、在 `prisma_contract.marker` 里写一行指纹。指纹是后面 `db verify` 判断「库和契约是否一致」的依据。
+它做三件事：按契约建表、建索引和约束、在 `prisma_contract.marker` 里写一行指纹。指纹是后面 `db verify` 判断「库和契约是否一致」的依据，像给这批结构拍了一张存档照，下次来对照片。
 
 改完契约，开发库用 `db update` 快速追平：
 
@@ -218,9 +218,9 @@ export const db = postgres({
 });
 ```
 
-`postgres()` 是惰性的：创建客户端时不连库，第一条查询才建连接。这一点和 Nest 的启动顺序配合得很好——数据库没起来，应用不会卡在启动阶段。
+`postgres()` 是惰性的：创建客户端时不连库，第一条查询才建连接。像办了张健身卡，交钱办卡不等于今天去练，第一次刷闸机才真正进场。这一点和 Nest 的启动顺序配合得很好——数据库没起来，应用不会卡在启动阶段。
 
-`contractFromJson<Contract>` 只是把 JSON 断言成生成的类型；`import ... with { type: 'json' }` 是 Node 22 ESM 加载 JSON 的固定写法，少了这个 attribute 会报 `ERR_IMPORT_ATTRIBUTE_MISSING`。`Contract` 从 `contract.d.ts` 导入，是纯类型，编译后消失。
+`contractFromJson<Contract>` 只是把 JSON 断言成生成的类型，相当于给一箱货贴上「这箱是 Room」的标签，编译器信这个标签；`import ... with { type: 'json' }` 是 Node 22 ESM 加载 JSON 的固定写法，少了这个 attribute 会报 `ERR_IMPORT_ATTRIBUTE_MISSING`。`Contract` 从 `contract.d.ts` 导入，是纯类型，编译后消失。
 
 顺手把增删改查跑一遍：
 
@@ -287,9 +287,11 @@ gone: null
 
 ## 查出来的行不能直接返回
 
-`created`、`found` 的类型是表行的形状，字段和 `rooms` 表一一对应。这种和表一一对应的对象，叫 PO（Persistent Object，持久化对象），它回答的是「这一行在库里怎么存」。直接把它交给 Controller，等于把表结构当成了接口契约：今天多一列 `internal_note`，明天就会出现在响应里；用户表更严重——密码哈希跟着一起返回。
+`created`、`found` 的类型是表行的形状，字段和 `rooms` 表一一对应。这种和表一一对应的对象，叫 PO（Persistent Object，持久化对象），它回答的是「这一行在库里怎么存」。可以想成仓库里原封不动的货，出库单上什么规格，它就是什么规格。
 
-接口该返回的是 VO（View Object，视图对象）：只保留当前页面需要的字段。入口接收的是 DTO（Data Transfer Object，数据传输对象）：只装请求里该有的字段，配合 `class-validator` 在入口校验。中间的转换叫 Mapper，有转换就集中写 `toRoomVo` / `toDto`，别在 Controller 里手拼。
+直接把它交给 Controller，等于把表结构当成了接口契约：今天多一列 `internal_note`，明天就会出现在响应里；用户表更严重——密码哈希跟着一起返回。就像把仓库的进货价直接贴到货架上，顾客不该看的也看到了。
+
+接口该返回的是 VO（View Object，视图对象）：只保留当前页面需要的字段，像货架上的样品，只摆顾客要看的。入口接收的是 DTO（Data Transfer Object，数据传输对象）：只装请求里该有的字段，像顾客填的订单，没让填的字段收不到。中间的转换叫 Mapper，负责把仓库的货换成货架样品，有转换就集中写 `toRoomVo` / `toDto`，别在 Controller 里手拼。
 
 ```ts
 // src/modules/rooms/rooms.service.ts（节选）
@@ -339,7 +341,9 @@ console.log(before.total, after.total);
 
 `db.transaction` 收到一个回调，正常返回就 `COMMIT`，抛异常就 `ROLLBACK`。回调里的 `tx` 是事务句柄，所有查询必须走它：`tx.orm`、`tx.sql`、`tx.raw`、`tx.execute`。
 
-要理解这条边界，得知道 `db` 内部持有一个连接池：事务开始时从池里借一条连接，`tx` 就是这条连接的句柄，回调结束才归还。所以拿外层的 `db` 再查一次，等于另借一条连接、跑在事务之外——读不到未提交的数据，写进去的数据也不会回滚。这条边界第 49、50 章还会反复出现，因为它最容易写错，也最难在本地复现：本地数据量小，时序对不上也不会有人发现。
+要理解这条边界，得知道 `db` 内部持有一个连接池：事务开始时从池里借一条连接，`tx` 就是这条连接的句柄，回调结束才归还。所以拿外层的 `db` 再查一次，等于另借一条连接、跑在事务之外——读不到未提交的数据，写进去的数据也不会回滚。像把所有要退的货放上同一个托盘，结账时整盘一起退；你中途另开一个托盘，那边的东西当然不跟着退。
+
+这条边界第 49、50 章还会反复出现，因为它最容易写错，也最难在本地复现：本地数据量小，时序对不上也不会有人发现。
 
 旧版的 `db.$transaction([...])` 数组形式不存在了。要批量、要顺序、要条件回滚，都写成回调。事务里需要锁行时用 `forUpdate()`：
 
@@ -350,7 +354,7 @@ await db.transaction(async (tx) => {
 });
 ```
 
-锁不能和 `include`、`groupBy`、`aggregate` 一起用，混用会报 `ORM.LOCK_INCOMPATIBLE`。
+`forUpdate()` 相当于在会议室门上挂一块「使用中」的牌子，你办完事（COMMIT）才摘下来，别人这段时间进不去。锁不能和 `include`、`groupBy`、`aggregate` 一起用，混用会报 `ORM.LOCK_INCOMPATIBLE`——牌子上写不了那么多事，只能挂在一行数据上。
 
 ## 和 Prisma 5/6/7 差在哪
 
@@ -383,11 +387,10 @@ await db.transaction(async (tx) => {
 | 生产库结构对不上迁移历史 | 在生产跑了 `db update` | 生产只用 `migration plan` + `db migrate` |
 | 服务跑一会儿就报 client closed | 在请求里调了 `db.close()` | 只在进程退出钩子里关一次 |
 
-最后一个坑值得多说一句。`db.close()` 和旧版的 `$disconnect()` 语义不同：`$disconnect` 之后还能重连，`db.close()` 之后客户端进入终态，再查询直接报 `Postgres client is closed`。它只该出现在优雅关闭的钩子里。
+最后一个坑值得多说一句。`db.close()` 和旧版的 `$disconnect()` 语义不同：`$disconnect` 之后还能重连，`db.close()` 之后客户端进入终态，再查询直接报 `Postgres client is closed`。它只该出现在优雅关闭的钩子里——像打烊，不是关一扇门，是把整个店注销了，第二天不能拿同一把钥匙再开门。
 
 Prisma 8 的学习成本不在 API 数量，在流程：契约改完要 emit、产物要提交、迁移要走 plan，任何一步跳过都会在别处炸出来。把这四步固化成脚本，剩下的查询 DSL 半天就能熟。下一章从单表走向关系：一对一怎么建、关联数据怎么一次查出来、写入时怎么保证两边一致。
 
-想更深入的话，官方文档里有这几页可以接着看：[Prisma 文档](https://www.prisma.io/docs)（查 API 和概念的总目录）、[Prisma Migrate](https://www.prisma.io/docs/orm/prisma-migrate)（迁移命令和工作流）、[Nest + Prisma](https://docs.nestjs.com/recipes/prisma)（把 Prisma 接进 Nest 的官方做法，第 50 章会展开）。
 
 <!-- chapter-nav:start -->
 ---

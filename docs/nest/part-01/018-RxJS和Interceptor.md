@@ -1,31 +1,68 @@
 # 第 18 章 RxJS 与 Interceptor
 
-## 先弄懂：Observable、RxJS 和拦截器
+## 有些值，下单的时候还没到
 
-**RxJS** 是 JavaScript 的响应式流库。它把“未来陆续到达的值”抽象成 **Observable**：一个可以发出 0 个、1 个或多个值的流，还能用 `map`、`filter`、`catchError` 这些操作符在流上接管道。你可以把它想成一条传送带：值还没到，但加工规则可以先装好；等有人订阅，整条线才启动。
+平时写函数，调用完就有结果：`const sum = add(1, 2)`，马上拿到 3。像自动售货机，按一下，饮料立刻掉出来。
 
-Nest 为什么用它？handler 的返回值不一定是单个值：普通接口是一个对象，SSE（服务器推送）会持续推消息，WebSocket 可能一次返回多条。把返回值统一看成流，拦截器就能用同一套写法做包装、超时、重试和错误转换，而不用为每种返回类型写分支。代价是签名里多了一层 `Observable`，不熟悉流式写法的人第一次看会绕。
+可有些值不是立刻到的。你点一份外卖，付完钱那一刻饭还没做；接下来可能二十分钟后送到一份（一个值），也可能分三趟送（多个值），还可能半路被取消（错误）。下单时你拿到的是一个“之后会发生的安排”，不是饭本身。
 
-**拦截器（interceptor）**是包在 handler 外面的 AOP（面向切面编程）组件：它拿得到“这次命中了哪个方法”（`ExecutionContext`），也拿得到继续执行 handler 的开关（`CallHandler`）。`next.handle()` 返回的就是那个流；你在流上挂操作符，等于在 handler 返回之后、响应发出之前插一段逻辑。没有它行不行？能跑，但统一响应、超时、缓存这些横跨所有 handler 的规则，只能复制到每个 Controller 里。
+RxJS 处理的就是这种“一串还没发生的值”。它把这种安排叫 **Observable**——别被这个词吓到，你就把它读成“一串还没发生的值”：可能只有一个，可能有很多个，也可能一个都没有。RxJS 是围着这串值干活的一整套工具。
+
+Nest 为什么用它？因为 handler 的返回值不一定是单个值。普通接口返回一个对象；SSE（服务器推送）会持续往外推消息；WebSocket 也可能一次返回多条。把这些都看成“值的序列”，拦截器就能用同一套写法做包装、超时、重试和错误转换，不用为每种返回类型写一套分支。代价是方法签名里多一层 `Observable`，不熟的人第一次看会绕。
+
+**拦截器（interceptor）**是包在 handler（真正处理这个接口的方法）外面的一层壳。请求要进 handler 之前，它先看一眼；handler 办完出来，它还能把结果改一改再交给客户端。`next.handle()` 就是“放他进去办”的开关，它返回的正是上面那串“还没发生的值”。没有它行不行？能跑，但统一响应、超时、缓存这些横跨所有接口的规则，只能复制到每个 Controller 里。
+
+它和中间件不是一回事。中间件在门口，只知道有请求进来，不知道会落到哪个方法（第 17 章）；拦截器在 handler 前后，知道这次命中了哪个方法，还能改写返回给客户端的数据。守卫管“能不能进”，管道管“参数对不对”（第 19 章），异常过滤器管“出错之后怎么回”（第 21 章）。这五类组件各自的位置，第 9 章画过一张图。
 
 官方文档（先看懂正文再点）：
-- [Observable](https://rxjs.dev/guide/observable)：流是什么、为什么订阅后才开始跑，对应开头“传送带”那个比喻。
+- [Observable](https://rxjs.dev/guide/observable)：流是什么、为什么订阅后才开始跑，对应开头“外卖”那个比喻。
 - [Operators](https://rxjs.dev/guide/operators)：`map`、`tap`、`catchError` 怎么串起来，对应后面两段改造。
 - [Interceptors](https://docs.nestjs.com/interceptors)：官方的 `CallHandler` 与 `next.handle()`，对应“拦截器接的是 handler 的返回值”。
 
-现在看一个真实事故。
+## 一个列表页，三种返回形状
 
-周五傍晚，前端在群里发来一张截图：同一个列表页，调 `/api/rooms` 拿到的是裸数组，调 `/api/bookings` 拿到的是 `{ items, meta }`，到了统计接口又变成 `{ data: ... }`。他们只好写了一个 `const list = res.data ?? res.items ?? res` 的兼容函数，每接一个接口就补一层。
+同一个列表页，调 `/api/rooms` 拿到的是裸数组，调 `/api/bookings` 拿到的是 `{ items, meta }`，到了统计接口又变成 `{ data: ... }`。前端只好写一个 `const list = res.data ?? res.items ?? res` 的兼容函数，每接一个接口就补一层。
 
 另一件事更急。数据库连接池打满的那几分钟，`GET /api/bookings` 一直挂着，浏览器转圈到 30 秒，网关先返回了 504。用户以为按钮没点，又点了一次，等连接池恢复，重复预订就来了。
 
-这两个问题都不该由每个 Controller 自己解决。响应长什么样、一次请求最多等多久，是横跨所有 handler 的规则。复制到几十个方法里，改一次就要动几十处。拦截器就是 Nest 留给这层规则的位置：它包在 handler 外面，拿得到 `ExecutionContext`，也拿得到 handler 的返回值。
+这两个问题都不该由每个 Controller 自己解决。响应长什么样、一次请求最多等多久，是横跨所有 handler 的规则。复制到几十个方法里，改一次就要动几十处。拦截器就是 Nest 留给这层规则的位置：它包在 handler 外面，拿得到“这次命中了哪个方法”（`ExecutionContext`，第 11 章专门讲过），也拿得到 handler 的返回值。
 
-它和中间件不是一回事。中间件在路由匹配之前执行，只看得到原始请求；拦截器在 handler 前后执行，能拿到“最终命中了哪个方法”，还能改写返回给客户端的数据。代价是你得接受它用 RxJS 的 `Observable` 组织，而不是直接返回一个值。
+## 把这串值想清楚
+
+先用数组对比一下。数组 `[1, 2, 3]` 是**已经到齐**的值，你随时可以 `map`、`filter`、取长度。Observable 是**以后才会到**的一串值，现在可能还是空的，你没法立刻取长度，只能先安排好“到了以后怎么处理”。
+
+处理这串值有三方角色，像一台净水器：
+
+- **水源**：谁产生值。可能是一个 HTTP 请求的返回值，也可能是一个定时器、一条 WebSocket 消息。
+- **滤芯**：中间怎么加工。`map` 换值、`filter` 挑值、`catchError` 接错误，这些加工步骤叫**操作符**。
+- **水龙头**：谁来消费。拧开龙头（订阅，`subscribe`），水才开始流；不拧，前面的管子装得再好也不出水。
+
+所以你会看到两种写法。装滤芯是 `.pipe(...)`，它只负责把加工步骤串起来，不会启动任何东西；真正开闸的是 `subscribe()`。Nest 在拿到 `intercept()` 的返回值之后，会替你拧这个龙头。你要做的是“把管子接好”，不是“自己开水”。
+
+这也是最容易踩的坑：在拦截器里手动 `subscribe()`，等于你自己开了一次龙头，Nest 又开一次，handler 就会执行两遍，日志里出现两行。**只组装，不订阅**，记住这一句就够了。
+
+这串值还有两个脾气：
+
+- **它是冷的**。同一份“安排”，每订阅一次就从头跑一遍。像净水器，每开一次龙头，水都从水源重新流过来，不会接着上次的位置。
+- **它会有始有终**。值可以一个接一个地来，也可以中途报错，或者正常结束。报错时，后面的加工步骤不再执行，错误会顺着管道往回找 `catchError`；正常结束时，流发一个“完了”的信号就关门。
+
+这一章只需要五个操作符：
+
+| 操作符 | 作用 | 打个比方 | 什么时候用 |
+| --- | --- | --- | --- |
+| `map` | 把流里的值换成另一个值 | 给传送带上的每个箱子换一张标签 | 包装响应、裁剪字段 |
+| `tap` | 看一眼值，不改变它 | 门卫登记，不拆包裹 | 记日志、打点 |
+| `catchError` | 捕获错误，换一条流继续 | 保险丝烧了，换一根接着供电 | 把底层错误翻译成 HTTP 异常 |
+| `timeout` | 超过时限没发出值就报错 | 给后厨设一个出餐倒计时 | 给 handler 设上限 |
+| `finalize` | 成功、失败、取消都执行 | 不管这单成不成，最后都关灯锁门 | 清理计时器、关闭连接 |
+
+`tap` 的 `next` 回调只在成功时触发，handler 抛错时不会进去。要在错误路径也执行，用 `finalize`，或者给 `tap` 传一个带 `error` 回调的观察者对象。
+
+这里的 `.pipe()` 只是把操作符串起来，和 Nest 的 Pipe 组件同名不同物，后者第 19 章讲。
 
 ## 拦截器接的是 handler 的返回值
 
-一个拦截器就是一个带 `@Injectable()`、实现 `NestInterceptor` 的类，必须实现 `intercept()`：
+要写一个拦截器，就是写一个类：带 `@Injectable()`、实现 `NestInterceptor` 接口，并实现 `intercept()` 方法：
 
 ```ts
 intercept(context: ExecutionContext, next: CallHandler): Observable<unknown>
@@ -33,7 +70,7 @@ intercept(context: ExecutionContext, next: CallHandler): Observable<unknown>
 
 `next.handle()` 是“继续往下走，执行 handler”的开关。它返回一个 `Observable`，handler 的返回值会从这个流里出来；你在流上挂操作符，等于在 handler 返回之后、响应发出之前插一段逻辑。如果 `intercept()` 里根本没调用 `next.handle()`，handler 一次都不会执行——这是实现缓存拦截器时常用的技巧，也是忘记调用时接口“莫名其妙返回空”的原因。
 
-多个拦截器叠在一起时是洋葱模型：先注册的在外层，它的前置代码最先执行，它的 `map` 最后执行。图 18-1 里 `ResponseInterceptor` 在外、`TimeoutInterceptor` 在内，所以超时只包住 handler，不会把外层包装响应的耗时也算进去。
+多个拦截器叠在一起时是洋葱模型：先注册的在外层，它的前置代码最先执行，它的 `map` 最后执行。像给同一个包裹套两层包装纸：最外层先包、最后拆。图 18-1 里 `ResponseInterceptor` 在外、`TimeoutInterceptor` 在内，所以超时只包住 handler，不会把外层包装响应的耗时也算进去。
 
 > **图 18-1** 两个拦截器套在 handler 外面的执行顺序。
 
@@ -48,24 +85,6 @@ flowchart LR
   D -. "TimeoutError" .-> H["catchError<br/>转 408"]
   H -.-> I["ExceptionFilter"]
 ```
-
-## 先把 Observable 这件事说清楚
-
-RxJS 是 JavaScript 的响应式流库，核心抽象是 `Observable`：一段未来会推送零到多个值的序列。它可以像数组一样被 `map`、`filter`，也可以被 `catchError` 接管错误。这里的 `.pipe()` 只是把操作符串起来，和 Nest 的 Pipe 组件同名不同物，后者第 19 章讲。
-
-关键性质是**冷的**：定义 `next.handle().pipe(map(...))` 只是把管道搭好，不会执行 handler；只有被订阅时，整条流才开始跑。Nest 在拿到 `intercept()` 的返回值后负责订阅，所以你要做的是“组装管道”，不是“启动管道”。在拦截器里手动 `subscribe()`，等于自己启动了第一次，Nest 再订阅一次，handler 就会执行两遍，日志也会出现两行。
-
-这一章只需要五个操作符：
-
-| 操作符 | 作用 | 什么时候用 |
-| --- | --- | --- |
-| `map` | 把流里的值换成另一个值 | 包装响应、裁剪字段 |
-| `tap` | 看一眼值，不改变它 | 记日志、打点 |
-| `catchError` | 捕获错误，换一条流继续 | 把底层错误翻译成 HTTP 异常 |
-| `timeout` | 超过时限没发出值就报错 | 给 handler 设上限 |
-| `finalize` | 成功、失败、取消都执行 | 清理计时器、关闭连接 |
-
-`tap` 的 `next` 回调只在成功时触发，handler 抛错时不会进去。要在错误路径也执行，用 `finalize`，或者给 `tap` 传一个带 `error` 回调的观察者对象。
 
 ## 第一步：把成功响应收成一种形状
 
@@ -182,7 +201,7 @@ curl -s http://localhost:3000/api/bookings | jq
 
 ## 第二步：给 handler 加一条时间上限
 
-超时不能靠 `setTimeout` 加一个 `res.end()`。那样只是让客户端早点断开，handler 还在跑，数据库连接也不会释放。RxJS 的 `timeout` 至少会取消订阅，让上游知道没人要结果了：
+超时不能靠 `setTimeout` 加一个 `res.end()`。那样只是让客户端早点断开，handler 还在跑，数据库连接也不会释放。RxJS 的 `timeout` 至少会取消订阅，让上游知道没人要结果了——像后厨的倒计时到点，前台不再等这单，但后厨的锅不一定已经关火，这个边界后面还会说。
 
 ```ts
 // src/common/interceptors/timeout.interceptor.ts
@@ -262,7 +281,7 @@ async missing(): Promise<never> {
 }
 ```
 
-先请求慢接口：
+先请求慢接口。下面的返回是示例输出，未在本地起服务实测：
 
 ```bash
 curl -s -o /tmp/slow-18.json -w '%{http_code} %{time_total}\n' \
@@ -286,7 +305,7 @@ python3 -m json.tool /tmp/slow-18.json
 }
 ```
 
-3 秒左右返回，不是 5 秒；多出来的几毫秒是连接和序列化。再请求会抛 404 的接口：
+按上面的配置，3 秒左右会返回，不是 5 秒；多出来的几毫秒是连接和序列化。再请求会抛 404 的接口：
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/missing
@@ -330,7 +349,6 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/missing
 
 响应结构收口之后，入口还有一个更隐蔽的问题：`@Param('id') id: number` 这句类型标注在运行时完全不存在，`id` 仍然是字符串。下一章从这个问题开始，把内置 `Parse*` 管道和自定义管道拆开讲清楚。
 
-想更深入的话，官方文档里有这几页可以接着看：[Interceptors](https://docs.nestjs.com/interceptors)（官方拦截器的三种挂法和 `CallHandler` 用法，对照超时那段）、[Operators](https://rxjs.dev/guide/operators)（RxJS 操作符总览，对应把响应包成统一形状的写法）、[timeout](https://rxjs.dev/api/operators/timeout)（`timeout` 接受什么参数、抛什么错误，对应 408 从哪来）。
 
 <!-- chapter-nav:start -->
 ---

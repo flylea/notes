@@ -1,25 +1,25 @@
 # 第 50 章 在 Nest 里集成 Prisma 8
 
-## 集成要回答的四个问题
+把 Prisma 接进 Nest，说穿了只干一件事：让 Nest 知道「数据库客户端」这个对象从哪来、谁来造、什么时候关、坏了怎么发现。它不是新建一个文件、把 `postgres()` 塞给 Nest 就完事——那只是让它「能跑」，离「敢上生产」还差四件事。
 
-集成不是写个 Provider 就完了。客户端从哪来、什么时候连、什么时候关、健康检查问谁，四个问题各对应一个 Nest 机制，任何一个答错，都会在发布或故障切换时暴露。
+这四件事各对应一个 Nest 机制：客户端从哪来（Provider）、谁来造（工厂 + 配置）、什么时候关（生命周期钩子）、坏了怎么发现（健康检查）。先用人话把这些词过一遍，后面每一节再落到代码。
 
-Provider 是交给 IoC 容器（控制反转容器，Nest 负责创建对象并把依赖注进来）管理、可被注入的对象：Service、Repository、工厂、Guard 都是 Provider，`@Injectable()` 或 `useFactory` 只是提供它的方式；它和 Service 不是并列关系，Service 是 Provider 的一种。Module 把一组 Provider 圈在一起，`@Global()` 让别的模块不用逐个 import。生命周期钩子（`onApplicationShutdown`）让进程在收到 SIGTERM（终止信号）后有机会排空连接。健康检查要分 liveness（进程有没有死）和 readiness（能不能接流量），只有后者该查库。
+- **Provider**：交给 Nest 统一管理、能被别处按名字要过去的对象。像公司花名册上的一个岗位——需要人时按岗位叫人，不用自己现招。Service、Repository、工厂、Guard 都是 Provider，`@Injectable()` 或 `useFactory` 只是「怎么提供它」的写法；Service 不是 Provider 的对立面，它只是 Provider 的一种。
+- **IoC 容器**：负责招人、登记、派活的那套机制，也就是「控制反转」——对象的创建权从你手里交给框架。没有它，每个 Service 里都得自己 `new` 依赖，换一个实现要改一圈。
+- **Module**：把一组 Provider 圈在一个部门里。`@Global()` 相当于集团直属，别的部门不用逐个递申请。
+- **生命周期钩子**：进程收到「请下班」的信号后，留给你收拾东西的那几分钟。`onApplicationShutdown` 就是在这个时间点被调用。
+- **SIGTERM**：系统发来的「请收拾下班」通知，不是立刻拉闸。Kubernetes 滚动发布时先发它，等一会儿还没退出才强杀。
+- **liveness / readiness**：前者问「人还活着吗」，后者问「现在能接客吗」。只有后者该查数据库——数据库抖一下就把所有 Pod 重启一遍，是最常见的自伤。
+- **惰性连接**：`postgres()` 只做初始化，第一次查询才真的建连接。像办了健身卡不等于今天去了，import 成功、应用启动成功，都不代表数据库可用。
+- **连接池**：一沓已经拨通的电话线，用完放回去，下个请求接着用。池空了你得等，等太久就是超时。这个概念第 49 章第一次讲，这里只复习一句。
 
-对象也要分清：Database 客户端是进程级单例，内部持有一个连接池；连接是池里借出的一条；事务是固定在这条连接上的边界。客户端创建还是惰性的——`postgres()` 只做初始化，第一次查询才建连接，所以 import 成功、应用启动成功，都不代表数据库可用。
+这几个词混起来，就是开头那个事故。
 
-官方文档（先看懂正文再点）：
-- [Nest Provider](https://docs.nestjs.com/providers)：Provider 是什么、怎么注册和注入，对应本章第一个问题。
-- [Nest 模块](https://docs.nestjs.com/modules)：模块怎么圈 Provider、`@Global()` 的作用。
-- [Nest 生命周期事件](https://docs.nestjs.com/fundamentals/lifecycle-events)：`onApplicationShutdown` 在什么时候触发。
-- [Nest 健康检查（Terminus）](https://docs.nestjs.com/recipes/terminus)：怎么把数据库检查挂到 readiness 上。
-- [Prisma 8 文档](https://www.prisma.io/docs/orm)：客户端连接和关闭的接口。
+## 凌晨一点的那次 500
 
-现在看一个真实事故。
+凌晨一点，滚动发布（一批一批换掉旧实例，服务不停机）完成，六个 Pod（Kubernetes 的实例单元）全是 Ready（就绪，可以接流量）。五分钟后告警响了：所有业务接口 500，但 `/api/health` 从始至终返回 200，负载均衡没有摘掉任何一个实例。登上容器看日志，第一行是 `DRIVER.NOT_CONNECTED`——数据库那边刚做完主备切换（主库换到备库），旧连接全断了。问题不在 Prisma，也不在 Nest，而在两者中间那层「集成」。
 
-凌晨一点，滚动发布完成，六个 Pod（Kubernetes 的实例单元）全是 Ready。五分钟后告警响了：所有业务接口 500，但 `/api/health` 从始至终返回 200，负载均衡没有摘掉任何一个实例。登上容器看日志，第一行是 `DRIVER.NOT_CONNECTED`——数据库那边刚做完主备切换，旧连接全断了。问题不在 Prisma，也不在 Nest，而在两者中间那层「集成」。
-
-这四个问题不是并列的配置项，而是一条链：配置进工厂、工厂建客户端、进程退出时关池、探针通过客户端查库。
+这四个问题不是并列的配置项，而是一条链：配置进工厂、工厂建客户端、进程退出时关池、探针通过客户端查库。链上任何一环断了，前面都白搭。
 
 > **图 50-1** 数据库客户端在 Nest 进程里的位置，以及退出时经过哪条路径。
 >
@@ -67,11 +67,11 @@ export class DatabaseModule {}
 
 能跑，演示也够用，但放在生产里立刻暴露四个问题。
 
-第一，`useValue: db` 传的是模块加载时就已经确定的 Proxy，连接串来自 `process.env.DATABASE_URL`，绕过了 `ConfigModule` 的校验和类型。你在 `configuration.ts` 里把 `database.url` 改成必填、加了默认值，这个 Provider 一概不知道。
+第一，`useValue: db` 传的是模块加载时就已经确定的 Proxy（一层转发壳，读属性时才去找真正的客户端），连接串来自 `process.env.DATABASE_URL`，绕过了 `ConfigModule` 的校验和类型。你在 `configuration.ts` 里把 `database.url` 改成必填、加了默认值，这个 Provider 一概不知道。
 
 第二，`useValue` 把创建时机固定在 import 阶段，测试替换、按环境切库、加中间件都没有插口。
 
-第三，没有关库逻辑。`app.enableShutdownHooks()` 在 `main.ts` 里是开着的，但没有任何 `onApplicationShutdown` 去调 `db.close()`，滚动发布时连接池跟着进程一起被 SIGKILL。
+第三，没有关库逻辑。`app.enableShutdownHooks()` 在 `main.ts` 里是开着的，但没有任何 `onApplicationShutdown` 去调 `db.close()`，滚动发布时连接池跟着进程一起被 SIGKILL（强杀，没机会收尾）。
 
 第四，`AppController` 的健康检查只返回 uptime：
 
@@ -83,7 +83,7 @@ health() {
 }
 ```
 
-数据库挂了它照样 200，K8s 也就照样把流量打进来。下面按配置 → 日志 → 生命周期 → 健康检查 → 事务的顺序改。
+数据库挂了它照样返回 200，K8s 也就照样把流量打进来——它只看 uptime（进程活了多久），不看库通不通。下面按配置 → 日志 → 生命周期 → 健康检查 → 事务的顺序改。
 
 ## 让 Provider 从 ConfigService 拿连接串
 
@@ -324,7 +324,7 @@ Liveness 和 readiness 最好分开：liveness 只判断进程有没有死锁，
 
 ## 事务封装，别散落在 service 里
 
-`db.transaction()` 本身够简单，但每个 service 都写一遍 `this.db.transaction(async (tx) => ...)`，会带来两个长期问题：类型 `tx` 在每个文件里重复声明；有人在回调里顺手用了 `this.db`，请求就挂住了。
+`db.transaction()` 本身够简单（第 49 章讲过，事务就是把一串操作绑成一次，要么全成、要么全不成），但每个 service 都写一遍 `this.db.transaction(async (tx) => ...)`，会带来两个长期问题：类型 `tx` 在每个文件里重复声明；有人在回调里顺手用了 `this.db`，请求就挂住了。
 
 抽一个薄封装：
 
@@ -373,7 +373,7 @@ private insertBooking(tx: Transaction, dto: CreateBookingDto, user: AuthUser) {
 }
 ```
 
-真实业务里 `insertBooking` 前面还要有锁会议室、查冲突，那部分上一章写全了。这里看的是边界：**事务的开启只在 `TransactionService` 里发生，`tx` 只在回调内部流转**。service 的公开方法不接收 `tx`，避免调用方传进来一个已经提交的事务。
+真实业务里 `insertBooking` 前面还要有锁会议室、查冲突，那部分第 49 章写全了。这里看的是边界：**事务的开启只在 `TransactionService` 里发生，`tx` 只在回调内部流转**。service 的公开方法不接收 `tx`，避免调用方传进来一个已经提交的事务。
 
 ## 连接池不是越大越好
 
@@ -404,7 +404,6 @@ private insertBooking(tx: Transaction, dto: CreateBookingDto, user: AuthUser) {
 
 数据库这层稳了，接下来该处理读多写少的场景。统计页每次都扫全表，Redis 就在旁边，下一章先把它跑起来。
 
-想更深入的话，官方文档里有这几页可以接着看：[Prisma 8 文档](https://www.prisma.io/docs/orm)（客户端和连接池的配置项）、[Nest 生命周期事件](https://docs.nestjs.com/fundamentals/lifecycle-events)（关闭钩子的执行顺序）、[Nest 健康检查](https://docs.nestjs.com/recipes/terminus)（liveness 和 readiness 分开写的示例）。
 
 <!-- chapter-nav:start -->
 ---

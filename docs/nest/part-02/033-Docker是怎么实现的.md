@@ -1,24 +1,29 @@
 # 第 33 章 Docker 是怎么实现的
 
-## 容器到底是啥：四个内核机制
+先看三个怪事。
 
-容器里 `ps` 只看到两个进程，不是因为容器里真的只有两个进程，而是因为 **namespace** 把「进程表」换了一份：容器内的 1 号进程在宿主机上是另一个 PID，`ps` 读的是容器自己那份名字表。namespace 管的是「你能看见什么」——PID、网络接口、挂载点、主机名、IPC、用户 ID 都可以各有一份。
+在容器里敲 `ps`，只有两个进程，1 号还是个 `sleep`；回到 Mac 上 `ps -ef | grep sleep`，那个进程根本不存在。压测时容器突然没了，`docker ps -a` 显示 `Exited (137)`，可宿主机的 `free -h` 还空着二十多 GB。在容器里写了个 `hello.txt`，容器一删文件就没了，可镜像还是那个镜像。
 
-容器突然消失、退出码 137，则通常是 **cgroup** 干的：它给一组进程记账，`memory.max` 一到就触发 OOM killer，发 SIGKILL，退出码就是 128+9=137。cgroup 管的是「你最多能用多少」——CPU、内存、进程数、I/O。
+三件事听着不相干，答案却是同一个：容器没有自己的内核，也没有一套完整的操作系统。它只是宿主机上（Docker Desktop 里是那台 Linux 虚拟机里）一个被内核隔离、被内核限额的普通进程。
 
-容器的根目录来自 **overlayfs**：只读的镜像层在下面，薄薄的可写层在上面，合并成容器看到的 `/`；写文件时触发 copy-up，删文件时留一个 whiteout。把进程真正造出来的是 **runc**：它按 OCI 规范调用 clone/unshare 建 namespace、写 cgroup、切根目录，然后 exec 你的命令。
+可以把容器想成一栋写字楼里的一间办公室：门牌、电表、装修都是这间房自己的，但楼是同一栋，水电总闸还在物业手里。对应到 Linux，就是三个机制：
+
+- **namespace** 管「你能看见什么」。同一栋楼里每间办公室有自己的门牌和员工名册，你只能看见自己公司的人。
+- **cgroup** 管「你最多能用多少」。每间办公室门口装独立电表，用电超了物业直接拉闸，不是整栋楼停电。
+- **overlayfs** 管「你的房间长什么样」。硬装是开发商统一做好的，你入住后只能在这上面贴墙纸、摆家具；退租时墙纸撕掉，硬装还原。
+- 把这套东西真正落地的是 **runc**，相当于进场施工的师傅。
 
 这四个词都有官方说明：[Docker overview](https://docs.docker.com/get-started/docker-overview/) 给整体图景，[namespaces(7)](https://man7.org/linux/man-pages/man7/namespaces.7.html)、[cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)、[OverlayFS](https://docs.kernel.org/filesystems/overlayfs.html) 分别对应前三层，runc 的实现在 [opencontainers/runc](https://github.com/opencontainers/runc)。
 
-现在看三个真实现象。
-
-在容器里敲一次 `ps`，只有两个进程，1 号还是个 `sleep`；回到 Mac 上 `ps -ef | grep sleep`，那个进程根本不存在。压测时容器突然没了，`docker ps -a` 显示 `Exited (137)`，可宿主机的 `free -h` 还空着二十多 GB。
-
-三个现象听着不相干，答案却是同一个：容器没有自己的内核，也没有一套完整的操作系统。它只是宿主机上（Docker Desktop 里是那台 Linux 虚拟机里）一个被内核隔离、被内核限额的普通进程。下面把这四个机制逐个拆开，拆完你就能自己解释 137、数据丢失和容器里连不上 `localhost`。
+下面把这三个机制逐个拆开，拆完你就能自己解释 137、数据丢失和容器里连不上 `localhost`。
 
 ## 一个进程，两个 PID
 
-namespace 是内核提供的一层「名字表隔离」：同一批进程，在不同 namespace 里看到的 PID、网卡、挂载点、主机名可以完全不同。注意它隔的是**视野**，不是资源——进程还是那些进程，只是互相看不见。
+先解释 namespace 这个词。它做的事，是给同一批进程换一套「名册」：在 A 名册里你是 1 号，在 B 名册里你是 42117 号。人还是同一个人，只是站在两套名册里。
+
+容器里那个 `sleep` 就是这样。它在这个 PID namespace 里是 1 号，在宿主机上却是另一个编号。没有这层名册，容器里的 `ps` 会看到宿主机上几百个进程，容器也没法拥有自己的 1 号进程；更危险的是，你在容器里 `kill 1`，可能杀到宿主机上的关键进程。
+
+它和虚拟机的区别在这里：虚拟机会真的模拟一台电脑，有自己的内核；namespace 只是给同一个内核换名册，启动快、开销小，隔离也弱一层。它隔的是**视野**，不是资源——进程还是那些进程，只是互相看不见。
 
 跑一个容器，进去看：
 
@@ -72,13 +77,15 @@ pid:[4026532319]
 
 （示例输出，未实测。）
 
-`eth0` 是 Docker 建好 veth pair 后塞进容器的一端，另一端接在宿主机网桥上——所以容器有独立 IP，也能被 NAT 出去。`/proc/1/ns/pid` 后面那个 inode 号就是 namespace 的身份，换一个容器就换一个号。
+`eth0` 是 Docker 建好 veth pair 后塞进容器的一端，另一端接在宿主机网桥上，所以容器有独立 IP，也能被 NAT 出去。`/proc/1/ns/pid` 后面那个 inode 号就是 namespace 的身份，换一个容器就换一个号。
 
 user namespace 值得单独说：默认 Docker 不开 userns-remap，容器里的 root 在宿主机上也是 root。所以 `USER node` 不是风格问题，是基本防线；真要隔离 UID 得开 userns-remap，代价是卷的权限映射变复杂。
 
 ## 137 不是「内存不够」的同义词
 
-namespace 让进程看不见别人，cgroup 让它用不了那么多。cgroup 是内核的资源记账与限额机制，v2 统一挂在 `/sys/fs/cgroup` 下，内存、CPU、进程数、IO 各有一个控制器。
+namespace 让进程看不见别人，cgroup 让它用不了那么多。cgroup 是内核的资源记账与限额机制，v2 统一挂在 `/sys/fs/cgroup` 下，内存、CPU、进程数、IO 各有一个控制器。记账是电表，限额是空气开关：平时只记录你用了多少，超过额度就跳闸。
+
+没有它会卡在哪？一个容器里的程序内存泄漏，会把整台宿主机的内存吃光，其他容器和 SSH 一起卡死；你也查不出是哪个容器用的。
 
 ```bash
 docker run --rm --memory=128m --cpus=0.5 alpine \
@@ -106,17 +113,25 @@ docker inspect --format '{{.State.OOMKilled}} {{.State.ExitCode}}' mem-hog
 true 137
 ```
 
-（示例输出，未实测。）`OOMKilled=true` 说明不是应用自己退的，是内核的 OOM killer 动了手；137 = 128 + SIGKILL(9)。
+（示例输出，未实测。）
+
+`OOMKilled=true` 说明不是应用自己退的，是内核的 OOM killer 动了手；137 = 128 + SIGKILL(9)。OOM killer 是内核的「最后保安」：内存实在不够，它挑一个进程干掉，好让系统活下来。
 
 但 137 不等于 OOM：`docker stop` 等满 10 秒默认宽限期后也发 SIGKILL，退出码一样是 137。区别在 `OOMKilled` 和 `docker events` 里有没有 oom 事件，排障时两个都看。
 
-还有个反直觉的点：`memory.max` 统计的不只是应用堆，还包括这个 cgroup 里的 **page cache**。容器大量读写文件时，页缓存也占额度，内核先回收缓存，回收不动才 OOM——所以「堆才用了 30MB」不代表不会被杀。`--memory-swap` 要跟着设：只写 `--memory` 时 Docker 默认配同等大小的 swap（总上限是内存两倍），把它设成与 `--memory` 相等才是真正禁 swap。
+还有个反直觉的点：`memory.max` 统计的不只是应用堆，还包括这个 cgroup 里的 **page cache**。page cache 是内核帮你缓存的文件内容，像书桌旁边堆的参考书——书不是你写的，但占地方。容器大量读写文件时，页缓存也占额度，内核先回收缓存，回收不动才 OOM。所以「堆才用了 30MB」不代表不会被杀。
 
-同一套机制还有 `pids.max`、`io.max`。`--pids-limit` 挡 fork 炸弹，`--cpu-shares` 只影响争抢时的权重、不设硬上限，要硬上限用 `--cpus`。这些不是性能优化项，是故障隔离的一部分。
+`--memory-swap` 要跟着设：只写 `--memory` 时 Docker 默认配同等大小的 swap（总上限是内存两倍），把它设成与 `--memory` 相等才是真正禁 swap。
+
+同一套机制还有 `pids.max`、`io.max`。`--pids-limit` 挡 fork 炸弹（程序疯狂复制自己，把进程表塞满），`--cpu-shares` 只影响争抢时的权重、不设硬上限，要硬上限用 `--cpus`。这些不是性能优化项，是故障隔离的一部分。
 
 ## 镜像层、可写层和一个 hello.txt
 
-镜像是一叠只读的文件系统快照，容器启动时在最上面加一个可写层。overlayfs 把多个目录叠成一个视图：下面的只读层叫 `lowerdir`，可写层叫 `upperdir`，容器看到的合并结果叫 `merged`。
+这一节解释容器里「写的东西为什么会丢」。
+
+想象一摞已经印好的透明幻灯片。最下面几张是开发商统一印的户型图，也就是**镜像层**，所有同款房间共用；你入住时在最上面盖一张空白透明片，也就是**可写层**。你看到的是整摞叠起来的效果，但落笔只能落在最上面那张。要改下面某张的内容，得先把那一页抄到最上面再改，这叫 **copy-up**；要删，就在最上面贴一张「此页作废」的便签，这叫 **whiteout**。
+
+overlayfs 就是把多个目录叠成一个视图的文件系统：下面的只读层叫 `lowerdir`，可写层叫 `upperdir`，容器看到的合并结果叫 `merged`。
 
 > **图 33-1** 只读镜像层、容器可写层与 overlayfs 的合并视图。
 
@@ -146,7 +161,9 @@ D /etc/profile
 A /hello.txt
 ```
 
-（示例输出，未实测。）`A` 新增，`C` 修改，`D` 删除。`/etc/passwd` 本来在只读层里，写的时候被 copy-up 到可写层；`/etc/profile` 删掉后，upper 里留一个 whiteout，合并视图里就看不见了。
+（示例输出，未实测。）
+
+`A` 新增，`C` 修改，`D` 删除。`/etc/passwd` 本来在只读层里，写的时候被 copy-up 到可写层；`/etc/profile` 删掉后，upper 里留一个 whiteout，合并视图里就看不见了。
 
 这些改动只属于这个容器：
 
@@ -163,7 +180,7 @@ ls: /hello.txt: No such file or directory
 
 ## docker run 之后，谁在干活
 
-namespace、cgroup、pivot_root 这些系统调用，总得有人去执行。`docker run` 只是客户端，后面是一条分工明确的链：
+namespace、cgroup、pivot_root 这些系统调用，总得有人去执行。`docker run` 只是客户端，后面是一条分工明确的链。可以把它想成装修：你给装修公司打电话，项目经理接单，施工队排期，每个工地配一个监工，真正开槽布线的是师傅，干完就走。
 
 > **图 33-2** 从 `docker run` 到容器进程的启动与回收路径。
 
@@ -187,17 +204,17 @@ sequenceDiagram
   S-->>C: 容器退出时上报退出码
 ```
 
-- **docker CLI** 只发 HTTP 请求，不创建进程。
-- **dockerd** 管镜像、网络、卷，把「启动容器」翻译成 containerd 调用。
-- **containerd** 管镜像拉取和容器生命周期，不直接跑应用。
-- **containerd-shim** 每个容器一个，runc 退出后由它当父进程，负责收退出码、转信号——`docker stop` 的 SIGTERM 能送到应用，靠的是它。
-- **runc** 是 OCI runtime 的实现：建 namespace、写 cgroup、挂根文件系统、`pivot_root`，最后 `execve` 成容器进程，然后自己退出。
+- **docker CLI** 只发 HTTP 请求，不创建进程。相当于你打电话下单。
+- **dockerd** 管镜像、网络、卷，把「启动容器」翻译成 containerd 调用。相当于项目经理。
+- **containerd** 管镜像拉取和容器生命周期，不直接跑应用。相当于施工队调度。
+- **containerd-shim** 每个容器一个，runc 退出后由它当父进程，负责收退出码、转信号。相当于每个工地的监工——`docker stop` 的 SIGTERM 能送到应用，靠的是它。
+- **runc** 是 OCI runtime 的实现：建 namespace、写 cgroup、挂根文件系统、`pivot_root`，最后 `execve` 成容器进程，然后自己退出。相当于干完就走的师傅。
 
 OCI 在这里有两个规范：**image spec** 规定镜像的层和配置长什么样，**runtime spec** 规定怎么把一个容器跑起来。Docker 只是这条链最上面的产品；换成 Podman、containerd 或 Kubernetes 的 CRI-O，下面的 runc 还是同一个角色。
 
 ## Desktop 的边界在哪
 
-在 Mac 上执行 `uname -s`，再进容器执行一次：
+Mac 上还有一个容易误会的地方：`ps` 看不到容器进程，`/var/lib/docker` 也不在你的 Mac 上。不是 Docker 有 bug，而是 Docker Desktop 相当于在你 Mac 里放了一台隐形的 Linux 电脑，`docker` 命令只是遥控器。容器跑在那台 Linux 里，不在 macOS 里。
 
 ```bash
 uname -s
@@ -211,7 +228,9 @@ Linux
 overlay2 / 2 / 6.10.14-linuxkit
 ```
 
-（示例输出，未实测。）不是 Docker 给容器换了内核，而是容器根本跑在 Desktop 的 Linux 虚拟机里。`6.10.14-linuxkit` 是那台虚拟机的内核。
+（示例输出，未实测。）
+
+不是 Docker 给容器换了内核，而是容器根本跑在 Desktop 的 Linux 虚拟机里。`6.10.14-linuxkit` 是那台虚拟机的内核。
 
 这个边界解释了一串「玄学」：macOS 的 `ps` 看不到容器进程；`/var/lib/docker` 不在你的 Mac 上；卷的数据实际存在虚拟机的磁盘里；`docker run -v $(pwd):/app` 的路径要能被虚拟机共享。也正因为如此，容器的隔离是相对于同一个 Linux 内核里的其他进程，不是相对于 macOS。
 
@@ -231,7 +250,6 @@ overlay2 / 2 / 6.10.14-linuxkit
 
 容器之外，Node 进程本身还有一套生存问题：崩了谁拉起、发版怎么不丢请求、单进程怎么吃满多核。下一章讲 PM2——它解决的正是这些。
 
-想更深入的话，官方文档里有这几页可以接着看：[Docker overview](https://docs.docker.com/get-started/docker-overview/)（Docker 的整体架构，客户端、守护进程、containerd、runc 各管什么，对应“docker run 之后，谁在干活”）、[namespaces(7)](https://man7.org/linux/man-pages/man7/namespaces.7.html)（七种命名空间各自隔离什么，对应正文 PID 和网络那两段）、[cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)（内存、CPU 限额的文件接口和统计口径，对应 137 和 `memory.max` 那节）、[OverlayFS](https://docs.kernel.org/filesystems/overlayfs.html)（只读层、可写层怎么合并，copy-up 和 whiteout 怎么发生，对应 hello.txt 那个实验）、[OCI runtime spec](https://github.com/opencontainers/runtime-spec)（容器运行时必须遵守的接口标准，解释 runc 为什么能换实现）、[runc](https://github.com/opencontainers/runc)（真正调内核接口造进程的那一层，对应“谁在干活”最后一步）。
 
 <!-- chapter-nav:start -->
 ---
