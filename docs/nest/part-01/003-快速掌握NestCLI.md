@@ -48,13 +48,13 @@ ESM 下有三条规则，违反任何一条都会在启动时炸。它们看着�
 ## 生成项目，先看四个文件
 
 ```bash
-pnpm dlx @nestjs/cli@12.3.0 new meeting-booking --package-manager pnpm --language TS --skip-tests
+pnpm dlx @nestjs/cli@12 new meeting-booking --package-manager pnpm --language TS --type esm --no-observe --skip-tests
 cd meeting-booking
 ```
 
-交互里选 ESM，NestJS Observe 选 No。生成完先别急着写业务，`src` 里只留四个业务文件；再打开 `package.json`、`tsconfig.json`、`nest-cli.json` 和 `main.ts` 看一遍。这四个文件是这栋楼的水电图纸，看不懂它们，后面所有怪问题都只能靠猜。
+这行把交互全部用参数答掉了：`--type esm` 选模块格式（另一个是 CJS，配 Jest）、`--no-observe` 不接可观测、`--skip-tests` 不生成测试文件。不传这些参数时，CLI 会依次问你模块格式、是否接入 agent skills（给 Claude/Cursor 等编辑器写技能文件）、是否启用 Observe。生成完先别急着写业务，`src` 里只留四个业务文件；再打开 `package.json`、`tsconfig.json`、`nest-cli.json` 和 `main.ts` 看一遍。这四个文件是这栋楼的水电图纸，看不懂它们，后面所有怪问题都只能靠猜。
 
-也别把 `nest` 装成全局命令来图省事。项目里的 CLI 版本由 `package.json` 锁定，全局版本很容易和它打架；统一用 `pnpm exec nest` 或 `pnpm dlx @nestjs/cli@12.3.0`，换项目时不会串版本。
+也别把 `nest` 装成全局命令来图省事。项目里的 CLI 版本由 `package.json` 锁定，全局版本很容易和它打架；统一用 `pnpm exec nest` 或 `pnpm dlx @nestjs/cli@12`，换项目时不会串版本。
 
 `package.json` 里最重要的是 `type`、`engines` 和脚本：
 
@@ -150,8 +150,8 @@ pnpm exec nest generate resource bookings --type rest --no-spec
 
 ```bash
 pnpm exec nest info
-# Nest CLI     : 12.3.0
-# @nestjs/core : 12.3.0
+# Nest CLI     : 12.0.15
+# @nestjs/core : 12.6.0
 # Node         : v22.22.3
 
 pnpm build
@@ -193,7 +193,7 @@ curl -s http://localhost:3000
 | 入口变成 `dist/src/main.js` | `tsconfig` 的 `include` 把根级脚本也收进来，公共根上移 | 用 `tsconfig.build.json` 只 include `src`，或显式设 `rootDir` |
 | SWC 构建通过，运行时类型错 | SWC 不检查类型 | CI 加 `tsc --noEmit` |
 | `--webpack` 报未知选项 | v12 已改用 `--builder` | 用 `--builder tsc` 或 `--builder swc` |
-| CLI 与 core 版本不一致 | 全局 CLI 太旧，或 `pnpm dlx` 没锁版本 | `pnpm dlx @nestjs/cli@12.3.0`，并在 `package.json` 固定版本 |
+| CLI 与 core 版本不一致 | 全局 CLI 太旧，或 `pnpm dlx` 没锁版本 | `pnpm dlx @nestjs/cli@12`，并在 `package.json` 固定版本 |
 
 还有一条边界：生成器不是架构工具。它不知道你的业务怎么划分，也不该知道。模块边界、Provider 的可见性、哪些逻辑放 Service，仍然要你判断。CLI 只保证文件放对位置，不保证依赖方向对。
 

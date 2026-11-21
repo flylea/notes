@@ -123,22 +123,22 @@ const progressRows = parts
 
 const readme = `# NestJS 12 全栈实战通关教程
 
-> 基于 **NestJS 12.3.x** 最新官方文档重写，覆盖 **${chapters.length} 章 / ${parts.length} 个 Part / ${sectionOrder.length} 篇**，从一个完整业务项目出发，把 NestJS 全栈开发从语法讲到企业级交付。
+> 基于 **NestJS 12.6.x** 最新官方文档重写，覆盖 **${chapters.length} 章 / ${parts.length} 个 Part / ${sectionOrder.length} 篇**，从一个完整业务项目出发，把 NestJS 全栈开发从语法讲到企业级交付。
 
 ## 版本基线（2026-11）
 
 | 组件 | 版本 | 说明 |
 | --- | --- | --- |
-| NestJS | 12.3.x | 官方文档 v12；ESM 为 CLI 默认 |
-| Node.js | 22 LTS / 24 LTS | 运行 v20.19+；CLI 生成器需 v22.22.3+/v24.15+/v26+ |
-| TypeScript | 5.9+ / 6.x | 脚手架默认 strict |
+| NestJS | 12.6.x | 官方文档 v12（2026-11-20 快照）；ESM 为 CLI 默认，CLI 版本见下表脚注 |
+| Node.js | 22 / 24 / 26 LTS | 当前 LTS 为 26（Lithium）；运行需 v20.19+，CLI 生成器需 v22.22.3+/v24.15+/v26+ |
+| TypeScript | 6.0.x | 脚手架默认 strict；**暂不升 7.0**（\`@nestjs/graphql\` peer 仅 ^5.5 || ^6） |
 | 数据库 | **PostgreSQL 17** | 主库统一用 PostgreSQL |
-| ORM | **Prisma 8**（RC） | \`prisma@8.0.0-rc.29\` + \`@prisma/orm-postgres@8.0.0-rc.21\`，版本必须配对；另含 TypeORM / Drizzle / MikroORM / MongoDB 对照章节 |
+| ORM | **Prisma 8**（RC） | \`prisma@8.0.0-rc.34\` + \`@prisma/orm-postgres@8.0.0-rc.24\`，版本必须配对；8.0 仍未 GA；另含 TypeORM / Drizzle / MikroORM / MongoDB 对照章节 |
 | 缓存/队列 | Redis 8、RabbitMQ 4、Kafka 4、RocketMQ | 含选型对比 |
-| 实时 | WebSocket（ws / socket.io 4）、SSE | |
-| API | GraphQL（Apollo Server 5）、REST + Swagger/OpenAPI | 含 federation |
-| 部署 | Docker / Compose、Nginx、K8s、Vercel | |
-| 测试 | 本期暂不引入 | 单测/e2e/压测章节暂缓；验证以命令、curl、接口契约与构建结果为准 |
+| 实时 | WebSocket（ws 8 / socket.io 4）、SSE | Nest 12 网关支持请求作用域与断连原因 |
+| API | GraphQL（@nestjs/graphql 14.2.x + Apollo Server 5）、REST + Swagger/OpenAPI（@nestjs/swagger 12.1.x，OpenAPI 3.1） | 含 federation |
+| 部署 | Docker 29 / Compose v2、Nginx、K8s、Vercel | 镜像 tag 在章节内注明 |
+| 测试 | 本期暂不引入 | Nest 12 脚手架默认带 Vitest 4 + oxlint，本书用 \`--skip-tests\` 显式跳过并说明取舍；验证以命令、curl、接口契约与构建结果为准 |
 
 > Prisma 8 目前是 release candidate。本教程按 Prisma 8 的 contract 模型与 \`@prisma/orm-postgres\` 运行时编写；升级到 GA 时只需同步升级两个包版本。
 

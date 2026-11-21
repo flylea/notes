@@ -44,7 +44,7 @@ const parts = partRows.map((r) => ({
 }));
 
 // ---------- chapters ----------
-if (chapters.length !== 286) err(`chapters.tsv 应为 268 行，实际 ${chapters.length}`);
+if (chapters.length !== 287) err(`chapters.tsv 应为 287 行，实际 ${chapters.length}`);
 const nums = chapters.map((c) => c.num);
 const expectNums = Array.from({ length: chapters.length }, (_, i) => i + 1);
 if (nums.some((n, i) => n !== expectNums[i])) err('章号不是从 1 开始的连续序号');
@@ -71,7 +71,7 @@ for (const c of chapters) {
 }
 
 // ---------- parts ----------
-if (parts.length !== 31) err(`parts.tsv 应为 30 行，实际 ${parts.length}`);
+if (parts.length !== 31) err(`parts.tsv 应为 31 行，实际 ${parts.length}`);
 parts.forEach((p, i) => {
   if (p.no !== i) err(`Part 序号不连续：${p.part} no=${p.no}，期望 ${i}`);
   if (!/^part-\d{2}$/.test(p.part)) err(`Part 目录名非法：${p.part}`);
@@ -86,7 +86,7 @@ parts.forEach((p, i) => {
   if (first !== start || last !== end) err(`Part ${p.part} 章节范围 ${first}-${last} 与 tsv 区间 ${p.range} 不符`);
 });
 
-// 章号覆盖：所有 Part 区间并集 = 1..268 且不重叠
+// 章号覆盖：所有 Part 区间并集 = 1..287 且不重叠
 {
   const seen = new Map();
   for (const p of parts) {
@@ -96,7 +96,7 @@ parts.forEach((p, i) => {
       seen.set(n, p.part);
     }
   }
-  if (seen.size !== 286) err(`Part 区间覆盖 ${seen.size} 章，应为 268`);
+  if (seen.size !== 287) err(`Part 区间覆盖 ${seen.size} 章，应为 287`);
 }
 
 // ---------- Part hub ----------
@@ -117,7 +117,7 @@ if (!existsSync(readmePath)) {
   err('缺 README.md');
 } else {
   const readme = readFileSync(readmePath, 'utf8');
-  if (!readme.includes('完整目录（286 章）')) err('README 缺「完整目录（286 章）」');
+  if (!readme.includes('完整目录（287 章）')) err('README 缺「完整目录（287 章）」');
   const missingSections = parts
     .reduce((acc, p) => (acc.includes(p.sectionNo) ? acc : [...acc, p.sectionNo]), [])
     .filter((no) => !readme.includes(`## 第 ${no} 篇`));

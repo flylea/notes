@@ -1,6 +1,8 @@
-# 第25章 React 中的 TypeScript
+# 第 25 章 React 中的 TypeScript
 
-React 与 TypeScript 的协作非常紧密自然——`.tsx` 文件本质上就是支持 JSX 语法的 `.ts` 文件。本章聚焦三个核心方面：**组件声明**、**Hooks 泛型坑位**和**内置类型定义**，同时介绍工程实践中的类型组织规范。
+组件 props 少写一个字段，父组件传参处没有提示；`useRef` 的泛型写错，`.current` 变成 `never`。React 的类型大多来自 `@types/react`。这一章讲组件、Hooks、事件与 children 的标注模式。
+
+React 与 TypeScript 的协作非常紧密自然：`.tsx` 文件本质上就是支持 JSX 语法的 `.ts` 文件。以下内容聚焦三个核心方面：**组件声明**、**Hooks 泛型坑位**和**内置类型定义**，同时介绍工程实践中的类型组织规范。
 
 ## JSX 与 TSX 基础
 
@@ -9,11 +11,10 @@ React 与 TypeScript 的协作非常紧密自然——`.tsx` 文件本质上就�
 使用 JSX 的文件后缀必须是 `.tsx`。在 `.tsx` 文件中，类型断言**只能使用 `as` 语法**，因为尖括号写法会与 JSX 标签冲突：
 
 ```typescript
-// ✅ .tsx 中的正确写法
+// 正确：as 断言可用
 const foo = bar as string;
 
-// ❌ .tsx 中不能使用
-const foo = <string>bar;
+const foo = <string>bar; // error TS17008: JSX element 'string' has no corresponding closing tag.
 ```
 
 ### JSX 编译模式
@@ -155,7 +156,7 @@ type PropsWithChildren<P> = P & { children?: ReactNode | undefined };
 
 ### 组件泛型
 
-这是普通函数组件的一个重要优势——可以为组件添加泛型参数：
+这是普通函数组件的一个重要优势：可以为组件添加泛型参数。
 
 ```tsx
 import { PropsWithChildren } from 'react';
@@ -219,10 +220,10 @@ function useState<S = undefined>(): [S | undefined, Dispatch<SetStateAction<S | 
 常见踩坑：初始状态为空对象时，不要使用类型断言来欺骗类型系统：
 
 ```tsx
-// ❌ 后续使用时可能遗漏必填属性
+// 错误做法：后续使用时可能遗漏必填属性
 const [data, setData] = useState<User>({} as User);
 
-// ✅ 使用 Partial 明确标记为"不完整"
+// 正确：用 Partial 明确标记为"不完整"
 const [data, setData] = useState<Partial<User>>({});
 ```
 
@@ -276,7 +277,7 @@ interface CounterState {
   count: number;
 }
 
-// Action 类型 —— 可辨识联合类型
+// Action 类型：可辨识联合类型
 type CounterAction =
   | {
       type: 'inc';
@@ -332,7 +333,7 @@ function Counter() {
 }
 ```
 
-TypeScript 在 `switch-case` 的每个分支中会自动收窄 `action` 的类型——当 `action.type === 'inc'` 时，`action.payload` 的类型就被精确收窄为 `{ amount: number; max?: number }`，不会误拿到 `min` 属性。
+TypeScript 在 `switch-case` 的每个分支中会自动收窄 `action` 的类型：当 `action.type === 'inc'` 时，`action.payload` 的类型就被精确收窄为 `{ amount: number; max?: number }`，不会误拿到 `min` 属性。
 
 useReducer 的类型推断链路：
 
@@ -382,7 +383,7 @@ const App = () => {
 
 关键规则：**初始值为 `null` 的 ref 会被推导为 `RefObject`（只读的 `current`），初始值非 `null` 的则被推导为 `MutableRefObject`（可写的 `current`）**。
 
-DOM 引用应使用尽可能精确的元素类型——`HTMLInputElement`、`HTMLButtonElement`、`HTMLDivElement` 等，而不是宽泛的 `HTMLElement`。精确的类型包含了特定元素的所有属性和事件方法。
+DOM 引用应使用尽可能精确的元素类型，例如 `HTMLInputElement`、`HTMLButtonElement`、`HTMLDivElement` 等，而不是宽泛的 `HTMLElement`。精确的类型包含了特定元素的所有属性和事件方法。
 
 ### forwardRef 与 useImperativeHandle
 
@@ -586,6 +587,45 @@ const Card = ({ title, children }: CardProps): ReactElement | null => {
 };
 ```
 
+## JSX 的类型为什么搬进了 React 命名空间
+
+JSX 不是 React 独有的语法。旧版 `@types/react` 用一个全局的 `namespace JSX` 描述 JSX 的规则，React、Preact、自定义运行时都往这个名下挂，类型系统只能合并，不能互斥。项目里同时出现两个 UI 库时，全局声明会互相干扰。
+
+[React 19](https://react.dev/blog/2024/12/05/react-19) 的类型删掉了全局声明，把 `namespace JSX` 搬进 `declare namespace React`。@types/react 19.3.0 的 `index.d.ts` 里，这个命名空间在第 4226 行，外层是第 70 行的 `declare namespace React`，整个文件没有 `declare global`。
+
+搬进包内的意义是归属明确。`jsxImportSource` 指向哪个包，JSX 类型就从哪个包取，多个运行时不再争同一份全局声明。代价是老代码里的 `JSX.Element` 失去解析目标，升级后报 TS2503。
+
+反过来做不到。全局命名空间在 TypeScript 里按名字合并，两份声明不会报冲突，只会混成一份。合并之后 `JSX.Element` 只有一个含义，React 元素和 Preact 元素分不开，泛型组件也没法按运行时区分。把命名空间关进包内，合并范围缩到单个包。
+
+影响面不止业务代码。一些老库的 `.d.ts` 里还写着 `JSX.Element`，主包升级后这些声明同样失去解析目标，报错位置不在自己的文件里。[React 19 的升级说明](https://react.dev/blog/2024/04/25/react-19-upgrade-guide) 把这条列为破坏性变更，建议的替换就是 `React.JSX.Element` 或 `ReactNode`。
+
+改法有两种，从 `react` 导入 `JSX` 类型，或者写完整的 `React.JSX.Element`。组件返回值更推荐用 `ReactNode`，React 19 的 `FunctionComponent` 本身就以 `ReactNode` 作为返回类型。
+
+导入写法是 `import type { JSX } from 'react';`，之后 `JSX.Element` 照常可用。名字空间里的 `Element` 与 `ReactElement` 指向同一个类型，两者可以互换。需要给事件参数标注类型时，从 `react` 导入 `MouseEvent` 之类的类型，它们没有跟着搬进 `JSX` 命名空间。
+
+第三方库如果还写着 `declare global { namespace JSX }`，全局名字会重新出现。那份声明和 React 的类型是两套，元素类型可能对不上，遇到底层库报错先查这一点。
+
+```tsx
+import { useRef } from 'react';
+
+function Inner({ label }: { label: string }): JSX.Element {
+  return <span>{label}</span>;
+}
+
+export function Form() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return <Inner ref={inputRef} label="名称" />;
+}
+```
+
+这段代码编译报两处错。返回类型这一行报 `error TS2503: Cannot find namespace 'JSX'.`。`ref` 那一行报 `error TS2322`，正文是 `Property 'ref' does not exist on type 'IntrinsicAttributes & { label: string; }'.`，原因是 `Inner` 的 props 里没有声明 `ref`。
+
+改法是把返回值改成 `ReactNode`，并在 `Inner` 的 props 里加 `ref?: Ref<HTMLSpanElement>`。React 19 里 `ref` 就是普通 prop，不需要 `forwardRef`。
+
+## 一句话理解 JSX 类型
+
+JSX 类型像户口本，以前全项目共用一本，谁都能翻；现在只挂在 React 名下，引用时要写明户主。这个比喻在切换运行时的时候失效，`jsxImportSource` 指到 Preact 时，户口本跟着换到那个包，React 的名字不再出现。
+
 ## 工程实践：类型文件组织
 
 在中小型项目中，类型定义可以就近放在组件文件中。但在大型项目中，推荐建立统一的类型目录：
@@ -641,7 +681,7 @@ export function fetchUsers(page: number): Promise<PaginatedResponse<UserProfile>
 
 这样就建立起了清晰的、与业务模型一致的引用关系。请求层、类型层、业务层各司其职。
 
-## 本章小结
+## 小结
 
 - **`.tsx` 文件**中类型断言必须使用 `as` 语法，JSX 编译模式推荐使用 `react-jsx`
 - **组件声明**：普通函数 + 返回值标注的方式更灵活，支持组件泛型；FC 更简洁但有局限性
@@ -651,4 +691,23 @@ export function fetchUsers(page: number): Promise<PaginatedResponse<UserProfile>
 - **内置工具类型**：`ComponentProps` 提取组件属性，`CSSProperties` 约束样式对象，`ReactNode` 是比 `ReactElement` 更宽泛的类型
 - **工程规范**：按业务域划分类型文件，请求类型用泛型封装，与业务类型建立清晰的引用关系
 
-下一章将介绍 TypeScript 类型编程的实战技巧，包括递归类型、类型层面的数组操作，以及在实际业务中应用类型体操的案例。
+## 用不上的时候
+
+### props 简单
+
+只有一两个字段的组件，让 TS 从默认值和用法推断即可，显式写 `FC<Props>` 反而增加噪音。
+
+### 数据来自接口
+
+props 上的类型不会校验运行时数据。接口返回的结构要在进入组件前校验。
+
+### ref 与泛型组件
+
+React 19 里 `ref` 可以作为普通 prop，旧的 `forwardRef` 写法只在兼容旧版本时需要。
+
+## 参考
+
+- [React 19 发布说明](https://react.dev/blog/2024/12/05/react-19)：ref 作为普通 prop 等变更。
+- [React 19 升级指南](https://react.dev/blog/2024/04/25/react-19-upgrade-guide)：`JSX` 命名空间迁移等破坏性变更。
+- [Using TypeScript](https://react.dev/learn/typescript)：React 官方的 TypeScript 用法。
+- [@types/react 类型定义](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/react/index.d.ts)：`declare namespace React` 与 `JSX` 的实际位置。

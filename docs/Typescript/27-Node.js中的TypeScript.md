@@ -1,10 +1,218 @@
-# 第27章 Node.js 中的 TypeScript
+# 第 27 章 Node.js 中的 TypeScript
 
-Node.js 是 TypeScript 应用最广泛的后端运行时。本章介绍如何在 Node.js 项目中高效使用 TypeScript，包括运行时方案对比、项目配置、常见框架集成以及数据库 ORM 实践。
+`node server.ts` 在 Node 26 能直接跑，但用了 `enum` 或参数属性就报 ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX；生产环境该不该编译也没有统一答案。这一章讲 Node 下运行 TS 的几条路径和生产配置。
+
+Node.js 是 TypeScript 用得最多的后端运行时。Node 22.6 起自带类型剥离，`node app.ts` 可以直接跑。（见 [Node.js 的类型剥离文档](https://nodejs.org/api/typescript.html)）
+
+不是所有代码都能直接跑。NestJS 这种用装饰器的框架要编译，或者交给 `tsx`。Prisma 生成的是 JS 加 `.d.ts`，原生剥离就能用。
 
 ## 运行 TypeScript 代码
 
-Node.js 不能直接执行 `.ts` 文件，需要先将 TypeScript 编译为 JavaScript。目前主流方案有三种：
+`node app.ts` 能跑，靠的是类型剥离：删掉类型注解，剩下的 JavaScript 交给 V8。版本节点：
+
+| Node 版本 | 变化 |
+|---|---|
+| 22.6.0 | 加入剥离，需要 `--experimental-strip-types` |
+| 22.7.0 | 加入 `--experimental-transform-types`，能处理 `enum` 和 `namespace` |
+| 23.6.0 / 22.18.0 | 默认开启，不用带 flag |
+| 24.3.0 / 22.18.0 | 去掉 experimental 警告 |
+| 25.2.0 / 24.12.0 | 转为 Stable |
+| 26.0.0 | 移除 `--experimental-transform-types` |
+
+26 只剩 `--no-strip-types` 一个开关。带旧 flag 会直接退出：
+
+```bash
+$ node --experimental-transform-types app.ts
+node: bad option: --experimental-transform-types
+```
+
+加 `--no-strip-types` 关掉剥离，`.ts` 跑不起来：
+
+```bash
+$ node --no-strip-types app.ts
+TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts" for /private/tmp/nodedoc3/app.ts
+```
+
+能不能跑由语法决定，不由版本决定。三条路：Node 原生剥离、`tsx`、`tsc` 产物。
+
+### Node 原生剥离
+
+跑脚本、写小工具、临时验证用这条。不用装依赖，启动开销比 `tsx` 小。
+
+```bash
+node index.ts
+node --watch index.ts
+```
+
+本机 Node 26.13.1，`ok.ts` 里是 `console.log(add(1, 2))`：
+
+```bash
+$ node ok.ts
+3
+```
+
+它不做类型检查。参数写错了照样跑：
+
+```ts
+function greet(name: string): string {
+  return "hi " + name;
+}
+
+console.log(greet(123)); // error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+```
+
+```bash
+$ node nocheck.ts
+hi 123
+```
+
+类型检查交给 `tsc --noEmit`。
+
+### 原生剥离的边界
+
+判断标准一句话：这段语法会不会生成运行时代码。不生成就能删掉，生成就报错。
+
+| 语法 | 结果 | 处理 |
+|---|---|---|
+| 类型注解、`interface`、`type`、`as const`、`satisfies`、泛型 | 可剥离 | 直接写 |
+| 只有类型的 `namespace` | 可剥离 | 直接写 |
+| `enum`、`const enum` | `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` | 改 `as const` 对象加联合类型 |
+| 带值的 `namespace` | 同上 | 拆成独立模块 |
+| 构造函数参数属性 | 同上 | 显式声明字段 |
+| `import x = require()` | 同上 | 改 `import x from` |
+| 装饰器 | `SyntaxError: Invalid or unexpected token` | 用 `tsx` 或 `tsc` |
+| `.tsx` | `SyntaxError: Unexpected token '<'` | 用 `tsx` 或打包器 |
+
+前四种报错都以 `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` 开头。以 `enum` 为例：
+
+```ts
+enum Color { Red, Green }
+console.log(Color.Red);
+```
+
+```text
+SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript enum is not supported in strip-only mode
+```
+
+`const enum` 报同一个错。另外三种的完整消息：
+
+- 参数属性：`TypeScript parameter property is not supported in strip-only mode`
+- 带值的 `namespace`：`TypeScript namespace declaration is not supported in strip-only mode`
+- `import x = require`：`TypeScript import equals declaration is not supported in strip-only mode`
+
+`import` 里的纯类型必须加 `type`。剥离只删注解，不做导入消除：
+
+```text
+SyntaxError: The requested module './types.ts' does not provide an export named 'User'
+```
+
+改成：
+
+```ts
+import type { User } from "./types.ts";
+import { version } from "./types.ts";
+```
+
+开 `verbatimModuleSyntax` 后，`tsc` 会提前报这条错：
+
+```text
+error TS1484: 'User' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
+```
+
+**tsconfig 完全不读**。`paths` 不生效：
+
+```bash
+$ node alias.ts
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@/math.ts' imported from /private/tmp/nodedoc2/alias.ts
+```
+
+用 `package.json` 的 `imports` 字段代替。路径以 `#` 开头，映射值带 `.ts`：
+
+```json
+{
+  "type": "module",
+  "imports": {
+    "#lib/*": "./lib/*"
+  }
+}
+```
+
+```ts
+import { add } from "#lib/math.ts";
+```
+
+`$ node app.ts` 输出 `3`（Node 26.13.1 实测）。
+
+导入必须写扩展名。写成 `./src/math` 会报：
+
+```text
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/private/tmp/nodedoc2/src/math' imported from /private/tmp/nodedoc2/noext.ts
+```
+
+`node_modules` 里的 `.ts` 也不处理：
+
+```text
+Error [ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING]: Stripping types is currently unsupported for files under node_modules, for "file:///private/tmp/nodedoc2/node_modules/pkg/index.ts"
+```
+
+发 npm 包时出 `.js` 加 `.d.ts`，不能只发 `.ts`。
+
+配合原生剥离的 tsconfig：
+
+```json
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "esnext",
+    "module": "nodenext",
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
+  }
+}
+```
+
+`erasableSyntaxOnly` 把不可剥离的语法报成 `error TS1294`。`package.json` 没写 `"type": "module"` 时，`.ts` 按 CommonJS 处理，`verbatimModuleSyntax` 会报 `error TS1287`。加 `"type": "module"` 即可。
+
+边界细节和报错速查见第 33 章。
+
+### 剥离器眼里没有 tsconfig
+
+Node 的原生支持是个解析器，不是编译器前端。官方文档的原话是 `Node.js will replace TypeScript syntax with whitespace`，它把类型语法替换成空白，不做类型检查，也不建立符号表。
+
+没有符号表，就做不了 `paths` 映射，也做不了降级转换。这两件事都依赖 tsconfig，所以它干脆不读。官方文档也写了 `Node.js ignores tsconfig.json files`。
+
+替换成空白还有个副作用，行列位置不变。错误堆栈里的行号与源码一一对应，不需要额外生成 source map。转译会移动代码，就得维护映射，剥离不用。
+
+想让剥离器读 tsconfig，等于让它实现路径解析与降级转换，这两件事都要完整的类型检查前端。原生支持的目标是零依赖运行，装不下这个前端，官方文档给出的方案是装 tsx 这类工具。
+
+enum 被拒绝的原因在语义。enum 不只是类型，编译后要生成一个对象，还要有数字到名字的反向映射。替换成空白会把对象弄丢，运行时行为就变了。`namespace` 和构造器参数属性同理，它们都要求 emit 出新代码。装饰器的 `@` 连解析都过不去，报的是普通 `SyntaxError`。
+
+Node 26 移除了 `--experimental-transform-types`，想要 enum 和装饰器的运行时行为，只能回到 tsc 编译或者 tsx 这类转译器。原生剥离的定位是不装工具也能跑，代价是语法子集窄。
+
+还有一类静默错误。剥离器分不清值和类型，`import { Task } from "./model.js"` 里的 `Task` 如果只是 interface，运行时仍会去模块里找这个名字，找不到就报 `SyntaxError`。写法上要加 `import type`。
+
+剥离器只处理语法层，类型错误在运行时不可见。`const n: number = "x"` 写成字符串，剥离后照样跑，错误不会在启动时报出来。这类风险要靠 `tsc --noEmit` 单独把关。
+
+### 两处报错
+
+同一份代码，tsc 和 node 报的错不一样，位置也不同。
+
+```typescript
+enum Status { Active, Closed }
+
+class Task {
+  constructor(private readonly title: string) {}
+}
+```
+
+`tsc --noEmit --erasableSyntaxOnly` 报两条 `error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.`，分别指向 enum 和构造器参数属性。改用联合类型和显式字段即可。
+
+直接 `node` 跑这个文件，报 `SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript enum is not supported in strip-only mode`。Node 是在解析到 enum 时抛出，后面的类根本没执行。
+
+### 一句话理解剥离
+
+剥离像用修正带涂掉草稿上的批注，只涂说明，不造零件。enum 要造一个新对象，属于零件，整页就被退回来。这个比喻在 `import type` 上会失效，删掉类型导入不属于涂改，整行引用一起消失。
 
 ### tsc 编译后运行
 
@@ -44,11 +252,11 @@ npx tsc --watch &
 npx nodemon dist/index.js
 ```
 
-优点是最稳妥、和任何 Node.js 版本兼容；缺点是每次修改都需要重新编译，开发体验不如即时方案。
+产物可以直接放进镜像。缺点是改一次代码就要编译一次，开发时慢。
 
-### tsx（推荐）
+### tsx
 
-[tsx](https://github.com/privatenumber/tsx) 是目前最流行的 TypeScript 即时执行工具，基于 esbuild 实现超快转译：
+[tsx](https://github.com/privatenumber/tsx) 基于 esbuild，当前版本 4.23.15。它读 tsconfig，能处理 `enum`、装饰器、`.tsx`，报错时按源码行号给位置。日常开发用它。
 
 ```bash
 npm install -D tsx
@@ -75,37 +283,35 @@ package.json 配置：
 }
 ```
 
-tsx 的特点：
-- 底层使用 esbuild 转译，速度极快
-- 不做类型检查——开发时由 IDE 负责，CI/CD 时单独 `tsc --noEmit`
-- 同时支持 CJS 和 ESM
-- 支持 `--watch` 监视热重载
+tsx 的行为：
+- 不做类型检查。检查交给 IDE 和 CI 里的 `tsc --noEmit`。
+- CJS 和 ESM 项目都能跑。
+- `--watch` 在文件变化后重跑。
 
 ### ts-node
 
-`ts-node` 是老牌方案，速度较慢但生态成熟。使用 `ts-node/register` 可以在 Node 进程中直接 require `.ts` 文件：
+`ts-node` 最后一个版本是 10.9.2，2023 年 12 月以后没有再更新。新项目别用。
+
+老项目里还能见到：
 
 ```bash
 npm install -D ts-node
-```
-
-```bash
 npx ts-node src/index.ts
 ```
 
-ts-node 默认使用 TypeScript 编译器做转译，速度远慢于 tsx。可以通过 `ts-node --swc` 或 `ts-node --esm` 提升速度，但配置复杂度也随之增加。**新项目推荐使用 tsx**。
+它默认用 TypeScript 编译器转译，比 `tsx` 慢。迁移时先换 `tsx`，再删掉依赖。
 
 ### 方案对比
 
-| 特性 | tsc | tsx | ts-node |
-|------|-----|-----|---------|
-| 启动速度 | 慢（需编译） | 快（esbuild） | 较慢（TS Compiler） |
-| 类型检查 | 编译时 | 不支持（IDE + CI） | 默认支持 |
-| ESM 支持 | 取决于 module | 原生支持 | 需配置 |
-| 生产使用 | ✅ 推荐 | 开发工具 | 开发工具 |
-| 生态成熟度 | 最成熟 | 快速增长 | 成熟 |
+| 特性 | node 原生 | tsc | tsx | ts-node |
+|------|-----------|-----|-----|---------|
+| 读 tsconfig | 否 | 是 | 是 | 是 |
+| 类型检查 | 否 | 是 | 否 | 是（默认） |
+| 支持语法 | 只有可剥离语法 | 全部 | 全部 | 全部 |
+| source map | 无 | 有 | 有 | 有 |
+| 适用 | 脚本、临时验证 | CI、发布 | 日常开发 | 旧项目 |
 
-**推荐组合**：开发用 `tsx --watch`，生产构建用 `tsc`，CI 类型检查用 `tsc --noEmit`。
+写脚本用 `node app.ts`。日常开发用 `tsx --watch`。构建和 CI 用 `tsc`，检查单独跑 `tsc --noEmit`。
 
 ## Node.js 项目中的类型处理
 
@@ -174,7 +380,7 @@ const env = envSchema.parse(process.env);
 
 ## NestJS：装饰器驱动的企业级框架
 
-[NestJS](https://nestjs.com/) 是 Node.js 生态中最具代表性的 TypeScript 后端框架，大量使用了装饰器和依赖注入（DI）。它借鉴了 Angular 的架构理念，提供模块化、分层的项目结构：
+[NestJS](https://nestjs.com/) 在 Node.js 生态里大量使用装饰器和依赖注入（DI）。架构借鉴 Angular，项目按模块分层：
 
 ```
 src/
@@ -186,7 +392,7 @@ src/
 
 ### 核心概念
 
-**Controller**——处理请求与路由，通过装饰器声明：
+**Controller**：处理请求与路由，通过装饰器声明。
 
 ```typescript
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
@@ -212,7 +418,7 @@ export class UsersController {
 }
 ```
 
-**Provider / Service**——通过 `@Injectable()` 声明可注入的服务：
+**Provider / Service**：通过 `@Injectable()` 声明可注入的服务。
 
 ```typescript
 import { Injectable } from '@nestjs/common';
@@ -237,7 +443,7 @@ export class UsersService {
 }
 ```
 
-**Module**——组织 Controller 和 Provider 的容器：
+**Module**：组织 Controller 和 Provider 的容器。
 
 ```typescript
 import { Module } from '@nestjs/common';
@@ -250,7 +456,7 @@ import { Module } from '@nestjs/common';
 export class UsersModule {}
 ```
 
-**DTO（Data Transfer Object）**——通过 class + 装饰器做请求参数校验：
+**DTO（Data Transfer Object）**：用 class + 装饰器做请求参数校验。
 
 ```typescript
 import { IsString, IsEmail, MinLength, IsOptional } from 'class-validator';
@@ -269,11 +475,12 @@ export class CreateUserDto {
 }
 ```
 
-NestJS 的核心优势在于：
-- **模块化架构**：天然支持领域驱动设计，项目规模扩大时结构依然清晰
-- **依赖注入**：通过构造函数自动注入依赖，便于单元测试
-- **全家桶生态**：内置了 ORM 集成、GraphQL、微服务、OpenAPI、鉴权、消息队列等能力
-- **装饰器语法**：声明式编程，路由、中间件、守卫、拦截器、管道等都通过装饰器声明
+它的几个特点：
+
+- 模块化：按 Module 划分边界，项目变大后结构不散。
+- 依赖注入：构造函数声明依赖，测试时换 mock 容易。
+- 生态：ORM、GraphQL、微服务、OpenAPI、鉴权、消息队列都有官方包。
+- 装饰器：路由、中间件、守卫、拦截器、管道都靠装饰器声明。
 
 ### NestJS CLI 快速开始
 
@@ -286,7 +493,7 @@ CLI 会自动生成 TypeScript 配置完整的项目骨架。
 
 ## Prisma：类型安全的数据库 ORM
 
-[Prisma](https://www.prisma.io/) 是 TypeScript 生态中最流行的 ORM 之一，核心理念是通过 Schema 定义生成类型安全的查询客户端。
+[Prisma](https://www.prisma.io/) 是 TypeScript 生态常用的 ORM，通过 Schema 定义生成类型安全的查询客户端。
 
 ### 项目集成
 
@@ -457,7 +664,7 @@ app.listen(3000);
 
 ### Fastify 与 TypeScript
 
-Fastify 对 TypeScript 的支持更加原生，通过泛型参数在整个请求链中传递类型：
+Fastify 用泛型参数把类型传进请求链：
 
 ```typescript
 import Fastify from 'fastify';
@@ -478,7 +685,8 @@ server.listen({ port: 3000 });
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "./src",
@@ -488,39 +696,80 @@ server.listen({ port: 3000 });
     "skipLibCheck": true,
     "declaration": true,
     "sourceMap": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "node"
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 ```
 
-如果是纯 ESM 项目：
+`package.json` 不写 `"type": "module"` 时，`nodenext` 输出 CommonJS。只做检查不产出，加 `"noEmit": true` 就行。（见 [tsconfig 参考](https://www.typescriptlang.org/tsconfig)）
+
+TypeScript 7 移除了 `moduleResolution: "node"`。写了会报：
+
+```text
+error TS5108: Option 'moduleResolution=node10' has been removed. Please remove it from your configuration.
+```
+
+如果是纯 ESM 项目，`package.json` 加 `"type": "module"`，配置换成：
 
 ```json
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "outDir": "./dist",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "rootDir": "./src",
     "strict": true,
-    "skipLibCheck": true
+    "verbatimModuleSyntax": true,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "sourceMap": true
   }
 }
 ```
 
-package.json 中需添加 `"type": "module"`，并且导入时使用 `.js` 后缀（TS 会自动解析为 `.ts`）。
+导入路径有两种写法：
 
-## 本章小结
+- 源码写 `./math.ts`，开 `rewriteRelativeImportExtensions`，`tsc` 产物自动改成 `./math.js`。Node 原生剥离也认这个写法。
+- 源码写 `./math.js`，`tsc` 会解析到 `./math.ts`，产物保持原样。
 
-- **运行时方案**：开发用 `tsx`（快），生产构建用 `tsc`（稳），CI 类型检查用 `tsc --noEmit`
-- **环境变量**：扩展 `NodeJS.ProcessEnv` 接口声明类型，生产项目建议配合 zod 做运行时校验
-- **NestJS**：装饰器驱动的企业级框架，核心是模块化、依赖注入、全家桶生态，很适合中大型项目
-- **Prisma**：类型安全的 ORM，通过 Schema 生成类型完备的查询客户端，支持自动迁移和关联查询
-- **Express/Fastify**：轻量框架直接安装 `@types/` 包后即可获得完整类型提示
+不开 `rewriteRelativeImportExtensions` 时，`./math.ts` 这种写法报：
 
-下一章将介绍如何使用 ESLint 来约束 TypeScript 代码质量。
+```text
+error TS5097: An import path can only end with a '.ts' extension when 'allowImportingTsExtensions' is enabled.
+```
+
+只检查不产出时（`noEmit`），也可以开 `allowImportingTsExtensions` 代替。
+
+## 小结
+
+- 脚本和临时验证用 `node app.ts`。它剥离类型但不检查，`enum`、参数属性、装饰器、`.tsx` 跑不了。
+- 日常开发用 `tsx`。发布用 `tsc` 产物，检查用 `tsc --noEmit`。
+- `ts-node` 停在 10.9.2，2023 年 12 月后没再更新，新项目别用。
+- `module` 和 `moduleResolution` 统一写 `nodenext`。ESM 项目加 `"type": "module"`，再开 `rewriteRelativeImportExtensions`。
+- 环境变量类型扩展 `NodeJS.ProcessEnv` 接口，运行时校验交给 zod。
+- NestJS 用装饰器，必须编译或走 `tsx`。Prisma 生成 JS 加 `.d.ts`，原生剥离也能用。
+
+## 用不上的时候
+
+### 用不可擦除语法
+
+`enum`、参数属性、带运行时代码的 `namespace`、`import x = require` 在原生剥离下直接报语法错误。
+
+### 生产环境
+
+开发时用原生剥离跑得快，生产仍建议编译：产物更小，也能覆盖老 Node 版本。
+
+### 依赖 tsconfig
+
+Node 不读 `tsconfig.json`，`paths`、`baseUrl` 都不生效，import 还必须带扩展名。
+
+## 参考
+
+- [Node.js 的类型剥离文档](https://nodejs.org/api/typescript.html)：删类型、不检查的运行时行为说明。
+- [tsx](https://github.com/privatenumber/tsx)：日常开发直接跑 .ts 的执行器。
+- [tsconfig 参考](https://www.typescriptlang.org/tsconfig)：module、moduleResolution、rewriteRelativeImportExtensions 的取值。
+- [NestJS](https://nestjs.com/)：装饰器与依赖注入框架，必须编译或走 tsx。
+- [Prisma 文档](https://www.prisma.io/docs)：生成 JS 加 .d.ts，原生剥离也能用。

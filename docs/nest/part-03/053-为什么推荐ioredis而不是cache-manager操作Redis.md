@@ -244,5 +244,5 @@ docker compose exec redis redis-cli ttl 'http://localhost:3000/api/bookings?page
 <!-- chapter-nav:start -->
 ---
 
-← 上一篇：[052 在Nest里操作Redis](052-在Nest里操作Redis.md) · [本 Part 目录](_part.md)
+← 上一篇：[052 在Nest里操作Redis](052-在Nest里操作Redis.md) · [本 Part 目录](_part.md) · 下一篇：[054 两种登录状态保存方式：JWT、Session](../part-04/054-两种登录状态保存方式：JWT、Session.md) →
 <!-- chapter-nav:end -->

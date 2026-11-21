@@ -1,6 +1,6 @@
 # Part 27 · 数据与架构
 
-> 第 6 篇 · 第 251–257 章 · 共 7 章 · 已写 0 章 · 必修
+> 第 6 篇 · 第 252–258 章 · 共 7 章 · 已写 0 章 · 必修
 
 ## 本 Part 定位
 
@@ -12,13 +12,13 @@
 
 ## 章节
 
-- ⬜ 251 TypeORM实战（待写）
-- ⬜ 252 DrizzleORM与SQL优先开发（待写）
-- ⬜ 253 MikroORM与UnitOfWork（待写）
-- ⬜ 254 MongoDB进阶（待写）
-- ⬜ 255 pgvector与RAG（待写）
-- ⬜ 256 GraphQL联邦（待写）
-- ⬜ 257 CQRS与事件溯源（待写）
+- ⬜ 252 TypeORM实战（待写）
+- ⬜ 253 DrizzleORM与SQL优先开发（待写）
+- ⬜ 254 MikroORM与UnitOfWork（待写）
+- ⬜ 255 MongoDB进阶（待写）
+- ⬜ 256 pgvector与RAG（待写）
+- ⬜ 257 GraphQL联邦（待写）
+- ⬜ 258 CQRS与事件溯源（待写）
 
 ## 完成标志
 

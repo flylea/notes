@@ -1,755 +1,940 @@
-# 第23章 TSConfig 配置详解
+# 第 23 章 TSConfig 配置详解
 
-`tsconfig.json` 是 TypeScript 项目的核心配置文件。它的存在标志着一个目录是 TypeScript 项目的根目录。本章将从实际使用出发，按照**构建**、**类型检查**、**工程**三大类，逐一剖析每个重要配置项的含义、作用和推荐用法。
+项目里 `strict` 关着、`target` 还是 ES5、`paths` 配了却没生效，报错信息与配置项对不上。tsconfig 控制编译范围、产物形态和检查强度。这一章按分组解释常用选项，给出 TS 7.0.2 下的推荐值。
+
+[tsconfig.json](https://www.typescriptlang.org/tsconfig) 决定三件事：哪些文件参与编译、代码按什么目标生成、类型检查有多严格。
+[TypeScript 6.0](https://devblogs.microsoft.com/typescript/announcing-typescript-6-0/) 改了一批默认值，7.0 删掉旧选项并把编译器换成了 Go 原生实现。
+下面列出的选项、报错和输出都来自 TypeScript 7.0.2 的实测结果，旧写法会标出对应错误码。
 
 ## 快速开始
 
 ### 生成配置文件
 
+项目根目录运行：
+
 ```bash
-tsc --init
+$ npx tsc --init
+Created a new tsconfig.json in /path/to/project
 ```
 
-这会生成一个带详细注释的 `tsconfig.json`，包含绝大多数配置项及其说明。
-
-### 最小配置
-
-最简单的 `tsconfig.json` 可以是空对象 `{}`——此时 tsc 使用所有默认值。实际项目中至少需要指定编译目标和源码范围：
+生成的文件带注释，主体是这些选项：
 
 ```json
 {
   "compilerOptions": {
-    "target": "es2018",
-    "outDir": "./dist",
-    "strict": true
-  },
-  "include": ["src/**/*"]
-}
-```
-
-### 配置继承
-
-通过 `extends` 可以复用已有配置，支持本地文件和 npm 包：
-
-```json
-{
-  "extends": "@tsconfig/node18/tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./dist"
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "types": [],
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noUncheckedSideEffectImports": true,
+    "declaration": true,
+    "sourceMap": true,
+    "skipLibCheck": true
   }
 }
 ```
 
-`@tsconfig` 命名空间下提供了针对不同环境的预设配置：`@tsconfig/recommended`、`@tsconfig/node16`、`@tsconfig/deno` 等。
+模板适合新项目起手，三处按项目改：
+
+- 前端打包器项目把 `module` 改成 `esnext`，`moduleResolution` 用 `bundler`。
+- Node 项目保留 `nodenext`，并在 package.json 里写 `"type": "module"`。
+- `types` 默认是空数组，用 Node 时补 `"node"`。
+
+### 最小配置
+
+tsconfig.json 写空对象 `{}` 也能编译。7.0 的默认值已经足够严格，最小配置通常只写范围：
+
+```json
+{
+  "include": ["src"]
+}
+```
+
+7.0 的默认值：
+
+| 选项 | 默认值 |
+| --- | --- |
+| target | es2025 |
+| module | esnext |
+| moduleResolution | bundler |
+| strict | true |
+| types | [] |
+| rootDir | tsconfig.json 所在目录 |
+| noUncheckedSideEffectImports | true |
+| libReplacement | false |
+
+这些默认值带来三个变化：
+
+- 不用写 `"strict": true` 才能拿到严格检查，它已经开着。
+- 不写 `types` 时不会自动加载 `node_modules/@types` 下的包，Node 项目会缺全局类型。
+- 不写 `lib` 时按 target 推导，DOM 类型要显式加 `dom`。
+
+### 命令行与 tsconfig.json 的关系
+
+目录里有 tsconfig.json 时，命令行再列文件会报错：
+
+```bash
+$ tsc index.ts --noEmit
+error TS5112: tsconfig.json is present but will not be loaded if files are specified on commandline. Use '--ignoreConfig' to skip this error.
+```
+
+要单独编译某个文件，加 `--ignoreConfig`：
+
+```bash
+$ tsc index.ts --noEmit --ignoreConfig
+```
+
+规则：项目内用 `tsc` 或 `tsc -p .`；只查单个文件时用 `--ignoreConfig`，此时不读取 tsconfig.json。
+
+### 配置继承
+
+公共配置放 base 文件：
+
+```json
+{
+  "compilerOptions": {
+    "target": "es2025",
+    "strict": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+子项目写差异：
+
+```json
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"]
+  },
+  "include": ["src"]
+}
+```
+
+`extends` 的路径相对当前文件解析。数组型选项（`include`、`files`、`lib`）在子配置里是覆盖，不是追加。`@tsconfig/*` 系列包仍可用，部分包的 target 偏旧，接手旧项目时先看它继承了什么。
+
+### TS 6.0 与 7.0 的默认值变化
+
+| 选项 | 5.x 默认 | 6.0 / 7.0 默认 | 影响 |
+| --- | --- | --- | --- |
+| strict | false | true | 不写也开严格检查 |
+| module | commonjs | esnext | 无打包器时注意 ESM 语法 |
+| target | es5（--init 曾给 es2018） | es2025 | 不再降级到 ES5 |
+| types | 加载全部 @types | [] | 必须显式声明 |
+| rootDir | 按输入推断 | tsconfig.json 所在目录 | 输出多一层目录，或报 TS5011 |
+| noUncheckedSideEffectImports | false | true | 副作用导入缺声明报 TS2882 |
+| libReplacement | true | false | 不再用 @typescript/lib-* 替换内置 lib |
+
+补充两条：
+
+- 6.0 新增 `--stableTypeOrdering`，让 6.0 的类型排序与 7.0 对齐，方便看迁移 diff。7.0 强制开启，不能关闭。
+- 5.9 到 6.0 是过渡版本，7.0 才移除旧选项。从 5.x 直接升 7.0 时，把 6.0 的弃用清单当检查表。
+
+## tsc 怎么读配置
+
+tsc 启动后先解析命令行，再决定用哪份配置。优先级是命令行参数、`tsconfig.json`、内置默认值，左边的覆盖右边的。
+
+不给文件参数时，tsc 从当前目录向上找最近的 `tsconfig.json`。在 `src/` 里执行，找到的是项目根的配置。`-p` 指定目录，`--ignoreConfig` 跳过配置，两者不必同时用。
+
+给了文件参数，7.0 直接拒绝加载配置，原文见下面的 TS5112。加 `--ignoreConfig`，或者删掉文件参数，二选一。
+
+`extends` 在读取阶段合并。子配置覆盖父配置的同名项，数组型选项整体替换，不拼接。相对路径按声明它的那份文件解析，`exclude` 会自动补上 `outDir`。`--showConfig` 打印合并结果，排查继承问题先看它。
+
+实测一份子配置只写了 `outDir` 和 `include`，父配置的 `target`、`strict`、`moduleResolution` 都在，`include` 则整段换成了子配置的值。数组选项不是取并集，是后者替换前者。
+
+`rootDir` 默认取 `tsconfig.json` 所在目录，这是 6.0 的改动。5.x 按输入文件的最长公共路径推断，7.0 不再推断。源码放在子目录又配了 `outDir` 时，必须显式写 `rootDir`，否则产物路径会多一层。
+
+`include` 决定 program 的起点。被 import 的文件自动进 program，`exclude` 只过滤 `include` 的匹配结果，不挡依赖图里的文件。
+
+为什么不能反过来，让配置文件覆盖命令行？临时试跑会被仓库配置改掉行为，排查时看不出谁生效。反过来让命令行完全无视配置也不行，项目级选项没法每次重复写。留两层覆盖，才有临时性。
+
+配置层最容易撞上的三条报错：
+
+```bash
+$ tsc --noEmit -p t2
+error TS18003: No inputs were found in config file '/private/tmp/d37/c23/t2/tsconfig.json'. Specified 'include' paths were '["src/**/*"]' and 'exclude' paths were '[]'.
+
+$ tsc --noEmit -p t1
+error TS6059: File '/private/tmp/d37/c23/t1/extra/b.ts' is not under 'rootDir' '/private/tmp/d37/c23/t1/src'. 'rootDir' is expected to contain all source files.
+  The file is in the program because:
+    Matched by include pattern 'extra/**/*' in '/private/tmp/d37/c23/t1/tsconfig.json'
+
+$ tsc --noEmit src/a.ts
+error TS5112: tsconfig.json is present but will not be loaded if files are specified on commandline. Use '--ignoreConfig' to skip this error.
+```
+
+三条的读法不同。TS18003 是 include 没匹配到文件，先看目录名和 glob。TS6059 是文件落在 rootDir 外，改 rootDir 或把文件移进源码目录。TS5112 不是配置错，是命令行与配置同时存在，按上文的二选一处理。
+
+配置文件的路径也影响结果。`include`、`exclude`、`outDir`、`rootDir` 里的相对路径都相对于 `tsconfig.json` 所在目录，不是相对于执行 tsc 的目录。从别处调用时这一点最容易踩。
+
+`-p` 与文件参数的区别值得记。`-p` 走完整配置，`strict`、`types`、`paths` 都生效。文件参数加 `--ignoreConfig` 走内置默认值，只适合单文件试跑。TS 6.0 的新默认值，要在后一种情况下才直接生效。
+
+排查配置还有两个命令。`--showConfig` 看合并后的最终值，`--explainFiles` 看每个文件为什么进 program。前者查继承，后者查 include 与依赖图。
+
+一句话，tsconfig 是项目级的默认参数表，命令行是这一次的临时覆盖。比喻只到合并顺序为止，配置里还有改变文件选择的选项，不是纯参数。
 
 ## 文件范围控制
 
 ### files、include 与 exclude
 
-这三个顶级属性决定了哪些文件参与编译：
-
-- **files**：适合小型项目，精确列出每个文件路径，不支持 glob pattern
-- **include**：支持 glob pattern 批量匹配，适合大多数项目
-- **exclude**：从 include 匹配到的文件中再排除一部分
-
 ```json
 {
-  "include": ["src/**/*", "generated/*.ts"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.e2e.ts"]
+  "files": ["src/index.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/**/*.test.ts", "dist"]
 }
 ```
 
-注意事项：
-- `exclude` 只能剔除已被 `include` 包含的文件
-- 不写扩展名时默认匹配 `.ts` / `.tsx` / `.d.ts`（以及开启 `allowJs` 后的 `.js` / `.jsx`）
-- 如果 `files` 和 `include` 都未指定，TypeScript 会包含当前目录及子目录下所有 `.ts` / `.tsx` / `.d.ts` 文件
+四条规则：
+
+- `files` 只接受文件路径，不做 glob。
+- `include` 支持 glob，`**/*` 匹配任意层级。
+- `exclude` 默认排除 node_modules、bower_components、jspm_packages 和 outDir。
+- `include` 里的文件 import 进来的文件，即使落在 exclude 里也会参与编译。exclude 只过滤 include 的匹配结果。
+
+### rootDir 默认值的变化
+
+7.0 把 `rootDir` 默认设为 tsconfig.json 所在目录。只要设置了 outDir、源码又放在子目录（比如 src/），7.0 就要求显式写 rootDir，否则报：
+
+```bash
+$ tsc -p .
+tsconfig.json(3,5): error TS5011: The common source directory of 'tsconfig.json' is './src/nested'. The 'rootDir' setting must be explicitly set to this or another path to adjust your output's file layout.
+  Visit https://aka.ms/ts6 for migration information.
+```
+
+上面这份配置只有 outDir 和 include，源码在 src/nested 下。7.0 要求显式写 rootDir。两种修法。
+
+按源码目录输出：
+
+```json
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src"]
+}
+```
+
+保留 src 前缀：
+
+```json
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": ["src"]
+}
+```
+
+前者输出 `dist/nested/a.js`，后者输出 `dist/src/nested/a.js`。库包通常要前者。
 
 ## 构建相关配置
 
-### target——编译目标版本
+### target
 
-`target` 决定编译后的 JavaScript 使用哪个 ECMAScript 版本的语法。常用值：
+默认 es2025。6.0 起不再支持 ES3 和 ES5：
 
-| 值 | 说明 |
-|---|---|
-| `es5` | 最大兼容性，支持几乎所有运行时 |
-| `es2018` | **推荐**，支持 async/await、rest/spread、Promise.finally |
-| `es2020` | 支持可选链、空值合并、BigInt |
-| `es2022` | 支持 Top-Level Await、Array.at()、Error Cause |
-| `esnext` | 基于当前 TS 版本支持的最新 ES 语法 |
+```bash
+$ tsc -p .
+tsconfig.json(3,15): error TS5108: Option 'target=ES5' has been removed. Please remove it from your configuration.
+```
+
+允许值从 es6 到 esnext：
+
+`es6`、`es2015`、`es2016`、`es2017`、`es2018`、`es2019`、`es2020`、`es2021`、`es2022`、`es2023`、`es2024`、`es2025`、`esnext`。
+
+选择依据是运行环境支持的最低版本。Node 20 以上和现代浏览器用默认值即可；要兼容旧运行时，显式写 `es2017` 之类，最低只能到 es2015。
+
+### lib
+
+默认跟着 target 推导。加 DOM 类型要显式列：
 
 ```json
 {
   "compilerOptions": {
-    "target": "es2018"
+    "target": "es2025",
+    "lib": ["es2025", "dom"]
   }
 }
 ```
 
-`target` 会影响 `lib` 的默认值——比如 `target` 设为 `es2021` 时，`es2021` 的库声明会被自动包含。
+6.0 的 lib 有三个变化：
 
-### lib——内置类型库
+- `dom` 已包含 `dom.iterable` 和 `dom.asynciterable`，后两个文件现在是空的，旧配置里的 `"dom.iterable"` 可以删。
+- Temporal 类型放在 `esnext`，也可以只引 `esnext.temporal`。
+- `es2025` 补了 RegExp.escape、Promise.try、Iterator 辅助方法和 Set 方法。
 
-`lib` 指定编译时可用的内置 API 声明。常用值：
+### module
 
-```json
-{
-  "compilerOptions": {
-    "lib": ["es2021", "dom", "dom.iterable"]
-  }
-}
+允许值：
+
+`commonjs`、`es2015`、`es2020`、`es2022`、`esnext`、`node16`、`node18`、`node20`、`nodenext`、`preserve`。
+
+amd、umd、systemjs、none 已移除：
+
+```bash
+$ tsc -p .
+tsconfig.json(2,3): error TS5095: Option 'bundler' can only be used when 'module' is set to 'preserve', 'commonjs', or 'es2015' or later.
+tsconfig.json(3,15): error TS5108: Option 'module=AMD' has been removed. Please remove it from your configuration.
 ```
 
-核心 lib 值说明：
+第一行是因为默认 moduleResolution 是 bundler，和 AMD 不兼容。要输出 AMD 或 UMD，改用 Rollup、esbuild 或 Vite 的库构建。
 
-| 值 | 包含的内容 |
-|---|---|
-| `es5` ~ `es2022` | 各版本 ES 标准库（String、Array、Promise 等） |
-| `esnext` | 最新提案中的 ES 特性 |
-| `dom` | DOM 类型（window、document 等） |
-| `dom.iterable` | DOM 可迭代类型 |
-| `webworker` | Web Worker 环境类型 |
+选择建议：
 
-实际注意事项：
-- Node.js 项目**不应包含** `"dom"`——会导致 `window`/`document` 等全局变量可用，掩盖运行时错误
-- 浏览器项目**应包含** `"dom"`
-- 如果使用了 `String.prototype.replaceAll`，需要 `es2021` 或 `es2021.String`
-- 设置 `noLib: true` 可以禁用所有内置 lib，此时你需要自行提供所有内置对象的类型定义
+| 场景 | module | moduleResolution |
+| --- | --- | --- |
+| Vite、Next 等打包器 | esnext | bundler |
+| Node 原生 ESM | nodenext | nodenext |
+| 旧 CommonJS 项目 | commonjs | bundler |
+| 只做类型检查 | preserve | bundler |
 
-### module——输出模块格式
+### moduleResolution
 
-`module` 控制编译产物的模块系统：
+只剩三个值：`node16`、`nodenext`、`bundler`。node10 已移除：
 
-```json
-{
-  "compilerOptions": {
-    "module": "esnext"
-  }
-}
+```bash
+$ tsc -p .
+tsconfig.json(3,25): error TS5108: Option 'moduleResolution=node10' has been removed. Please remove it from your configuration.
 ```
 
-| 值 | 适用场景 |
-|---|---|
-| `commonjs` | Node.js 传统项目（配合 ts-node 等） |
-| `es6` / `es2015` | 输出 ES Module |
-| `es2020` / `es2022` / `esnext` | 配合打包工具（Webpack、Vite 等） |
-| `node16` / `nodenext` | 纯 Node.js ESM 项目（TS 4.7+） |
-| `umd` / `amd` / `system` | 特定模块加载器（较少使用） |
+绑定规则：
 
-**推荐组合**：
-- 前端项目（配合打包工具）：`module: "esnext"` + `moduleResolution: "bundler"`
-- Node.js CJS 项目：`module: "commonjs"` + `moduleResolution: "node"`
-- Node.js ESM 项目：`module: "nodenext"` + `moduleResolution: "nodenext"`（且 `package.json` 需设 `"type": "module"`）
+| module | moduleResolution 必须为 | 说明 |
+| --- | --- | --- |
+| nodenext | nodenext | 默认 |
+| node16 / node18 / node20 | node16 | 默认 node16，写 bundler 报 TS5109 |
+| esnext / commonjs / preserve | bundler | 默认 bundler |
 
-### moduleResolution——模块解析策略
+写成对的 nodenext 最省事，或者只写 module 让 resolution 用默认值。只有 bundler 需要显式写。配错时报：
 
-决定 TypeScript 如何找到模块文件。常用值：
+```bash
+$ tsc -p .
+tsconfig.json(3,15): error TS5110: Option 'module' must be set to 'Node16' when option 'moduleResolution' is set to 'Node16'.
+```
 
-| 策略 | 说明 | 需写扩展名 | 支持 exports |
-|------|------|-----------|-------------|
-| `node` | Node.js CJS 风格解析 | 否 | 否 |
-| `bundler` | 为打包工具设计（TS 5.0+） | 否 | 是 |
-| `nodenext` | Node.js ESM 严格解析 | 是（`.js`） | 是 |
-| `classic` | 已过时，不推荐 | — | — |
-
-`bundler` 是 TS 5.0 引入的，专为 Vite、Webpack、esbuild 等打包环境设计——它支持 `package.json` 中的 `exports` 字段，且不需要显式写扩展名。
-
-```json
-{
-  "compilerOptions": {
-    "module": "esnext",
-    "moduleResolution": "bundler"
-  }
-}
+```bash
+$ tsc -p .
+tsconfig.json(4,25): error TS5095: Option 'bundler' can only be used when 'module' is set to 'preserve', 'commonjs', or 'es2015' or later.
+tsconfig.json(4,25): error TS5109: Option 'moduleResolution' must be set to 'Node16' (or left unspecified) when option 'module' is set to 'Node16'.
 ```
 
 ### outDir 与 outFile
 
-控制构建产物的输出：
+outDir 决定产物目录。outFile 已移除：
 
-```json
-{
-  "compilerOptions": {
-    "outDir": "./dist"
-  }
-}
+```bash
+$ tsc -p .
+tsconfig.json(3,5): error TS5102: Option 'outFile' has been removed. Please remove it from your configuration.
 ```
 
-- **outDir**：指定输出目录，保持源码的目录结构
-- **outFile**：将所有输出打包成单个文件（仅在 `module` 为 `None`/`System`/`AMD` 时可用）
-- **rootDir**：控制输出目录结构的"起点"。默认由包含的所有 `.ts` 文件的最长公共路径推断
+单个 bundle 交给打包器。tsc 只负责逐文件产物和 .d.ts。
 
-```text
-// rootDir 默认为 "src"
-src/
-├── index.ts       → dist/index.js
-├── app.ts         → dist/app.ts
-└── utils/
-    └── helper.ts  → dist/utils/helper.js
-```
+### declaration
 
-### declaration——生成声明文件
+`declaration` 生成 .d.ts，`declarationMap` 生成 .d.ts.map 便于跳回源码：
 
 ```json
 {
   "compilerOptions": {
     "declaration": true,
-    "declarationDir": "./dist/types",
-    "declarationMap": true
-  }
+    "declarationMap": true,
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src"]
 }
 ```
 
-- **declaration**：是否生成 `.d.ts` 声明文件
-- **declarationDir**：声明文件的输出目录（与 JS 文件分离）
-- **declarationMap**：为声明文件也生成 source map，可以从 `.d.ts` 跳回 `.ts` 源码
-- **emitDeclarationOnly**：只生成 `.d.ts` 不生成 `.js`（常配合 esbuild/swc 使用）
+`emitDeclarationOnly` 只产类型文件，但必须有 `declaration` 或 `composite`，否则报 `error TS5069: Option 'emitDeclarationOnly' cannot be specified without specifying option 'declaration' or option 'composite'.`。
 
-发布 npm 包时推荐开启 `declaration: true`。
+7.0 允许同时写 `noEmit` 和 `declaration`，但 `noEmit` 为 true 时不写任何文件。想要 .d.ts 就别开 noEmit。
 
 ### sourceMap 相关
 
-```json
-{
-  "compilerOptions": {
-    "sourceMap": true,
-    "inlineSourceMap": false
-  }
-}
+- `sourceMap` 生成 .js.map。
+- `inlineSourceMap` 把 map 写进 .js，两者不要同时开。
+- `declarationMap` 生成 .d.ts.map。
+- `sourceRoot` 告诉调试器源文件在哪。
+
+库包建议 `sourceMap` 和 `declarationMap` 都开，使用者能跳回源码。
+
+### 路径别名 paths
+
+baseUrl 已移除：
+
+```bash
+$ tsc -p .
+tsconfig.json(3,5): error TS5102: Option 'baseUrl' has been removed. Please remove it from your configuration.
+  Use '"paths": {"*": ["./*"]}' instead.
+tsconfig.json(4,24): error TS5090: Non-relative paths are not allowed. Did you forget a leading './'?
 ```
 
-- **sourceMap**：生成独立的 `.js.map` 文件
-- **inlineSourceMap**：将 source map 内联到 JS 文件中
-- **inlineSources**：将原始 `.ts` 代码嵌入 source map，便于调试时直接查看源码
-
-### 路径别名——paths
-
-配合 `baseUrl` 使用，实现类似 Webpack alias 的路径映射：
+迁移分两步：删掉 baseUrl；paths 的值全部改成相对路径，前缀 `./`。
 
 ```json
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["src/*"],
-      "@components/*": ["src/components/*"],
-      "@utils/*": ["src/utils/*"]
+      "@/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["src"]
 }
 ```
 
-```typescript
-// 使用时
-import { Button } from "@components/Button";
-import { formatDate } from "@utils/date";
+以前靠 baseUrl 写根相对导入的项目，用 `"*": ["./*"]` 接住：
+
+```json
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "*": ["./*"]
+    }
+  },
+  "include": ["src", "*.ts"]
+}
 ```
 
-**关键**：`paths` 仅影响 TypeScript 的类型检查，实际模块解析需要打包工具（Webpack、Vite）也配置对应的 alias，两者必须保持一致。
+paths 只影响 TypeScript 的模块解析。运行时解析要同步：Vite 配 `resolve.alias`，Node 用 package.json 的 `imports` 字段。两边不一致时，tsc 通过而运行时报找不到模块。
 
 ### resolveJsonModule
 
-开启后可以直接导入 JSON 文件并获得完整的类型推导：
+允许 import JSON 并推导类型：
 
 ```json
 {
   "compilerOptions": {
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   }
 }
 ```
 
-```typescript
-import settings from "./settings.json";
-// settings 的类型被自动推导为 JSON 的实际结构
+nodenext 下 JSON import 要带 import attributes：
+
+```ts
+import data from "./data.json" with { type: "json" };
+
+export const n = data.n;
+```
+
+旧的 assert 写法报：
+
+```bash
+$ tsc -p .
+index.ts(1,32): error TS2880: Import assertions have been replaced by import attributes. Use 'with' instead of 'assert'.
 ```
 
 ### importHelpers
 
-启用后，TypeScript 的降级辅助函数从 `tslib` 导入而非在每个文件中内联，可显著减少构建产物体积：
-
-```json
-{
-  "compilerOptions": {
-    "importHelpers": true
-  }
-}
-```
-
-```bash
-npm install tslib
-```
+从 tslib 引入辅助函数，避免每个文件重复内联 `__awaiter` 之类的代码。需要先装 tslib。target 越高用得越少：应用一般不用开，库包可以开。
 
 ## 类型检查相关配置
 
-这是 TSConfig 中最关键的部分，直接决定项目的类型安全程度。
+`strict` 在 7.0 默认打开，它是一组开关的总闸。默认随 strict 变 true 的子项：
 
-### strict——总开关
+| 子选项 | 作用 |
+| --- | --- |
+| noImplicitAny | 隐式 any 报错 |
+| strictNullChecks | null 和 undefined 单独成类型 |
+| strictFunctionTypes | 函数类型参数逆变检查 |
+| strictBindCallApply | call、apply、bind 保留参数类型 |
+| strictPropertyInitialization | 类属性必须初始化 |
+| noImplicitThis | this 隐式 any 报错 |
+| useUnknownInCatchVariables | catch 变量类型为 unknown |
+| alwaysStrict | 按严格模式生成，7.0 不能关闭 |
 
-**强烈推荐开启**。`strict: true` 会一次性启用以下全部子规则：
+不随 strict 打开、常一起用的检查：
 
-- `alwaysStrict`
-- `strictNullChecks`
-- `strictBindCallApply`
-- `strictFunctionTypes`
-- `strictPropertyInitialization`
-- `noImplicitAny`
-- `noImplicitThis`
-- `useUnknownInCatchVariables`
+| 选项 | 作用 |
+| --- | --- |
+| noUncheckedIndexedAccess | 索引访问结果加 undefined |
+| exactOptionalPropertyTypes | 可选属性不接受显式 undefined |
+| noUnusedLocals | 未使用局部变量报错 |
+| noUnusedParameters | 未使用参数报错 |
+| noImplicitReturns | 部分分支没 return 报错 |
+| noFallthroughCasesInSwitch | switch 落空报错 |
+| noPropertyAccessFromIndexSignature | 索引签名的键必须用方括号访问 |
+| allowArbitraryExtensions | 允许导入非 TS 扩展名，声明放在 `.d.<ext>.ts` |
 
-```json
-{
-  "compilerOptions": {
-    "strict": true
-  }
-}
-```
-
-如果某一项规则对你当前项目过于严格，可以在 `strict: true` 的同时单独关闭它：
+一份打开常用检查的配置：
 
 ```json
 {
   "compilerOptions": {
     "strict": true,
-    "strictPropertyInitialization": false
-  }
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
 }
 ```
 
-### strictNullChecks——空值检查
+### strict
 
-**最重要的单项检查**。关闭时 `null` 和 `undefined` 是任何类型的子类型，开启后它们成为独立类型，只能赋值给自身或 `any`/`unknown`：
+7.0 默认 true，写不写都一样。要放宽个别检查，关掉对应子项，别关整个 strict。
 
-```typescript
-// strictNullChecks: false
-const x: string = null;     // ✅ 不报错
-const y: number = undefined; // ✅ 不报错
+### strictNullChecks
 
-// strictNullChecks: true
-const x: string = null;     // ❌
-const y: number = undefined; // ❌
-```
+null 和 undefined 各自成为类型，赋值给别的类型要收窄。关掉它会让 null 混进所有类型，7.0 仍允许关，不建议关。
 
-开启后，可能缺失的值会带上 `| undefined`，迫使你进行空值检查——避免了大量 `cannot read property of undefined` 运行时错误。
+### noImplicitAny
 
-### noImplicitAny——禁止隐式 any
+参数、变量漏了类型标注会报 `error TS7006: Parameter 'a' implicitly has an 'any' type.`。随 strict 默认打开。
 
-当变量或参数类型无法被推导时，默认会回退到 `any`。此规则禁止这种行为，强制显式标注：
+### strictFunctionTypes
 
-```typescript
-// noImplicitAny: false
-function fn(s) {           // s 隐式 any
-  console.log(s.toFixed());
-}
+函数类型的位置做逆变检查。方法参数是双变的，所以 `Array<T>` 这类接口方法不受影响，写回调时要注意参数类型。
 
-// noImplicitAny: true
-function fn(s) {           // ❌ 参数"s"隐式具有"any"类型
-  console.log(s.toFixed());
-}
+### strictPropertyInitialization
 
-function fn(s: string) {   // ✅ 显式标注
-  console.log(s.toUpperCase());
-}
-```
+构造函数没赋值的类属性报错。需要 strictNullChecks 一起开。处理方式：构造函数里赋值、用 `!` 断言、或写 `declare` 声明。
 
-### strictFunctionTypes——严格函数参数检查
+### strictBindCallApply
 
-开启正确的参数逆变检查（详见第19章 协变与逆变）。仅在函数类型以**属性方式**声明时生效：
+`call`、`apply`、`bind` 的参数和返回值保留类型，调用参数不对会报错。
 
-```typescript
-// strictFunctionTypes: true
-type Handler = (x: string | number) => void;
-const fn = (x: string) => console.log(x);
+### noImplicitThis
 
-const h: Handler = fn; // ❌ 参数类型不兼容
-```
-
-### strictPropertyInitialization——类属性必须初始化
-
-要求类的所有属性在声明时或构造函数中初始化：
-
-```typescript
-// strictPropertyInitialization: true
-class User {
-  name: string;          // ❌ 没有初始化
-  age: number = 0;       // ✅ 声明时初始化
-  email: string;
-
-  constructor(email: string) {
-    this.email = email;  // ✅ 构造函数中初始化
-  }
-}
-```
-
-如果属性确实会在其他地方初始化（如 `init()` 方法），可以用**确定赋值断言 `!`**：
-
-```typescript
-class User {
-  name!: string;
-  
-  init(name: string) {
-    this.name = name;
-  }
-}
-```
-
-此规则仅在 `strictNullChecks` 开启时生效。
-
-### strictBindCallApply——bind/call/apply 参数检查
-
-确保 `bind`、`call`、`apply` 的参数类型与原函数一致：
-
-```typescript
-function fn(x: string) {
-  return parseInt(x);
-}
-
-fn.call(undefined, "10");   // ✅
-fn.call(undefined, false);  // ❌ 类型"boolean"的参数不能赋给类型"string"的参数
-```
-
-### noImplicitThis——禁止隐式 this 类型
-
-在使用 `this` 时必须显式声明其类型或确保上下文已推断：
-
-```typescript
-// noImplicitThis: true
-function fn() {
-  console.log(this.name); // ❌ "this"隐式具有类型"any"
-}
-
-function fn(this: { name: string }) {
-  console.log(this.name); // ✅ 显式标注 this 类型
-}
-```
+独立函数里的 `this` 不能是隐式 any，需要显式标注 this 类型。
 
 ### useUnknownInCatchVariables
 
-将 catch 的 error 类型从 `any` 改为 `unknown`（TS 4.0+）：
+`catch (e)` 里的 e 是 unknown，使用前要收窄：
 
-```typescript
+```ts
 try {
-  throw new Error("Oops");
-} catch (err) {
-  // err 类型为 unknown，必须先缩小类型
-  if (err instanceof Error) {
-    console.log(err.message);
-  }
+  throw new Error("boom");
+} catch (e) {
+  const msg = e instanceof Error ? e.message : String(e);
+  console.log(msg);
 }
 ```
 
 ### noUnusedLocals 与 noUnusedParameters
 
-禁止声明了但未使用的局部变量和函数参数：
-
-```typescript
-// noUnusedLocals: true
-function fn() {
-  const x = 1; // ❌ 声明但未使用
-}
-
-// noUnusedParameters: true
-function fn(x: number) {} // ❌ 参数 x 未使用
-```
+未使用的局部变量和参数报错。参数以下划线开头的仍算未使用，需要显式标注或加 `void 参数`。
 
 ### noImplicitReturns
 
-确保所有代码路径都有返回值：
-
-```typescript
-// noImplicitReturns: true
-function fn(flag: boolean): string {
-  if (flag) {
-    return "yes";
-  }
-  // ❌ 不是所有路径都返回值
-}
-```
+函数有些分支 return，有些分支不 return 时报错。适合所有分支都必须给值的函数。
 
 ### noFallthroughCasesInSwitch
 
-禁止 switch 的 case 穿透（无 break/return）：
-
-```typescript
-// noFallthroughCasesInSwitch: true
-switch (x) {
-  case 0:
-    console.log("zero");
-    // ❌ 缺少 break，会穿透到下一个 case
-  case 1:
-    console.log("one");
-    break;
-}
-```
+switch 的 case 没写 break 且不是空 case 时报错。
 
 ### noUncheckedIndexedAccess
 
-为索引访问类型结果自动附加 `| undefined`：
-
-```typescript
-// noUncheckedIndexedAccess: true
-const arr: string[] = ["a", "b"];
-const item = arr[5];  // 类型为 string | undefined，而非 string
-```
+索引访问结果加上 undefined：`arr[0]` 的类型从 `T` 变成 `T | undefined`，`Record` 索引同理。取值前要判空。
 
 ### exactOptionalPropertyTypes
 
-禁止给可选属性显式赋值 `undefined`：
+`{ a?: string }` 不再接受 `{ a: undefined }`，能区分“属性不存在”和“属性值是 undefined”。和 `noUncheckedIndexedAccess` 一起开最严格。
+
+### noPropertyAccessFromIndexSignature
+
+对象上有索引签名时，键只能走方括号，不能走点号。目的是让“这个键是写死的还是查出来的”在代码里看得出来。
+
+```bash
+$ tsc -p .
+a.ts(5,18): error TS4111: Property 'MODE' comes from an index signature, so it must be accessed with ['MODE'].
+```
+
+修法有三种：改用 `env["MODE"]`；把常用键在接口里单独声明；或者把签名写成已知键的联合类型。环境变量、翻译字典、配置对象这类结构容易碰到。
+
+### allowArbitraryExtensions
+
+默认只认 `.ts`、`.js` 这些扩展名。开了之后可以 `import styles from "./button.css"`，编译器去找同名声明 `button.d.css.ts`。
 
 ```typescript
-// exactOptionalPropertyTypes: true
-interface Config {
-  theme?: "dark" | "light";
-}
+import styles from "./button.css";
 
-const c: Config = {};
-c.theme = "dark";     // ✅
-c.theme = undefined;  // ❌ 除非类型中包含 undefined
+const className: string = styles.primary;
 ```
+
+声明文件要自己写或由工具生成，内容是普通模块声明：`declare const styles: { primary: string }; export default styles;`。
+
+需要配合 `moduleResolution: "bundler"` 或 `"nodenext"`。样式、图片、字体这类被构建工具处理过的导入，靠它拿到类型。
 
 ## 工程相关配置
 
 ### isolatedModules
 
-当使用 Babel、esbuild、SWC 等**非 tsc 的编译器**处理 TS 文件时，**必须开启**。这些工具独立处理每个文件，无法理解跨文件的类型信息：
+要求每个文件能单独转译：类型导出必须写 `export type`，跨文件 const enum 不能当值用，全局脚本里不能用 namespace。7.0 默认 false，打包器项目建议开 true。
 
-```json
-{
-  "compilerOptions": {
-    "isolatedModules": true
-  }
-}
-```
+常见的三条报错：
 
-开启后的限制：
-- 每个文件必须至少有一个 `import` 或 `export`
-- 类型导出必须用 `export type`（而非混合导入）
-- 不能使用 `const enum`（因为编译后需要内联值）
-- 不能使用 `namespace`（非声明文件中的）
+- `error TS1205: Re-exporting a type when 'isolatedModules' is enabled requires using 'export type'.`
+- `error TS2748: Cannot access ambient const enums when 'isolatedModules' is enabled.`
+- `error TS1280: Namespaces are not allowed in global script files when 'isolatedModules' is enabled. If this file is not intended to be a global script, set 'moduleDetection' to 'force' or add an empty 'export {}' statement.`
 
-### verbatimModuleSyntax（TS 5.0+）
+模块文件里的 const enum 在 7.0 不再报错，旧文档里“不能使用 const enum”的说法已经过时。
 
-比 `isolatedModules` 更严格。强制所有类型导入使用 `import type`，编译后这些导入会被完全移除：
+### verbatimModuleSyntax
 
-```json
-{
-  "compilerOptions": {
-    "verbatimModuleSyntax": true
-  }
-}
-```
-
-```typescript
-// 强制要求
-import type { User } from "./user";     // ✅ 纯类型
-import { createUser } from "./user";    // ✅ 值导入
-import { User } from "./user";          // ❌ 虽然是类型但不能省略 type 关键字
-```
-
-### composite 与 Project References
-
-`composite` 将项目标记为可被引用的子项目，必须配合 `declaration` 使用。Project References 允许将一个大型项目拆分为多个独立构建的子项目：
-
-```json
-// tsconfig.base.json（基础配置）
-{
-  "compilerOptions": {
-    "strict": true,
-    "target": "es2018"
-  }
-}
-
-// app/tsconfig.json（主项目）
-{
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "../dist/app"
-  },
-  "references": [
-    { "path": "../utils" },
-    { "path": "../core" }
-  ]
-}
-
-// utils/tsconfig.json（子项目）
-{
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "composite": true,
-    "outDir": "../dist/utils"
-  }
-}
-```
-
-使用 `tsc --build` 而非 `tsc` 进行构建——它会分析引用关系图，按依赖顺序增量构建：
+导入导出原样保留，不做 CommonJS 与 ESM 互转。类型导入必须标 `import type`：
 
 ```bash
-tsc --build app       # 构建 app 及其所有子项目
-tsc --build --watch   # 监听模式增量构建
+$ tsc -p .
+src/a.ts(1,10): error TS1484: 'Id' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.
 ```
 
-### incremental——增量编译
+文件被当成 CommonJS 时，顶层 export 会报：
 
-将上次编译的信息存入 `.tsbuildinfo` 文件，后续编译只处理变更的文件：
+```bash
+$ tsc -p .
+src/server.ts(1,10): error TS1295: ECMAScript imports and exports cannot be written in a CommonJS file under 'verbatimModuleSyntax'. Adjust the 'type' field in the nearest 'package.json' to make this file an ECMAScript module, or adjust your 'verbatimModuleSyntax', 'module', and 'moduleResolution' settings in TypeScript.
+src/server.ts(3,1): error TS1287: A top-level 'export' modifier cannot be used on value declarations in a CommonJS module when 'verbatimModuleSyntax' is enabled.
+```
+
+修法：package.json 加 `"type": "module"`，或者把 module 换成 commonjs。
+
+### erasableSyntaxOnly
+
+只允许能擦除的语法：类型标注、interface、type、declare。禁止 enum、namespace、参数属性、`import x = require()`。适合 Node 的类型剥离和 tsx 这类运行时。
+
+```bash
+$ tsc -p .
+src/color.ts(1,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/point.ts(2,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+```
+
+### 三个选项的关系
+
+| 选项 | 检查什么 | 典型报错 | 适用场景 |
+| --- | --- | --- | --- |
+| isolatedModules | 单文件能否独立转译 | TS1205、TS1280、TS2748 | 打包器、tsx |
+| verbatimModuleSyntax | 导入导出是否原样保留 | TS1484、TS1287、TS1295 | ESM 项目 |
+| erasableSyntaxOnly | 语法能否直接擦除 | TS1294 | Node 类型剥离 |
+
+三个都开最保险，代价是要清理旧写法。只做类型检查的项目可以只开前两个。
+
+### 增量构建与项目引用
+
+`incremental` 为 true 时生成 .tsbuildinfo，下次构建复用。monorepo 用 composite 加 references：
 
 ```json
 {
-  "compilerOptions": {
-    "incremental": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo"
-  }
+  "files": [],
+  "references": [
+    { "path": "./packages/utils" },
+    { "path": "./packages/app" }
+  ]
 }
 ```
 
-通常配合 `tsc --build` 和 `--watch` 使用，或大型项目中配合 CI 缓存。
+子包的 tsconfig 打开 `composite`（会自动带 declaration），构建用：
 
-### esModuleInterop——ESM/CJS 互操作
-
-**强烈推荐始终开启**。解决 ESM 导入 CJS 模块时的兼容问题：
-
-```json
-{
-  "compilerOptions": {
-    "esModuleInterop": true
-  }
-}
+```bash
+$ tsc -b
 ```
 
-为什么需要它？考虑导入 React 的情况：
+`tsc -b` 按依赖顺序构建，产物分目录输出。细节见第 35 章。
 
-```typescript
-// React (CJS) 的真实导出结构：
-// module.exports = { useState, useEffect, memo, ... }
+### esModuleInterop
 
-import React from "react"; // 期望 React 是整个模块对象
+7.0 默认 true，不能关：
+
+```bash
+$ tsc -p .
+tsconfig.json(3,24): error TS5108: Option 'esModuleInterop=false' has been removed. Please remove it from your configuration.
 ```
 
-如果没有 `esModuleInterop`，上面的 `import default` 会被编译为 `require("react").default`——但 React 并没有 `module.exports.default`，导致运行时 `React` 为 `undefined`。
-
-开启后，TypeScript 会注入辅助函数 `__importDefault`，在运行时自动处理这种差异。同时也会启用 `allowSyntheticDefaultImports`（类型检查层面允许这种导入）。
-
-此选项在 `module` 为 `node16`/`nodenext` 时默认为 `true`。
+`allowSyntheticDefaultImports` 同理，默认 true 且不能写 false。从 CommonJS 模块做 default import 现在默认可用，不用再补配置。
 
 ### allowJs 与 checkJs
 
-允许在 TS 项目中导入 JS 文件，并对其进行类型检查：
+`allowJs` 让 .js 文件参与编译，`checkJs` 对 .js 做类型检查，JSDoc 注解会生效。迁移旧项目时先开 allowJs 把文件纳入，再逐步开 checkJs。
+
+### forceConsistentCasingInFileNames
+
+默认 true。import 路径大小写和磁盘不一致会直接报错。Linux 上开发、Windows 或 macOS 上协作时尤其重要，保持默认即可。
+
+## 7.0 硬移除清单
+
+| 旧选项 | 处理方式 | 报错 |
+| --- | --- | --- |
+| moduleResolution node 或 node10 | 改 nodenext 或 bundler | TS5108 |
+| moduleResolution classic | 改 bundler 或 nodenext | TS5108 |
+| baseUrl | 删掉，paths 用相对路径 | TS5102、TS5090 |
+| target es5 | 改 es2015 及以上 | TS5108 |
+| target es3 | 改 es2015 及以上 | TS6046 |
+| outFile | 改用打包器 | TS5102 |
+| module amd | 改用打包器 | TS5095、TS5108 |
+| module umd | 改用打包器 | TS5095、TS5108 |
+| module systemjs 或 none | 删掉 | TS6046 |
+| downlevelIteration | 现代 target 不需要 | TS5102 |
+| esModuleInterop false | 删掉，永远为 true | TS5108 |
+| allowSyntheticDefaultImports false | 删掉 | TS5108 |
+| alwaysStrict false | 删掉，全部按严格模式 | TS5108 |
+| out | 改 outDir | TS5023 |
+| importsNotUsedAsValues | 改 verbatimModuleSyntax | TS5023 |
+| `module Foo {}` 声明命名空间 | 改 `namespace Foo {}` | TS1540 |
+| `import ... assert { type: "json" }` | 改 `with { type: "json" }` | TS2880 |
+| `/// <reference no-default-lib>` | 删掉 | 6.0 起报错 |
+
+命名空间用 module 关键字的报错：
+
+```bash
+$ tsc --noEmit --ignoreConfig index.ts
+index.ts(1,8): error TS1540: A 'namespace' declaration should not be declared using the 'module' keyword. Please use the 'namespace' keyword instead.
+```
+
+### ignoreDeprecations
+
+6.0 给弃用项留了静音开关，值为 `"5.0"` 或 `"6.0"`：
 
 ```json
 {
   "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true
+    "ignoreDeprecations": "6.0"
   }
 }
 ```
 
-`checkJs` 相当于对所有 JS 文件自动添加 `// @ts-check` 指令。如果只需要检查部分 JS 文件，可以关闭 `checkJs`，手动在需要检查的 JS 文件头部添加 `// @ts-check`。
-
-### forceConsistentCasingInFileNames
-
-强制文件名大小写一致。Windows 和 macOS 的文件系统不区分大小写，但 Linux 区分。开启此选项可以避免跨平台的文件引用问题。默认 `true`。
+它只静音“还能用但将移除”的警告。已经移除的选项救不回来：配置里写 baseUrl 再加这一项，仍然报 TS5102。7.0 里所有弃用项都已移除，这一项可以删掉。
 
 ## 常用场景推荐配置
 
-### 前端项目（React/Vue + Vite/Webpack）
+四份配置都在 7.0.2 下实测通过。
+
+### 前端项目
+
+打包器负责产物，tsc 只做类型检查，所以开 noEmit：
 
 ```json
 {
   "compilerOptions": {
-    "target": "es2020",
+    "target": "es2025",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["es2020", "dom", "dom.iterable"],
+    "lib": ["es2025", "dom"],
     "jsx": "react-jsx",
     "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
     "isolatedModules": true,
-    "outDir": "./dist",
-    "baseUrl": ".",
+    "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src"]
 }
 ```
 
-### Node.js 后端项目
+验证：
+
+```bash
+$ tsc -p .
+```
+
+paths 要在 vite.config.ts 的 `resolve.alias` 里同步，否则运行时报找不到模块。
+
+### Node.js 后端
+
+package.json 先声明 ESM：
+
+```json
+{
+  "name": "server",
+  "type": "module",
+  "private": true
+}
+```
 
 ```json
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "lib": ["es2020"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
+    "target": "es2025",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2025"],
+    "types": ["node"],
+    "rootDir": "./src",
     "outDir": "./dist",
     "declaration": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "sourceMap": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src"]
 }
 ```
+
+```bash
+$ tsc -p .
+```
+
+漏掉 `"type": "module"` 时，nodenext 把 .ts 当 CommonJS，verbatimModuleSyntax 会报 TS1295 和 TS1287。
 
 ### npm 库包
 
 ```json
 {
   "compilerOptions": {
-    "target": "es2018",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "lib": ["es2018"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
+    "target": "es2025",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2025"],
+    "rootDir": "./src",
+    "outDir": "./dist",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
-    "isolatedModules": true
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": ["src"]
 }
 ```
 
-### 仅做类型检查（配合其他构建工具）
+package.json 的入口与类型字段：
+
+```json
+{
+  "name": "@demo/vec2",
+  "version": "0.1.0",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}
+```
+
+```bash
+$ tsc -p .
+```
+
+dist 下应有 index.js、index.d.ts、index.d.ts.map、index.js.map。发布前用 `npm pack --dry-run` 检查 files 字段。
+
+### 仅做类型检查
+
+CI 里常见的配置：
 
 ```json
 {
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
+    "target": "es2025",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "lib": ["es2025"],
+    "types": [],
     "strict": true,
     "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"]
+  "include": ["src"]
 }
 ```
 
-配合 `tsc --noEmit` 使用，只运行类型检查不产出文件。
+```bash
+$ tsc -p . --noEmit
+```
 
-## 本章小结
+`preserve` 保留 import 和 export 原样，产物交给打包器或运行时。
 
-- **构建配置**：`target` + `module` + `moduleResolution` 是核心三件套，决定了编译产物和模块解析方式
-- **类型检查**：`strict: true` 是一劳永逸的选择；`strictNullChecks` 是最重要的单项规则
-- **工程配置**：`isolatedModules` 配合非 tsc 编译器使用；Project References 支持大型项目拆分；`esModuleInterop` 永远开启
-- **路径别名**：`paths` 需与打包工具的 alias 保持一致
-- 不同项目类型有不同的推荐配置组合，可以直接套用上面的模板进行微调
+## 从 5.x 升级到 7.0
 
-下一章将介绍装饰器——从实验性装饰器到 TC39 标准装饰器的演进与使用。
+按顺序做。
+
+1. 装编译器。纯应用：
+
+```bash
+$ npm i -D typescript@^7.0.2
+```
+
+ESLint 等依赖编译器 API 的工具还需要 6.0：
+
+```bash
+$ npm i -D typescript@npm:@typescript/typescript6@^6.0.2
+$ npm i -D @typescript/native@npm:typescript@^7.0.2
+```
+
+前者提供 API，后者提供 tsc 命令。7.0 本身不带 API，7.1 才补。
+
+2. 跑一遍类型检查：
+
+```bash
+$ npx tsc --noEmit
+```
+
+看到 TS5102、TS5108、TS5090、TS5110、TS5109、TS6046，对照硬移除清单删改配置。
+
+3. 处理默认值变化：
+
+- strict 变 true：修隐式 any（TS7006）、null 访问（TS18047、TS2531）、属性未初始化（TS2564）。
+- types 变 []：加 `"types": ["node"]` 或 `"types": ["jest"]`。Node 全局缺失报 TS2591。
+- target 变 es2025：输出不再降级到 ES5。要兼容旧运行时显式写低 target，最低 es2015。
+- module 变 esnext：Node 项目改 nodenext，并给 package.json 加 `"type": "module"`。
+- rootDir 变 tsconfig 目录：设置 outDir 时补 `"rootDir": "./src"`，否则报 TS5011 或多一层目录。
+
+4. baseUrl 换 paths：
+
+删掉 baseUrl，给每个 paths 值加 `./` 前缀。打包器 alias 同步改。
+
+5. outFile、amd、umd、systemjs 换打包器。tsc 不再合并文件。
+
+6. 开 verbatimModuleSyntax 后批量修类型导入。`tsc --noEmit` 会列全 TS1484，把 `import { Foo }` 改成 `import type { Foo }`。
+
+7. 过渡期可用 `"ignoreDeprecations": "6.0"` 静音弃用警告，已移除的选项救不回来。7.0 里删掉这一项。
+
+8. 大项目先用 6.0 的 `--stableTypeOrdering` 跑一遍，确认类型排序差异，再切 7.0。构建用 `tsc -b` 和项目引用，见第 35 章。
+
+9. 最后验证两个命令都退出 0：
+
+```bash
+$ npx tsc -p . --noEmit
+$ npx tsc -b
+```
+
+## 用不上的时候
+
+### 一次性试跑
+
+验证几行类型代码时，命令行给 `--target`、`--lib` 更快，`tsc` 7 还能用 `--ignoreConfig` 跳过 tsconfig。
+
+### 复制别人的配置
+
+网上配置常绑着特定框架和版本，`moduleResolution`、`jsx`、`types` 抄错会引发成片报错。
+
+### 升级大版本
+
+6.0 改了默认值，7.0 删了旧选项。老项目一次切换会暴露大量错误，需要分开关闭。
+
+## 参考
+
+- [TSConfig Reference](https://www.typescriptlang.org/tsconfig)：全部配置项的语义与默认值。
+- [TypeScript 6.0 公告](https://devblogs.microsoft.com/typescript/announcing-typescript-6-0/)：6.0 的默认值变化与弃用清单。
+- [TypeScript 7.0 公告](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)：7.0 的硬移除与原生实现。

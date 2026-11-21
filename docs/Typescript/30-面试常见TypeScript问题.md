@@ -1,8 +1,10 @@
-# 第30章 面试常见 TypeScript 问题
+# 第 30 章 面试常见 TypeScript 问题
 
-本章汇总 TypeScript 面试中的高频考点，每个问题按**基础回答**和**进阶回答**两层组织。基础回答确保你及格，进阶回答帮助你在面试中脱颖而出。
+面试里被问「interface 和 type 的区别」，答完基础回答后对方追问「声明合并什么时候会踩坑」。这类问题考的是边界而不是定义。这一章按题目整理回答层次与常见追问。
 
-## 1. interface 与 type 的区别
+这一章汇总 TypeScript 面试中的高频考点，每个问题按**基础回答**和**进阶回答**两层组织。基础回答确保你及格，进阶回答帮助你在面试中脱颖而出。
+
+## interface 与 type 的区别
 
 ### 基础回答
 
@@ -34,25 +36,25 @@ type ReadonlyUser = { readonly [K in keyof User]: User[K] };
 
 在实际工程中，我个人采用这样的分工：
 
-- **`interface` 用于描述对象对外暴露的接口**——其内部不应该有过于复杂的类型逻辑，最多到泛型约束和索引类型层面
-- **`type` 用于类型别名和类型编程**——函数签名、联合类型、交叉类型、映射类型、条件类型等
+- **`interface` 用于描述对象对外暴露的接口**：其内部不应该有过于复杂的类型逻辑，最多到泛型约束和索引类型层面
+- **`type` 用于类型别名和类型编程**：函数签名、联合类型、交叉类型、映射类型、条件类型等
 
 另外，TypeScript 官方 Wiki 明确指出，在对象扩展场景下，`interface extends` 的性能优于交叉类型。这是因为 TypeScript 内部对接口继承有专门的缓存机制，而交叉类型每次都需要重新计算所有成员的兼容性。
 
 ```typescript
-// ✅ 对象扩展：优先用 interface extends
+// 推荐：对象扩展优先用 interface extends
 interface Base { name: string; }
 interface Derived extends Base { age: number; }
 
-// ✅ 类型操作：用 type
+// 推荐：类型操作用 type
 type StringProps<T> = { [K in keyof T]: T[K] extends string ? K : never }[keyof T];
 ```
 
-## 2. TypeScript 的类型兼容性原理
+## TypeScript 的类型兼容性原理
 
 ### 基础回答
 
-TypeScript 使用**结构化类型系统**（Structural Typing），也叫"鸭子类型"——"如果它走起路来像鸭子，叫起来也像鸭子，那它就是鸭子"。即两个类型的兼容性取决于它们的结构（成员名称 + 类型），而非它们的声明名称。
+TypeScript 使用**结构化类型系统**（Structural Typing），也叫"鸭子类型"，即"如果它走起路来像鸭子，叫起来也像鸭子，那它就是鸭子"。两个类型的兼容性取决于它们的结构（成员名称 + 类型），而非它们的声明名称。
 
 ```typescript
 interface Point2D {
@@ -66,10 +68,10 @@ interface Point3D {
   z: number;
 }
 
-// Point3D 是 Point2D 的子类型——因为它有 Point2D 的所有属性
+// Point3D 是 Point2D 的子类型，因为它有 Point2D 的所有属性
 let p2: Point2D;
 const p3: Point3D = { x: 1, y: 2, z: 3 };
-p2 = p3; // ✅
+p2 = p3; // 正确
 ```
 
 ### 进阶回答
@@ -87,8 +89,8 @@ type OrderId = Brand<string, 'OrderId'>;
 function getUser(id: UserId) {}
 const uid = 'abc' as UserId;
 const oid = 'abc' as OrderId;
-getUser(uid); // ✅
-getUser(oid); // ❌ 即使结构相同也不能混用
+getUser(uid); // 正确
+getUser(oid);  // error TS2345: Argument of type 'OrderId' is not assignable to parameter of type 'UserId'.
 ```
 
 **类型层级全景**：类型兼容性本质是在类型层级上做比较：
@@ -99,7 +101,7 @@ never → 字面量类型 → 字面量联合 → 原始类型 → 装箱类型 
 
 此外还需要提到**函数参数的双变**（strictFunctionTypes 下会收窄为逆变）、**返回值协变**、**any 在条件类型中的特殊表现**（`any extends T` 返回 `true | false` 的联合）等细节。
 
-## 3. any、unknown 与 never
+## any、unknown 与 never
 
 ### 基础回答
 
@@ -108,7 +110,7 @@ never → 字面量类型 → 字面量联合 → 原始类型 → 装箱类型 
 - **`never`**：Bottom Type，是所有类型的子类型，但没有任何类型是它的子类型（除了它自己）。表示永远不会发生的类型。
 
 ```typescript
-// unknown 比 any 安全——必须收窄后才能使用
+// unknown 比 any 安全，必须收窄后才能使用
 let value: unknown;
 value = 'hello';
 value = 42;
@@ -126,7 +128,7 @@ type Impossible = string & number; // never
 
 **存在意义**：
 - Top Type 的存在是因为实际开发中不可能对所有地方都精确描述类型。一个从 API 返回的 JSON 数据，在解析之前就是 `unknown`。
-- Bottom Type 的存在是因为类型编程中的"空集"场景——两个互斥类型取交集得到 `never`，用于表示"不可能发生"的控制流。
+- Bottom Type 的存在是因为类型编程中的"空集"场景：两个互斥类型取交集得到 `never`，用于表示"不可能发生"的控制流。
 
 **在条件类型中的特殊表现**：
 
@@ -145,7 +147,7 @@ type T2 = IsString<never>;  // never
 never < 字面量 < 字面量联合 < 原始类型 < 装箱类型 < Object < any / unknown
 ```
 
-## 4. 协变与逆变
+## 协变与逆变
 
 ### 基础回答
 
@@ -165,7 +167,7 @@ type ParamContra = (arg: Animal) => void extends (arg: Dog) => void ? true : fal
 
 ### 进阶回答
 
-理解逆变的关键：如果一个函数声称能处理 `Dog` 类型（子类型），但实际上它内部只按 `Animal`（父类型）的方式使用参数——这当然没问题，因为 `Dog` 一定有 `Animal` 的全部属性。所以 `(arg: Animal) => void` 是 `(arg: Dog) => void` 的子类型。
+理解逆变的关键：如果一个函数声称能处理 `Dog` 类型（子类型），但实际上它内部只按 `Animal`（父类型）的方式使用参数，这当然没问题，因为 `Dog` 一定有 `Animal` 的全部属性。所以 `(arg: Animal) => void` 是 `(arg: Dog) => void` 的子类型。
 
 这意味着：在需要"能处理任何 Dog 的函数"的位置，你可以传入"能处理任何 Animal 的函数"。
 
@@ -182,12 +184,12 @@ type EventHandler = (e: EventLike) => void;
 // 因为能处理任意 EventLike 的函数，当然也能处理 MouseEventLike
 declare let f1: MouseHandler;
 declare let f2: EventHandler;
-f1 = f2; // ✅
+f1 = f2; // 正确
 ```
 
 在 `strictFunctionTypes` 关闭时，函数参数检查是双变的（既协变又逆变），这是一种为了兼容性的折中，但会隐藏类型错误。
 
-## 5. 条件类型与 infer
+## 条件类型与 infer
 
 ### 基础回答
 
@@ -230,7 +232,7 @@ type LastParameter<T> = T extends (...args: infer P) => any
 
 **any 与 never 在条件类型中的特殊表现**（见第 3 题进阶回答）。
 
-## 6. 工具类型手写
+## 工具类型手写
 
 面试中常要求手写几个内置工具类型。
 
@@ -269,7 +271,7 @@ type MyParameters<T extends (...args: any) => any> =
 
 ### 进阶：展示增强版实现
 
-在完成基础手写后，可以主动展示对它们的增强——这表明你不仅看过文档，还实际使用过：
+在完成基础手写后，可以主动展示对它们的增强，这表明你不仅看过文档，还实际使用过：
 
 ```typescript
 // 深层版本
@@ -287,7 +289,7 @@ type XOR<T, U> = (T & { [K in Exclude<keyof U, keyof T>]?: never }) |
                  (U & { [K in Exclude<keyof T, keyof U>]?: never });
 ```
 
-## 7. keyof 与 typeof
+## keyof 与 typeof
 
 ### 基础回答
 
@@ -329,7 +331,7 @@ function getColor(name: ColorName): ColorValue {
 }
 ```
 
-## 8. 泛型约束与泛型默认值
+## 泛型约束与泛型默认值
 
 ### 基础回答
 
@@ -357,8 +359,8 @@ function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
 }
 
 const user = { name: 'Alice', age: 30 };
-getProperty(user, 'name'); // ✅ 类型为 string
-getProperty(user, 'email'); // ❌ 编译错误
+getProperty(user, 'name'); // 正确，类型为 string
+getProperty(user, 'email');  // error TS2345: Argument of type '"email"' is not assignable to parameter of type '"age" | "name"'.
 
 // 泛型约束链
 interface HasId { id: number; }
@@ -366,7 +368,7 @@ interface Timestamped { createdAt: Date; updatedAt: Date; }
 function update<T extends HasId & Timestamped>(entity: T): T { /* ... */ }
 ```
 
-## 9. 装饰器的原理
+## 装饰器的原理
 
 ### 基础回答
 
@@ -403,7 +405,7 @@ function Log(target: any, key: string, descriptor: PropertyDescriptor) {
 
 装饰器的执行顺序是：实例成员 → 静态成员 → 构造函数参数 → 类装饰器，同类装饰器从下往上执行。
 
-## 10. declare 与 .d.ts 文件
+## declare 与 .d.ts 文件
 
 ### 基础回答
 
@@ -433,7 +435,7 @@ declare namespace NodeJS {
 
 三斜线指令 `/// <reference types="..." />` 是另一种引入类型声明的方式，但现在更推荐使用 `import type`。在 Vite 项目中，`vite-env.d.ts` 里的 `/// <reference types="vite/client" />` 就是一个典型例子。
 
-## 11. 枚举 vs 联合类型
+## 枚举 vs 联合类型
 
 ### 基础回答
 
@@ -455,18 +457,18 @@ type StatusType = typeof StatusAlt[keyof typeof StatusAlt]; // 'active' | 'inact
 
 在生产实践中：
 - 如果值需要在运行时使用（如遍历枚举成员），用枚举
-- 如果仅用于类型标注，优先用字符串字面量联合类型——零运行时开销
+- 如果仅用于类型标注，优先用字符串字面量联合类型，零运行时开销
 - 跨前后端共享的常量，建议用 `as const` 对象 + 类型提取，因为 JSON 序列化不关心枚举
 
 `const enum` 可以完全消除运行时开销，但存在跨模块引用时的兼容性问题，在 `isolatedModules` 模式下可能失效。
 
-## 12. 泛型在 React 中的常见坑位
+## 泛型在 React 中的常见坑位
 
 ### 基础回答
 
 ```tsx
 // useState 的初始值问题
-const [list, setList] = useState<string[]>([]);  // ✅ 显式指定
+const [list, setList] = useState<string[]>([]);  // 正确：显式指定类型
 
 // useRef 的两种类型
 const inputRef = useRef<HTMLInputElement>(null);    // RefObject (只读)
@@ -487,13 +489,80 @@ const handleChange: ChangeEventHandler<HTMLInputElement> = (e) => {
 3. **`forwardRef` 的泛型顺序**：第一个泛型是 ref 的类型，第二个才是 props。
 4. **`ComponentProps`**：当第三方库只导出组件而不导出 props 类型时，用 `ComponentProps<typeof Comp>` 提取。
 
-## 本章小结
+## 追问：几条结论背后的机制
 
-以上 12 个考点覆盖了 TypeScript 面试中最常见的知识领域。记住面试的核心原则——**不仅要答 WHAT，更要答 WHY**：
+前面几节给了结论。面试官往往再追一层，问为什么。三条最常见的追问，机制在这里。
+
+条件类型遇到 `any` 时，checker 有个特判：被检查的类型是 `any`，直接返回两个分支的联合，不再按可赋值性挑一个（见 [checker.ts](https://github.com/microsoft/TypeScript/blob/v5.9.3/src/compiler/checker.ts)）。所以 `type IsString<T> = T extends string ? "yes" : "no"` 传入 `any` 得到 `"yes" | "no"`。
+
+这个特判的理由是保守。`any` 可能代表任何类型，两个分支都成立，返回联合比返回单个分支更接近事实。反过来做，按可赋值性只挑一个分支，会给出一个假的确定结论。
+
+同一个规则还有另一面。传入联合类型时，条件类型会分发到每个成员，`string | number` 进 `IsString` 得到 `"yes" | "no"`。想让联合整体参与判断，要用 `[T] extends [string]` 包一层，这是面试里常见的追问。
+
+`strictFunctionTypes` 只检查函数类型，方法声明不在检查范围。`interface Box { m(x: Animal): void }` 里的 `m` 仍是双变，参数收窄也能通过。原因是子类覆写方法时可能收窄参数，历史上为此放行，函数类型没有实现绑定，才被严格检查。
+
+`interface` 的 `extends` 比交叉类型快，官方 [Performance 文档](https://github.com/microsoft/TypeScript/wiki/Performance) 给了原因：接口之间的关系会被缓存，交叉类型整体不缓存；而且检查目标交叉类型时，每个成员都要先检查一遍。热路径上的对象类型优先 `interface`。反过来没有收益，交叉类型适合表达一次性的组合，不适合放进入参和返回值。
+
+缓存的粒度值得多看一眼。checker 按类型对记录关系判断结果，接口有稳定的成员表，同一对接口第二次比较直接命中缓存；交叉类型每次都要现算成员，热点路径上会放大开销。
+
+## 追问对应的两个报错
+
+品牌类型混用是最常见的追问现场。`type OrderId = string & { readonly [OrderIdBrand]: "OrderId" }` 看着像 string，普通字符串传不进去。
+
+```typescript
+declare const OrderIdBrand: unique symbol;
+type OrderId = string & { readonly [OrderIdBrand]: "OrderId" };
+
+function loadOrder(id: OrderId): void {}
+loadOrder("A-1" as string);
+```
+
+tsc 报 `error TS2345: Argument of type 'string' is not assignable to parameter of type 'OrderId'.`，下一行指出 `Type 'string' is not assignable to type '{ readonly [OrderIdBrand]: "OrderId"; }'.`。
+
+改法是在边界处收口，写一个工厂 `const orderId = (value: string): OrderId => value as OrderId;`，内部只调这个工厂。
+
+另一类报错来自递归类型，比如把数字 N 展开成长度为 N 的元组。
+
+```typescript
+type Repeat<T, N extends number, A extends T[] = []> =
+  A["length"] extends N ? A : Repeat<T, N, [...A, T]>;
+
+type Huge = Repeat<0, 200000>;
+```
+
+tsc 报 `error TS2589: Type instantiation is excessively deep and possibly infinite.`。改法是把递归深度限制在几十以内，或者改成 `Array<T>` 加运行时校验。
+
+## 一句话理解追问
+
+面试题像冰山，定义是水面上看见的部分，机制是水面下的部分。只背定义，追问一层就露底。这个比喻在对方只要结论时失效，展开机制反而跑题。
+
+## 小结
+
+以上 12 个考点覆盖了 TypeScript 面试中最常见的知识领域。记住面试的核心原则：**不仅要答 WHAT，更要答 WHY**：
 
 - interface vs type：不仅说区别，还要说工程分工和性能差异
 - 类型兼容性：不仅说鸭子类型，还要扩展到标称类型和类型层级
 - 工具类型手写：不仅写基础版，还要展示增强版
 - any/unknown/never：不仅说定义，还要解释存在意义和条件类型中的特殊行为
 
-至此，本教程的全部 30 章内容完结。从基础类型标注到类型编程实战，从 React 到 Node.js，从工程规范到面试准备——希望这套教程能成为你 TypeScript 之路上的可靠向导。
+至此，工程实践这一部分结束。前面 30 章解决「怎么写得对、写得稳」，后面三部分换角度看同一套类型系统：第 31–34 章讲机制与诊断，第 35–40 章讲交付与演进，第 41–49 章讲类型体操、运行时心智模型与编译器实现。
+
+## 用不上的时候
+
+### 真实工程
+
+面试题覆盖的是知识点，排查真实报错靠读错误码、看类型展开和官方文档。
+
+### 极端类型体操
+
+面试里让手写深度递归类型的题，日常项目很少用到，答不出不影响工程能力。
+
+### 版本相关答案
+
+默认值、废弃选项、生态支持随版本变。回答时说明版本，比自己背结论更可靠。
+
+## 参考
+
+- [checker.ts](https://github.com/microsoft/TypeScript/blob/v5.9.3/src/compiler/checker.ts)：条件类型、关系比较、缓存的实现。
+- [Performance 文档](https://github.com/microsoft/TypeScript/wiki/Performance)：接口与交叉类型的开销差异。
+- [TypeScript Design Goals](https://github.com/microsoft/TypeScript/wiki/TypeScript-Design-Goals)：把可靠性列为 non-goal 的原文。

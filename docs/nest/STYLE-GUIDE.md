@@ -8,19 +8,19 @@
 
 | 组件 | 版本/选型 | 备注 |
 | --- | --- | --- |
-| NestJS | 12.3.x | 官方文档 v12；CLI 默认 ESM |
-| Node.js | 22 LTS（推荐）/ 24 LTS | 运行需 v20.19+；`nest new` 需 v22.22.3+/v24.15+/v26+ |
-| TypeScript | 5.9+ 或 6.x | 脚手架默认 `strict: true` |
+| NestJS | 12.6.x | 官方文档 v12；CLI 默认 ESM |
+| Node.js | 22 / 24 / 26 LTS | 当前 LTS 为 26；运行需 v20.19+；`nest new` 需 v22.22.3+/v24.15+/v26+ |
+| TypeScript | 6.0.x | 脚手架默认 `strict: true`；**暂不升 7.0**（`@nestjs/graphql` peer 仅 `^5.5 \|\| ^6`） |
 | 包管理 | pnpm 11（示例项目） | 命令同时给 npm 等价写法 |
 | Lint/Format | oxlint + Prettier | Nest 12 脚手架默认 |
 | **数据库** | **PostgreSQL 17** | 主库统一 PostgreSQL，不再使用 MySQL |
-| **ORM** | **Prisma 8（RC）** | `prisma@8.0.0-rc.29` + `@prisma/orm-postgres@8.0.0-rc.21`（版本必须配对，rc.22 会与 CLI rc.29 冲突） |
+| **ORM** | **Prisma 8（RC）** | `prisma@8.0.0-rc.34` + `@prisma/orm-postgres@8.0.0-rc.24`（版本必须配对；8.0 仍未 GA） |
 | 缓存/队列 | Redis 8 + ioredis；RabbitMQ 4、Kafka 4、RocketMQ 5 | 章节内注明镜像 tag |
 | 实时通信 | ws 8、socket.io 4 | |
-| GraphQL | @nestjs/graphql 13 + Apollo Server 5 | |
-| 文档 | @nestjs/swagger 11（OpenAPI 3.1） | |
-| 部署 | Docker 28 / Compose v2、Nginx 1.27、Kubernetes 1.33 | |
-| **测试** | **本期不引入** | 不写单测/e2e/压测专题，也不在章节里展开 Vitest/Jest 测试示例 |
+| GraphQL | @nestjs/graphql 14.2.x + Apollo Server 5 | |
+| 文档 | @nestjs/swagger 12.1.x（OpenAPI 3.1） | |
+| 部署 | Docker 29 / Compose v2、Nginx、Kubernetes（tag 在章节内注明） | |
+| **测试** | **本期不引入** | Nest 12 脚手架默认带 Vitest 4 + oxlint；本书用 `--skip-tests` 显式跳过，并在 ch001/ch003 说明取舍。不写单测/e2e/压测专题 |
 
 > 原则：**以官方最新文档为准**。本地已备好 v12 文档源文档（见 §5），写作前先查，不确定的 API 宁可标注版本差异也不要臆造。
 >
@@ -88,7 +88,7 @@
 - **日志**：`Logger`/`nestjs-pino`；禁止 `console.log` 输出敏感信息。
 - **安全**：示例必须展示 `helmet`、CORS 白名单、限流、输入校验；JWT secret 从配置注入，禁止硬编码。
 - **验证方式（无测试）**：命令（`pnpm build`、`prisma contract emit`、`curl`、`docker compose`）、预期返回 JSON/日志、PostgreSQL 查询结果。章节中不要求、不展示 Vitest/Jest 单测。
-- **版本固定**：命令与 `package.json` 片段写明确版本（如 `@nestjs/common@12.3.3` 或 `^12.3.0`）。
+- **版本固定**：命令与 `package.json` 片段写明确版本（如 `@nestjs/common@12.6.0` 或 `^12.6.0`）。
 
 ## 4. 内容质量红线
 

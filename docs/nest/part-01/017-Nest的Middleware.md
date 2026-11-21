@@ -242,11 +242,11 @@ curl -i -H 'x-request-id: bad id with spaces' http://localhost:3000/api/bookings
 
 ```ts
 // src/common/middleware/no-store.middleware.ts
-import type { NextFunction, IncomingMessage, ServerResponse } from 'node:http';
+import type { NextFunction, Request, Response } from 'express';
 
 export const noStore = (
-  _req: IncomingMessage,
-  res: ServerResponse,
+  _req: Request,
+  res: Response,
   next: NextFunction,
 ): void => {
   res.setHeader('Cache-Control', 'no-store');
@@ -254,7 +254,7 @@ export const noStore = (
 };
 ```
 
-在 `main.ts` 里 `app.use(noStore)` 即可。它没有依赖，也不需要按路由排除，用 `app.use()` 最省事。
+在 `main.ts` 里 `app.use(noStore)` 即可（`app.use` 是 Express 适配器提供的方法，第 16 章讲过它的归属）。它没有依赖，也不需要按路由排除，用 `app.use()` 最省事。
 
 多个中间件按 `apply()` 里的顺序执行：
 

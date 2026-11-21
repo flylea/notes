@@ -1,6 +1,6 @@
 # Part 04 · Redis 基础与认证鉴权
 
-> 第 2 篇 · 第 54–70 章 · 共 17 章 · 已写 0 章 · 必修
+> 第 2 篇 · 第 54–70 章 · 共 17 章 · 已写 10 章 · 必修
 
 ## 本 Part 定位
 
@@ -12,16 +12,16 @@ Redis 基础与认证鉴权
 
 ## 章节
 
-- ⬜ 054 两种登录状态保存方式：JWT、Session（待写）
-- ⬜ 055 Nest里实现Session和JWT（待写）
-- ⬜ 056 PostgreSQL+Prisma8+JWT实现登录注册（待写）
-- ⬜ 057 基于ACL实现权限控制（待写）
-- ⬜ 058 基于RBAC实现权限控制（待写）
-- ⬜ 059 基于access_token和refresh_token实现无感刷新登录状态（待写）
-- ⬜ 060 如何动态读取不同环境的配置（待写）
-- ⬜ 061 为什么要使用DockerCompose（待写）
-- ⬜ 062 Docker容器通信的最简单方式：桥接网络（待写）
-- ⬜ 063 Docker支持重启策略，是否还需要PM2（待写）
+- ✅ [054 两种登录状态保存方式：JWT、Session](054-两种登录状态保存方式：JWT、Session.md)
+- ✅ [055 Nest里实现Session和JWT](055-Nest里实现Session和JWT.md)
+- ✅ [056 PostgreSQL+Prisma8+JWT实现登录注册](056-PostgreSQL+Prisma8+JWT实现登录注册.md)
+- ✅ [057 基于ACL实现权限控制](057-基于ACL实现权限控制.md)
+- ✅ [058 基于RBAC实现权限控制](058-基于RBAC实现权限控制.md)
+- ✅ [059 基于access_token和refresh_token实现无感刷新登录状态](059-基于access_token和refresh_token实现无感刷新登录状态.md)
+- ✅ [060 如何动态读取不同环境的配置](060-如何动态读取不同环境的配置.md)
+- ✅ [061 为什么要使用DockerCompose](061-为什么要使用DockerCompose.md)
+- ✅ [062 Docker容器通信的最简单方式：桥接网络](062-Docker容器通信的最简单方式：桥接网络.md)
+- ✅ [063 Docker支持重启策略，是否还需要PM2](063-Docker支持重启策略，是否还需要PM2.md)
 - ⬜ 064 搭建私有Docker镜像仓库（待写）
 - ⬜ 065 快速掌握Nginx的2大核心用法（待写）
 - ⬜ 066 基于Nginx实现灰度系统（待写）

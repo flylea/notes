@@ -46,8 +46,8 @@
 
 ## 技术栈（硬约束）
 
-- NestJS **12.3.x** + Node 22 + TypeScript strict + **ESM**（相对导入带 `.js`）+ pnpm。
-- 数据库：**PostgreSQL 17**（不使用 MySQL）；ORM：**Prisma 8（RC）**，`prisma@8.0.0-rc.29` + `@prisma/orm-postgres@8.0.0-rc.21`（必须配对）。
+- NestJS **12.6.x** + Node 22/24/26 LTS + TypeScript 6.0.x strict + **ESM**（相对导入带 `.js`）+ pnpm 11。
+- 数据库：**PostgreSQL 17**（不使用 MySQL）；ORM：**Prisma 8（RC）**，`prisma@8.0.0-rc.34` + `@prisma/orm-postgres@8.0.0-rc.24`（必须配对；8.0 仍未 GA）。
   - 契约 `prisma/contract.prisma` 首行 `// use prisma-8`；`pnpm prisma contract emit` 生成 `contract.json`/`contract.d.ts`。
   - 运行时 `postgres({ contract, url })`，`db.orm.public.User`，链式 `.where/.select/.orderBy/.limit/.all/.create/.createAll/.updateAll/.deleteAll`；事务 `db.transaction`。
   - 配置根 `prisma.config.ts`（`definePrismaConfig` + `@prisma/orm-postgres/config`）。
@@ -76,3 +76,15 @@ node _meta/check-structure.mjs                    # 只读，确认没有破坏�
 ## 交付
 
 最终消息报告：写入文件清单、每章汉字/代码块/配图、参考的小册章与官方文档页、未实测或存疑的内容。
+
+## 覆盖度与措辞纪律（2026-11-21 增补）
+
+- **覆盖度双基线**：①官方 docs 183 页对位；②生态工具反查（清单见 `_meta/audit/ECOSYSTEM-SWEEP.md`，19 类 ≈150 关键词）。只做 ① 会把「框架 API 讲全」误判成「生产工具链讲全」。
+- **「全面」措辞纪律**：两条基线都跑完、且清单当季更新过，才能说「覆盖度已核对」；否则只能说「官方文档覆盖已核对」。
+- **工具清单维护**：新增/替换工具时先改 ECOSYSTEM-SWEEP 关键词表，再改 `chapters.tsv`，避免规划与扫描口径分叉。
+
+## 测试口径（2026-11-21 决定）
+
+- **不写测试/压测章节**（用户决定）。正文不展示 Vitest/Jest/Supertest/k6 代码，也不把「测试」列为验收项。
+- 但**必须交代存在**：脚手架默认带 `*.spec.ts` 与 `vitest` 脚本；001/003 说明 `--skip-tests` 的作用与「去掉即有骨架」即可，不展开。
+- 读者若被团队要求覆盖率，指向官方 `fundamentals/testing` 页，不自行发明写法。
