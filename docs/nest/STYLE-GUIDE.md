@@ -1,8 +1,10 @@
 # 《NestJS 12 全栈实战通关教程》写作规范
 
-本文件是所有章节作者（人或 AI）必须遵守的写作与代码规范。目标：**286 章 / 31 个 Part / 七篇，覆盖从核心原理到企业级全栈交付与求职的完整路径；每一章都能独立读懂、代码能跑、结论有官方文档依据。**
+本文件是所有章节作者（人或 AI）必须遵守的写作与代码规范。目标：**4 部 / 21 章 / 264 节，覆盖从核心原理到企业级全栈交付与求职的完整路径；每一节都能独立读懂、代码能跑、结论有官方文档依据。**
 
-结构由 `_meta/chapters.tsv`（8 列）与 `_meta/parts.tsv`（12 列）描述，`README.md`、各 Part 的 `_part.md`、章节页脚由 `_meta/build-structure.mjs` 生成——**不要手改这些生成物**。改结构时先改 tsv，再跑 `build-structure.mjs` 与 `check-structure.mjs`。
+结构由 `_meta/BOOK-OUTLINE.tsv`（10 列：部/章/节数/目标/验收/学时）与 `_meta/chapters.tsv`（10 列：section / chapter / chapter_title / part / file / title / slug / domains / project / status）描述；`README.md`、每章 `_chapter.md` 导读、每节页脚由 `_meta/build-structure.mjs` 生成——**不要手改这些生成物**。改结构时先改 tsv，再跑 `_meta/restructure.mjs --dry-run`（大规模重排）或直接 `build-structure.mjs`，最后 `check-structure.mjs`。
+
+目录形态：`book/ch-NN-<章名>/NN.MM-<节标题>.md` + 每章 `_chapter.md`。节号（如 `05.03`）发布后不再变化；章号变化时用 `_meta/MAPPING.tsv` 追溯旧节号。
 
 ## 1. 版本与技术栈（2026-11 基线）
 
@@ -28,7 +30,7 @@
 
 ## 2. 叙事结构（像掘金小册那样讲，必读）
 
-每章是一篇能一口气读下去的讲解，不是参考文档，也不是课程讲义。读者可能几乎没写过后端，也可能编程基础很弱。判定标准：**一个没接触过后端的人，顺着读完这一章，不需要停下来查资料**。几乎没写过代码的人，先看第 1–2 章补最短入口（程序怎么跑、一条命令在干什么、请求和 JSON、进程和端口）；从第 3 章起可以出现简单 TypeScript，但每一行新语法用一句话说明它在干什么。不把全书改成 JavaScript 教程。
+每章是一篇能一口气读下去的讲解，不是参考文档，也不是课程讲义。读者可能几乎没写过后端，也可能编程基础很弱。判定标准：**一个没接触过后端的人，顺着读完这一章，不需要停下来查资料**。几乎没写过代码的人，先看 01.01–01.02 补最短入口（程序怎么跑、一条命令在干什么、请求和 JSON、进程和端口）；从 02.01 起可以出现简单 TypeScript，但每一行新语法用一句话说明它在干什么。不把全书改成 JavaScript 教程。
 
 推荐节奏（可自然变化，不要求小标题整齐对齐）：
 
@@ -66,7 +68,7 @@
 
 **配图（按需）**：架构、流程、原理、协议、时序、关系、部署、生命周期、数据流、可靠性、可观测这类主题必须有图；其他章节有图更好，不强制。
 - 优先 Mermaid（GitHub / VS Code 可渲染）：`flowchart`、`sequenceDiagram`、`classDiagram`、`stateDiagram-v2`、`erDiagram`，放在正文对应位置。
-- 空间/形象类概念可用生成插图：存放 `assets/part-XX/NN-slug.png`，命名如 `assets/part-01/009-aop-order.png`；正文用 `![题注](<assets/part-01/009-aop-order.png>)` 引用相对路径。
+- 空间/形象类概念可用生成插图：存放 `assets/ch-NN/NNMM-slug.png`，命名如 `assets/ch-03/0302-aop-order.png`；正文用 `![题注](<../../assets/ch-03/0302-aop-order.png>)` 引用相对路径。
 - 生成插图前先读 `agnes-image` skill（DSH 图像生成）；一次只生成必要的一张，控制成本。
 - 每张图给一句题注即可（只是说明图是什么）；**不要写「这张图在说什么」这类解读段**，图后直接进入正文；图不能替代文字解释。
 
@@ -106,7 +108,7 @@
 - **官方文档（v12 源 markdown）**：`.cache/nest-refs/docs-site/content/<page>.md`（162 篇）。
 - **小册参考（合并版）**：`/Users/dailei/Documents/nest-nuggets-booklet/合并版/`。先看 `205版-较新目录/`（目录最新；其中 110 章有正文、95 章为“暂未写作”占位）；占位章节用关键词去 `200版-完整正文/` 检索（200 章全有正文）。两版编号顺序不一致，**不要按编号硬对应**。
 - **awesome-nestjs**：`.cache/nest-refs/awesome-nestjs/README.md`。
-- **章节清单**：`_meta/chapters.tsv`（8 列：chapter / part / part_title / file / slug / domains / project / status，286 章）与 `_meta/parts.tsv`（12 列，31 个 Part，含 section/goal/outcome）。
+- **章节清单**：`_meta/BOOK-OUTLINE.tsv`（21 章，含每章目标/验收/学时/来源节号）与 `_meta/chapters.tsv`（264 节，10 列，含 file 路径与状态）；映射关系见 `_meta/MAPPING.tsv`。
 - 检索示例：
   ```bash
   grep -ril "ValidationPipe" .cache/nest-refs/docs-site/content/ | head
@@ -116,7 +118,7 @@
 
 ## 6. 项目章节约定（与 example 保持一致）
 
-- 参考项目：`example/`，主线为 **会议室预订系统**（Part 06 后端 + Part 26 的 Next.js 前端）（Nest 12 + ESM + **PostgreSQL 17 + Prisma 8** + Redis 8 + JWT + Swagger + Docker Compose），前端在 `example/meeting-booking-web/`（React 19 + Vite + TanStack Query + Ant Design）。
+- 参考项目：`example/`，主线为 **会议室预订系统**（ch12 后端 + ch19 的 Next.js 前端）（Nest 12 + ESM + **PostgreSQL 17 + Prisma 8** + Redis 8 + JWT + Swagger + Docker Compose），前端在 `example/meeting-booking-web/`（React 19 + Vite + TanStack Query + Ant Design）。
 - 统一命名：
   - 模块：`AuthModule`、`UsersModule`、`RoomsModule`、`BookingsModule`、`StatsModule`、`UploadsModule`、`CommonModule`。
   - 数据模型：`User`、`Room`、`Booking`（表名 `users`/`rooms`/`bookings`），Prisma contract 中使用 PascalCase 模型名 + `@@map`。
@@ -156,14 +158,14 @@
 
 ## 8. 交付与状态
 
-- 只写自己负责的章节文件；不要修改 `_meta/chapters.tsv`、`_meta/parts.tsv`、`README.md`、`_part.md`、`STYLE-GUIDE.md` 以及别人的章节（结构类文件统一由 Lead 用脚本生成）。
+- 只写自己负责的节文件（`book/ch-NN-*/NN.MM-*.md`）；不要修改 `_meta/BOOK-OUTLINE.tsv`、`_meta/chapters.tsv`、`_meta/MAPPING.tsv`、`README.md`、`_chapter.md`、`STYLE-GUIDE.md` 以及别人的节（结构类文件统一由 Lead 用脚本生成）。
 - 写完一个 part 后在 `_meta/status.tsv` 追加一行（若无该文件则创建）：`part<TAB>章节范围<TAB>状态<TAB>作者<TAB>日期`。
 - 若发现规范冲突或缺失依赖版本，先在章节"说明"里记录，不要臆造。
 
 ## 9. 结构变更流程（v7）
 
-- 增删/重排章节：只改 `_meta/chapters.tsv`（8 列）与 `_meta/parts.tsv`（12 列），然后：
-  1. `node _meta/build-structure.mjs`（重生成 README / Part hub / 章节页脚）
+- 增删/重排章节：改 `_meta/BOOK-OUTLINE.tsv` 与 `_meta/chapters.tsv`（必要时写 `_meta/restructure.mjs` 的 SPEC 并 `--dry-run`），然后：
+  1. `node _meta/build-structure.mjs`（重生成 README / 章导读 / 节页脚）
   2. `node _meta/check-structure.mjs`（0 错误才算过）
 - 字数不是验收指标：validate 只兜底"信息量下限 800 汉字"与"按需必须有图"，不设上限、不设目标。
-- 新增章节文件命名：`NNN-章节标题（无空格/斜杠）.md`，编号 3 位；Part 目录 `part-NN`。
+- 新增节命名：`NN.MM-节标题（无空格/斜杠）.md`，放在对应 `book/ch-NN-<章名>/` 下；节号两位数、发布后不变。

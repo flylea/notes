@@ -2,16 +2,16 @@
 
 ## 你的任务
 
-把指定范围的**已写章节**按新的可读性标准重写（原地覆盖同一个 `.md` 文件），不新增章节、不改章号、不改文件名。
+把指定范围的**节**按可读性标准写作/重写（原地覆盖同一个 `.md` 文件），不改节号与文件名。
 
 新标准一句话：**写成掘金小册那种「讲人话、一步一步、真跑一遍」的教程**，而不是参考文档或课程讲义。用户已明确否决之前「开头堆术语 + 密集深度」的写法。
 
 ## 开工前必读
 
 1. `STYLE-GUIDE.md`（**最高优先级，尤其 §2 叙事结构、§2.1 原创表达**）。
-2. `part-01/004-5种HTTP数据传输方式.md`（**黄金样章**：从头到尾按它学——开头怎么切入、每一步怎么「是什么→怎么写→真跑一遍」、术语怎么顺手解释、坑怎么讲、结尾怎么收）。
+2. `book/ch-01-导学与CLI/01.04-5种HTTP数据传输方式.md`（**黄金样章**：从头到尾按它学——开头怎么切入、每一步怎么「是什么→怎么写→真跑一遍」、术语怎么顺手解释、坑怎么讲、结尾怎么收）。
 3. `_meta/GLOSSARY.md`（术语口径速查，只用来自查口径，**不要**把术语表搬成章节开头的清单）。
-4. `_meta/chapters.tsv`（8 列：chapter / part / part_title / file / slug / domains / project / status）与 `_meta/parts.tsv`。
+4. `_meta/chapters.tsv`（10 列，`file` 列就是目标路径）与 `_meta/BOOK-OUTLINE.tsv`（每章目标与验收）。
 5. 三个已安装 skill（写前读，按方法执行，但不要把它们的章节结构照搬成小标题）：
    - `~/.agents/skills/developer-tutorial/SKILL.md`：概念阶梯、checkpoint、引导渐隐。
    - `~/.agents/skills/doc-coauthoring/SKILL.md`：交稿前用"没上下文的读者"视角自查歧义。
@@ -19,7 +19,7 @@
 
 ## 写作步骤
 
-1. 读 `chapters.tsv`，按章号找到 `part-XX/NNN-*.md` 目标文件。
+1. 读 `chapters.tsv`，按节号找到 `book/ch-NN-*/NN.MM-*.md` 目标文件。
 2. **先读现有章节**，保住里面的技术事实、代码片段、版本号、坑；重写的是叙述方式和顺序，不是把内容删光。
 3. 读掘金小册对应章节（**只参考节奏、问题顺序和举例方式，禁止逐字复制**）：
    ```bash
@@ -58,7 +58,7 @@
 
 ## 内容约束
 
-- 只改分配给你的章节文件；**不要**修改 `STYLE-GUIDE.md`、`WRITER-BRIEF.md`、`GLOSSARY.md`、`chapters.tsv`、`parts.tsv`、`README.md`、`_part.md`、`example/` 或其他章节；不 commit、不 git 操作；不在仓库根跑安装/构建。
+- 只改分配给你的节文件；**不要**修改 `STYLE-GUIDE.md`、`WRITER-BRIEF.md`、`GLOSSARY.md`、`BOOK-OUTLINE.tsv`、`chapters.tsv`、`MAPPING.tsv`、`README.md`、`_chapter.md`、`example/` 或其他章节；不 commit、不 git 操作；不在仓库根跑安装/构建。
 - 黄金样章 `004-5种HTTP数据传输方式.md` 已完成，不要再改它。
 - 篇幅由内容决定，不凑字数；概念章约 1500–2500 汉字，实操章约 2000–3500 汉字。
 - 需要配图的主题（架构/流程/原理/协议/时序/关系/部署/生命周期/数据流/可靠性/可观测）用 Mermaid，一句题注即可。

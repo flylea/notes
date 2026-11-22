@@ -1,288 +1,265 @@
-chapter	part	part_title	file	slug	domains	project	status
-1	part-00	导学：从零建立 NestJS 全栈学习路径	001-开篇词.md	ch-001	导学	-	已写
-2	part-00	导学：从零建立 NestJS 全栈学习路径	002-给你5个学习Nest的理由，你会心动么.md	ch-002	导学	-	已写
-3	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	003-快速掌握NestCLI.md	ch-003	Nest 核心基础	-	已写
-4	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	004-5种HTTP数据传输方式.md	ch-004	Nest 核心基础	-	已写
-5	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	005-IoC解决了什么痛点问题.md	ch-005	Nest	-	已写
-6	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	006-如何调试Nest项目.md	ch-006	Nest 核心基础	-	已写
-7	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	007-使用多种Provider，灵活注入对象.md	ch-007	Nest	-	已写
-8	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	008-全局模块和生命周期.md	ch-008	Nest	-	已写
-9	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	009-AOP架构有什么好处.md	ch-009	架构/Nest	-	已写
-10	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	010-一网打尽Nest全部装饰器.md	ch-010	Nest	-	已写
-11	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	011-ExecutionContext：切换不同上下文.md	ch-011	Nest 核心基础	-	已写
-12	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	012-Nest如何自定义装饰器.md	ch-012	Nest	-	已写
-13	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	013-Metadata和Reflector.md	ch-013	Nest 核心基础	-	已写
-14	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	014-Module和Provider的循环依赖怎么处理.md	ch-014	Nest	-	已写
-15	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	015-如何创建动态模块.md	ch-015	Nest	-	已写
-16	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	016-Nest和Express的关系，如何切到fastify.md	ch-016	Nest 核心基础	-	已写
-17	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	017-Nest的Middleware.md	ch-017	Nest	-	已写
-18	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	018-RxJS和Interceptor.md	ch-018	Nest	-	已写
-19	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	019-内置Pipe和自定义Pipe.md	ch-019	Nest	-	已写
-20	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	020-如何使用ValidationPipe验证post请求参数.md	ch-020	Nest	-	已写
-21	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	021-如何自定义ExceptionFilter.md	ch-021	Nest 核心基础	-	已写
-22	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	022-图解串一串Nest核心概念.md	ch-022	Nest 核心基础	-	已写
-23	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	023-Express如何使用multer实现文件上传.md	ch-023	Nest 核心基础	-	已写
-24	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	024-Nest如何使用multer实现文件上传.md	ch-024	Nest 核心基础	-	已写
-25	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	025-大文件分片上传.md	ch-025	Nest 核心基础	-	已写
-26	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	026-Nest里如何打印日志.md	ch-026	可观测	-	已写
-27	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	027-为什么Node里要用Winston打印日志.md	ch-027	可观测	-	已写
-28	part-01	Nest 核心基础：模块、IoC、AOP 与请求模型	028-Nest集成日志框架Winston.md	ch-028	可观测	-	已写
-29	part-02	容器化与进程管理	029-通过Desktop学Docker也太简单了.md	ch-029	DevOps	-	已写
-30	part-02	容器化与进程管理	030-你的第一个Dockerfile.md	ch-030	DevOps	-	已写
-31	part-02	容器化与进程管理	031-Nest项目如何编写Dockerfile.md	ch-031	DevOps	-	已写
-32	part-02	容器化与进程管理	032-提升Dockerfile水平的5个技巧.md	ch-032	DevOps	-	已写
-33	part-02	容器化与进程管理	033-Docker是怎么实现的.md	ch-033	DevOps	-	已写
-34	part-02	容器化与进程管理	034-为什么Node应用要用PM2来跑.md	ch-034	容器化与进程管理	-	已写
-35	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	035-快速入门PostgreSQL.md	ch-035	数据库	-	已写
-36	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	036-SQL查询语句的所有语法和函数PostgreSQL版.md	ch-036	数据库	-	已写
-37	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	037-一对一、JOIN查询与级联.md	ch-037	PostgreSQL	-	已写
-38	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	038-一对多、多对多的表设计.md	ch-038	PostgreSQL	-	已写
-39	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	039-子查询和EXISTS.md	ch-039	PostgreSQL	-	已写
-40	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	040-SQL综合练习.md	ch-040	数据库	-	已写
-41	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	041-PostgreSQL的事务和隔离级别.md	ch-041	数据库	-	已写
-42	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	042-PostgreSQL的视图、存储过程和函数.md	ch-042	数据库	-	已写
-43	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	043-使用Node操作PostgreSQL的两种方式.md	ch-043	数据库	-	已写
-44	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	044-快速掌握Prisma8.md	ch-044	数据库	-	已写
-45	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	045-Prisma8一对一映射与关联CRUD.md	ch-045	数据库	-	已写
-46	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	046-Prisma8一对多映射与关联CRUD.md	ch-046	数据库	-	已写
-47	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	047-Prisma8多对多映射与关联CRUD.md	ch-047	数据库	-	已写
-48	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	048-Prisma8常用命令与迁移工作流.md	ch-048	数据库	-	已写
-49	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	049-Prisma8知识点查缺补漏.md	ch-049	数据库	-	已写
-50	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	050-在Nest里集成Prisma8.md	ch-050	数据库	-	已写
-51	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	051-快速入门Redis.md	ch-051	数据库	-	已写
-52	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	052-在Nest里操作Redis.md	ch-052	数据库	-	已写
-53	part-03	PostgreSQL、SQL 与 Prisma 8 数据层	053-为什么推荐ioredis而不是cache-manager操作Redis.md	ch-053	数据库	-	已写
-54	part-04	Redis 基础与认证鉴权	054-两种登录状态保存方式：JWT、Session.md	ch-054	HTTP	-	已写
-55	part-04	Redis 基础与认证鉴权	055-Nest里实现Session和JWT.md	ch-055	HTTP	-	已写
-56	part-04	Redis 基础与认证鉴权	056-PostgreSQL+Prisma8+JWT实现登录注册.md	ch-056	数据库	-	已写
-57	part-04	Redis 基础与认证鉴权	057-基于ACL实现权限控制.md	ch-057	Redis 基础与认证鉴权	-	已写
-58	part-04	Redis 基础与认证鉴权	058-基于RBAC实现权限控制.md	ch-058	Redis 基础与认证鉴权	-	已写
-59	part-04	Redis 基础与认证鉴权	059-基于access_token和refresh_token实现无感刷新登录状态.md	ch-059	Redis 基础与认证鉴权	-	已写
-60	part-04	Redis 基础与认证鉴权	060-如何动态读取不同环境的配置.md	ch-060	Redis 基础与认证鉴权	-	已写
-61	part-04	Redis 基础与认证鉴权	061-为什么要使用DockerCompose.md	ch-061	DevOps	-	已写
-62	part-04	Redis 基础与认证鉴权	062-Docker容器通信的最简单方式：桥接网络.md	ch-062	DevOps	-	已写
-63	part-04	Redis 基础与认证鉴权	063-Docker支持重启策略，是否还需要PM2.md	ch-063	DevOps	-	已写
-64	part-04	Redis 基础与认证鉴权	064-搭建私有Docker镜像仓库.md	ch-064	DevOps	-	待写
-65	part-04	Redis 基础与认证鉴权	065-快速掌握Nginx的2大核心用法.md	ch-065	DevOps	-	待写
-66	part-04	Redis 基础与认证鉴权	066-基于Nginx实现灰度系统.md	ch-066	DevOps	-	待写
-67	part-04	Redis 基础与认证鉴权	067-Nginx的全部配置.md	ch-067	DevOps	-	待写
-68	part-04	Redis 基础与认证鉴权	068-基于Redis实现分布式session.md	ch-068	数据库	-	待写
-69	part-04	Redis 基础与认证鉴权	069-Redis+高德地图，实现附近的充电宝.md	ch-069	数据库	-	待写
-70	part-04	Redis 基础与认证鉴权	070-基于Redis实现王者荣耀段位排行榜.md	ch-070	数据库	-	待写
-71	part-05	工程化设施	071-用Swagger自动生成api文档.md	ch-071	HTTP	-	待写
-72	part-05	工程化设施	072-用Scalar、Redoc美化API文档与契约交付.md	ch-072	HTTP	-	待写
-73	part-05	工程化设施	073-使用compodoc生成文档.md	ch-073	工程化设施	-	待写
-74	part-05	工程化设施	074-Node如何发邮件.md	ch-074	工程化设施	-	待写
-75	part-05	工程化设施	075-实现基于邮箱验证码的登录.md	ch-075	安全	-	待写
-76	part-05	工程化设施	076-使用阿里云的邮件和短信服务.md	ch-076	工程化设施	-	待写
-77	part-05	工程化设施	077-定时任务+Redis实现阅读量计数.md	ch-077	数据库	-	待写
-78	part-05	工程化设施	078-Nest的3种定时任务.md	ch-078	工程化设施	-	待写
-79	part-05	工程化设施	079-短链服务自己写一个.md	ch-079	工程化设施	-	待写
-80	part-05	工程化设施	080-Nest实现ServerSentEvent数据推送.md	ch-080	工程化设施	-	待写
-81	part-05	工程化设施	081-基于sharp实现gif压缩工具.md	ch-081	HTTP	-	待写
-82	part-05	工程化设施	082-实现扫二维码登录.md	ch-082	工程化设施	-	待写
-83	part-05	工程化设施	083-Nest的REPL模式.md	ch-083	工程化设施	-	待写
-84	part-05	工程化设施	084-使用Prometheus实现Node性能监控.md	ch-084	工程化设施	-	待写
-85	part-06	项目一：会议室预订系统	085-会议室预订系统：需求分析和原型图.md	ch-085	项目一	meeting-booking	待写
-86	part-06	项目一：会议室预订系统	086-会议室预订系统：技术方案和数据库设计.md	ch-086	数据库	meeting-booking	待写
-87	part-06	项目一：会议室预订系统	087-会议室预订系统：用户管理模块-用户注册.md	ch-087	Nest	meeting-booking	待写
-88	part-06	项目一：会议室预订系统	088-会议室预订系统：用户管理模块-配置抽离、登录认证鉴权.md	ch-088	Nest	meeting-booking	待写
-89	part-06	项目一：会议室预订系统	089-会议室预订系统：用户管理模块-interceptor、修改信息接口.md	ch-089	Nest	meeting-booking	待写
-90	part-06	项目一：会议室预订系统	090-会议室预订系统：用户管理模块-用户列表和分页查询.md	ch-090	Nest	meeting-booking	待写
-91	part-06	项目一：会议室预订系统	091-会议室预订系统：用户管理模块-swagger接口文档.md	ch-091	Nest	meeting-booking	待写
-92	part-06	项目一：会议室预订系统	092-会议室预订系统：用户管理模块-用户端登录注册页面.md	ch-092	Nest	meeting-booking	待写
-93	part-06	项目一：会议室预订系统	093-会议室预订系统：用户管理模块-用户端信息修改页面.md	ch-093	Nest	meeting-booking	待写
-94	part-06	项目一：会议室预订系统	094-会议室预订系统：用户管理模块-管理端用户列表页面.md	ch-094	Nest	meeting-booking	待写
-95	part-06	项目一：会议室预订系统	095-会议室预订系统：用户管理模块-管理端信息修改页面.md	ch-095	Nest	meeting-booking	待写
-96	part-06	项目一：会议室预订系统	096-会议室预订系统：会议室管理模块-后端开发.md	ch-096	Nest	meeting-booking	待写
-97	part-06	项目一：会议室预订系统	097-会议室预订系统：会议室管理模块-管理端前端开发.md	ch-097	全栈/Nest	meeting-booking	待写
-98	part-06	项目一：会议室预订系统	098-会议室预订系统：会议室管理模块-用户端前端开发.md	ch-098	全栈/Nest	meeting-booking	待写
-99	part-06	项目一：会议室预订系统	099-会议室预订系统：预定管理模块-后端开发.md	ch-099	Nest	meeting-booking	待写
-100	part-06	项目一：会议室预订系统	100-会议室预订系统：预定管理模块-管理端前端开发.md	ch-100	全栈/Nest	meeting-booking	待写
-101	part-06	项目一：会议室预订系统	101-会议室预订系统：预定管理模块-用户端前端开发.md	ch-101	全栈/Nest	meeting-booking	待写
-102	part-06	项目一：会议室预订系统	102-会议室预订系统：统计管理模块-后端开发.md	ch-102	Nest	meeting-booking	待写
-103	part-06	项目一：会议室预订系统	103-会议室预订系统：统计管理模块-前端开发.md	ch-103	全栈/Nest	meeting-booking	待写
-104	part-06	项目一：会议室预订系统	104-会议室预订系统-项目部署和整体验收.md	ch-104	DevOps	meeting-booking	待写
-105	part-07	微服务	105-Nest如何创建微服务.md	ch-105	消息队列	-	待写
-106	part-07	微服务	106-Nest的Monorepo和Library.md	ch-106	微服务	-	待写
-107	part-07	微服务	107-用Etcd实现微服务配置中心和注册中心.md	ch-107	消息队列	-	待写
-108	part-07	微服务	108-Nest集成Etcd做注册中心、配置中心.md	ch-108	微服务	-	待写
-109	part-07	微服务	109-使用Nacos做配置中心和注册中心.md	ch-109	微服务	-	待写
-110	part-07	微服务	110-使用ZoopKeeper做注册中心.md	ch-110	微服务	-	待写
-111	part-07	微服务	111-使用Zuul做配置中心和注册中心.md	ch-111	微服务	-	待写
-112	part-07	微服务	112-注册中心功能总结.md	ch-112	微服务	-	待写
-113	part-07	微服务	113-基于gRPC实现跨语言的微服务通信.md	ch-113	消息队列	-	待写
-114	part-07	微服务	114-深入掌握gRPC.md	ch-114	微服务	-	待写
-115	part-08	Prisma 8、ORM 对比与消息队列	115-Prisma8架构与contract模型深入.md	ch-115	AI/数据库/架构	-	待写
-116	part-08	Prisma 8、ORM 对比与消息队列	116-Prisma8的全部命令.md	ch-116	数据库	-	待写
-117	part-08	Prisma 8、ORM 对比与消息队列	117-Prisma8的全部contract语法.md	ch-117	数据库	-	待写
-118	part-08	Prisma 8、ORM 对比与消息队列	118-Prisma8单表CRUD的全部API.md	ch-118	数据库	-	待写
-119	part-08	Prisma 8、ORM 对比与消息队列	119-Prisma8多表CRUD的全部API.md	ch-119	数据库	-	待写
-120	part-08	Prisma 8、ORM 对比与消息队列	120-在Nest里工程化集成Prisma8.md	ch-120	数据库	-	待写
-121	part-08	Prisma 8、ORM 对比与消息队列	121-使用Sequelize做ORM框架.md	ch-121	数据库	-	待写
-122	part-08	Prisma 8、ORM 对比与消息队列	122-Prisma8、TypeORM、Sequelize三大ORM框架对比.md	ch-122	数据库	-	待写
-123	part-08	Prisma 8、ORM 对比与消息队列	123-为什么前端监控系统要用RabbitMQ.md	ch-123	全栈/消息队列	-	待写
-124	part-08	Prisma 8、ORM 对比与消息队列	124-快速掌握RocketMQ.md	ch-124	消息队列	-	待写
-125	part-08	Prisma 8、ORM 对比与消息队列	125-快速掌握Kafka.md	ch-125	消息队列	-	待写
-126	part-08	Prisma 8、ORM 对比与消息队列	126-消息队列选型.md	ch-126	消息队列	-	待写
-127	part-08	Prisma 8、ORM 对比与消息队列	127-基于Redis实现消息队列.md	ch-127	数据库/消息队列	-	待写
-128	part-08	Prisma 8、ORM 对比与消息队列	128-基于Redis实现分布式锁.md	ch-128	数据库	-	待写
-129	part-08	Prisma 8、ORM 对比与消息队列	129-Redis的Stream数据结构.md	ch-129	数据库	-	待写
-130	part-08	Prisma 8、ORM 对比与消息队列	130-Redis的布隆过滤器.md	ch-130	数据库	-	待写
-131	part-09	分布式架构、可观测性与性能	131-使用passport做身份认证.md	ch-131	分布式架构	-	待写
-132	part-09	分布式架构、可观测性与性能	132-实现单点登录.md	ch-132	分布式架构	-	待写
-133	part-09	分布式架构、可观测性与性能	133-BFF层的作用.md	ch-133	分布式架构	-	待写
-134	part-09	分布式架构、可观测性与性能	134-什么是分布式架构.md	ch-134	架构	-	待写
-135	part-09	分布式架构、可观测性与性能	135-Nest应用的可观测性-日志、指标与链路追踪.md	ch-135	可观测	-	待写
-136	part-09	分布式架构、可观测性与性能	136-生产环境性能排查与容量规划.md	ch-136	分布式架构	-	待写
-137	part-09	分布式架构、可观测性与性能	137-图解微服务架构.md	ch-137	架构/消息队列	-	待写
-138	part-10	项目二：电商系统	138-电商系统：需求分析.md	ch-138	项目二	ecommerce	待写
-139	part-10	项目二：电商系统	139-电商系统：数据库设计.md	ch-139	数据库	ecommerce	待写
-140	part-10	项目二：电商系统	140-电商系统：微服务拆分.md	ch-140	消息队列	ecommerce	待写
-141	part-10	项目二：电商系统	141-电商系统：集成RabbitMQ、Redis、Etcd.md	ch-141	数据库/消息队列	ecommerce	待写
-142	part-10	项目二：电商系统	142-电商系统：功能开发（上）.md	ch-142	项目二	ecommerce	待写
-143	part-10	项目二：电商系统	143-电商系统：功能开发（下）.md	ch-143	项目二	ecommerce	待写
-144	part-10	项目二：电商系统	144-电商系统：前端界面开发.md	ch-144	全栈	ecommerce	待写
-145	part-10	项目二：电商系统	145-电商系统-DockerCompose部署和整体验收.md	ch-145	DevOps	ecommerce	待写
-146	part-11	Redis 高级应用	146-基于Redis实现关注关系.md	ch-146	数据库	-	待写
-147	part-11	Redis 高级应用	147-基于Redis实现uv计数.md	ch-147	数据库	-	待写
-148	part-11	Redis 高级应用	148-面试题：说说Redis的应用场景.md	ch-148	数据库/求职	-	待写
-149	part-12	项目三：大众点评系统	149-大众点评系统：需求分析和原型图.md	ch-149	项目三	dianping	待写
-150	part-12	项目三：大众点评系统	150-大众点评系统：技术方案设计.md	ch-150	项目三	dianping	待写
-151	part-12	项目三：大众点评系统	151-大众点评系统：后端开发.md	ch-151	项目三	dianping	待写
-152	part-12	项目三：大众点评系统	152-大众点评系统：前端开发.md	ch-152	全栈	dianping	待写
-153	part-12	项目三：大众点评系统	153-大众点评系统-项目部署和整体验收.md	ch-153	DevOps	dianping	待写
-154	part-13	WebSocket 与实时通信	154-什么时候需要WebSocket.md	ch-154	WebSocket 与实时通信	-	待写
-155	part-13	WebSocket 与实时通信	155-用Node.js手写WebSocket协议.md	ch-155	WebSocket 与实时通信	-	待写
-156	part-13	WebSocket 与实时通信	156-MongoDB快速入门.md	ch-156	数据库	-	待写
-157	part-13	WebSocket 与实时通信	157-在Nest里操作MongoDB.md	ch-157	数据库	-	待写
-158	part-13	WebSocket 与实时通信	158-Nest如何开发WebSocket服务.md	ch-158	WebSocket 与实时通信	-	待写
-159	part-13	WebSocket 与实时通信	159-Redis+WebSocket实时外卖员距离.md	ch-159	数据库	-	待写
-160	part-13	WebSocket 与实时通信	160-WebSocket的面试题.md	ch-160	求职	-	待写
-161	part-14	项目四：聊天室	161-聊天室项目：需求分析.md	ch-161	项目四	chatroom	待写
-162	part-14	项目四：聊天室	162-聊天室项目：数据库设计.md	ch-162	数据库	chatroom	待写
-163	part-14	项目四：聊天室	163-聊天室项目：微服务拆分.md	ch-163	消息队列	chatroom	待写
-164	part-14	项目四：聊天室	164-聊天室项目：功能开发（上）.md	ch-164	项目四	chatroom	待写
-165	part-14	项目四：聊天室	165-聊天室项目：功能开发（下）.md	ch-165	项目四	chatroom	待写
-166	part-14	项目四：聊天室	166-聊天室项目：前端界面开发.md	ch-166	全栈	chatroom	待写
-167	part-14	项目四：聊天室	167-聊天室项目-DockerCompose部署.md	ch-167	DevOps	chatroom	待写
-168	part-15	GraphQL 与教育平台	168-GraphQL快速入门.md	ch-168	GraphQL	education	待写
-169	part-15	GraphQL 与教育平台	169-Nest如何开发GraphQL服务.md	ch-169	GraphQL	education	待写
-170	part-15	GraphQL 与教育平台	170-Kafka消息中间件和RabbitMQ有什么区别.md	ch-170	消息队列	education	待写
-171	part-15	GraphQL 与教育平台	171-GraphQL的面试题.md	ch-171	GraphQL/求职	education	待写
-172	part-15	GraphQL 与教育平台	172-教育平台：需求分析.md	ch-172	GraphQL 与教育平台	education	待写
-173	part-15	GraphQL 与教育平台	173-教育平台：数据库设计.md	ch-173	数据库	education	待写
-174	part-15	GraphQL 与教育平台	174-教育平台：微服务拆分.md	ch-174	消息队列	education	待写
-175	part-15	GraphQL 与教育平台	175-教育平台：GraphQL层设计.md	ch-175	GraphQL	education	待写
-176	part-15	GraphQL 与教育平台	176-教育平台：功能开发（上）.md	ch-176	GraphQL 与教育平台	education	待写
-177	part-15	GraphQL 与教育平台	177-教育平台：功能开发（下）.md	ch-177	GraphQL 与教育平台	education	待写
-178	part-16	全文检索与云原生	178-为什么要用ElasticSearch做全文检索.md	ch-178	全文检索与云原生	-	待写
-179	part-16	全文检索与云原生	179-部署一套Kubenetes环境.md	ch-179	DevOps	-	待写
-180	part-16	全文检索与云原生	180-ElasticSearch和PostgreSQL如何配合.md	ch-180	数据库	-	待写
-181	part-16	全文检索与云原生	181-Node里操作ElasticSearch.md	ch-181	全文检索与云原生	-	待写
-182	part-16	全文检索与云原生	182-Nest集成ElasticSearch.md	ch-182	全文检索与云原生	-	待写
-183	part-16	全文检索与云原生	183-什么是Kubenetes.md	ch-183	全文检索与云原生	-	待写
-184	part-17	项目五：博客系统	184-博客项目：需求分析.md	ch-184	项目五	blog	待写
-185	part-17	项目五：博客系统	185-博客项目：数据库设计.md	ch-185	数据库	blog	待写
-186	part-17	项目五：博客系统	186-博客项目-ORM层开发Prisma8.md	ch-186	数据库	blog	待写
-187	part-17	项目五：博客系统	187-博客系统：集成ElasticSearch.md	ch-187	项目五	blog	待写
-188	part-17	项目五：博客系统	188-博客项目：功能开发.md	ch-188	项目五	blog	待写
-189	part-17	项目五：博客系统	189-博客项目：前端界面开发.md	ch-189	全栈	blog	待写
-190	part-17	项目五：博客系统	190-博客项目：Docker部署.md	ch-190	DevOps	blog	待写
-191	part-17	项目五：博客系统	191-博客项目-Docker部署与整体验收.md	ch-191	DevOps	blog	待写
-192	part-18	框架原理与源码	192-如何调试Nest源码.md	ch-192	框架原理与源码	-	待写
-193	part-18	框架原理与源码	193-NestIOC实现原理.md	ch-193	框架原理与源码	-	待写
-194	part-18	框架原理与源码	194-手写Nest的IOC容器.md	ch-194	框架原理与源码	-	待写
-195	part-18	框架原理与源码	195-NestAOP实现原理.md	ch-195	Nest	-	待写
-196	part-18	框架原理与源码	196-Nest的路由是怎么实现的.md	ch-196	框架原理与源码	-	待写
-197	part-18	框架原理与源码	197-NestCLI实现原理.md	ch-197	框架原理与源码	-	待写
-198	part-19	数据库选型、OAuth2 与支付	198-数据库选型-为什么公司里选择PostgreSQL作为主库.md	ch-198	数据库	-	待写
-199	part-19	数据库选型、OAuth2 与支付	199-PostgreSQL和MySQL的区别.md	ch-199	数据库	-	待写
-200	part-19	数据库选型、OAuth2 与支付	200-如何用OAuth2.0做三方授权.md	ch-200	数据库选型	-	待写
-201	part-19	数据库选型、OAuth2 与支付	201-实现三方扫码登录.md	ch-201	数据库选型	-	待写
-202	part-19	数据库选型、OAuth2 与支付	202-微信支付、支付宝支付.md	ch-202	数据库选型	-	待写
-203	part-20	面试题与总结	203-面试题-PostgreSQL中SQL的执行流程.md	ch-203	数据库/求职	-	待写
-204	part-20	面试题与总结	204-面试题-PostgreSQL索引优化.md	ch-204	数据库/求职	-	待写
-205	part-20	面试题与总结	205-面试题：redis缓存雪崩、缓存击穿、缓存穿透.md	ch-205	数据库/求职	-	待写
-206	part-20	面试题与总结	206-小册总结.md	ch-206	面试题与总结	-	待写
-207	part-21	AI 与 MCP	207-用NestJS-AI接入第一个模型.md	ch-207	AI	-	待写
-208	part-21	AI 与 MCP	208-结构化输出与Schema校验.md	ch-208	AI 与 MCP	-	待写
-209	part-21	AI 与 MCP	209-把Service方法变成AI工具.md	ch-209	AI	-	待写
-210	part-21	AI 与 MCP	210-用MCP把Nest应用变成工具服务器.md	ch-210	AI	-	待写
-211	part-21	AI 与 MCP	211-MCP接入实战.md	ch-211	AI	-	待写
-212	part-21	AI 与 MCP	212-AI工程化.md	ch-212	AI/可靠性/安全	-	待写
-213	part-22	可靠性工程	213-幂等键.md	ch-213	可靠性	-	待写
-214	part-22	可靠性工程	214-事务与消息一致性Outbox模式.md	ch-214	可靠性	-	待写
-215	part-22	可靠性工程	215-Outbox实战.md	ch-215	可靠性/消息队列	-	待写
-216	part-22	可靠性工程	216-重试死信与消息可靠性.md	ch-216	可靠性	-	待写
-217	part-22	可靠性工程	217-分布式锁.md	ch-217	数据库	-	待写
-218	part-22	可靠性工程	218-DurableWorkflows.md	ch-218	可靠性工程	-	待写
-219	part-22	可靠性工程	219-熔断超时限流与降级.md	ch-219	可靠性/安全	-	待写
-220	part-22	可靠性工程	220-健康检查与优雅停机.md	ch-220	可靠性	-	待写
-221	part-23	可观测性	221-OpenTelemetry与observability-SDK.md	ch-221	可观测	-	待写
-222	part-23	可观测性	222-分布式追踪.md	ch-222	可观测	-	待写
-223	part-23	可观测性	223-指标与告警.md	ch-223	可观测	-	待写
-224	part-23	可观测性	224-结构化日志与日志聚合.md	ch-224	可观测	-	待写
-225	part-23	可观测性	225-错误监控与APM接入.md	ch-225	可观测	-	待写
-226	part-23	可观测性	226-生产规则SLO与Dashboard.md	ch-226	可观测	-	待写
-227	part-23	可观测性	227-CICD从GitHubActions到发布.md	ch-227	DevOps	-	待写
-228	part-24	HTTP、任务与事件	228-Webhooks签名验签与防重放.md	ch-228	HTTP	-	待写
-229	part-24	HTTP、任务与事件	229-API版本化与兼容策略.md	ch-229	HTTP	-	待写
-230	part-24	HTTP、任务与事件	230-CookieSession与安全属性.md	ch-230	HTTP/安全	-	待写
-231	part-24	HTTP、任务与事件	231-HTTP压缩缓存头与传输优化.md	ch-231	HTTP/数据库	-	待写
-232	part-24	HTTP、任务与事件	232-MVC与模板渲染.md	ch-232	HTTP	-	待写
-233	part-24	HTTP、任务与事件	233-HTTPClient.md	ch-233	可靠性/HTTP	-	待写
-234	part-24	HTTP、任务与事件	234-i18n多语言API设计.md	ch-234	HTTP	-	待写
-235	part-24	HTTP、任务与事件	235-文件存储.md	ch-235	HTTP	-	待写
-236	part-24	HTTP、任务与事件	236-BullMQ任务队列.md	ch-236	消息队列	-	待写
-237	part-24	HTTP、任务与事件	237-EventEmitter异步事件与AsyncLocalStorage.md	ch-237	消息队列	-	待写
-238	part-25	安全与合规	238-HelmetCORS与CSRF与安全响应头.md	ch-238	安全	-	待写
-239	part-25	安全与合规	239-限流防刷与验证码.md	ch-239	安全	-	待写
-240	part-25	安全与合规	240-加密哈希与密码存储.md	ch-240	安全	-	待写
-241	part-25	安全与合规	241-密钥凭证与环境变量管理.md	ch-241	安全	-	待写
-242	part-25	安全与合规	242-多租户与数据隔离.md	ch-242	安全	-	待写
-243	part-25	安全与合规	243-OWASP-API-Top10与安全审计.md	ch-243	安全	-	待写
-244	part-25	安全与合规	244-依赖供应链与依赖安全.md	ch-244	安全	-	待写
-245	part-26	全栈交付	245-Nextjs16-App-Router与RSC.md	ch-245	全栈	meeting-booking-web	待写
-246	part-26	全栈交付	246-Next16与shadcn搭管理后台.md	ch-246	全栈	meeting-booking-web	待写
-247	part-26	全栈交付	247-TanStackQuery与API客户端.md	ch-247	全栈	meeting-booking-web	待写
-248	part-26	全栈交付	248-端到端认证httpOnly-Cookie与JWT.md	ch-248	HTTP	meeting-booking-web	待写
-249	part-26	全栈交付	249-SSR-RSC数据获取与缓存.md	ch-249	全栈/数据库	meeting-booking-web	待写
-250	part-26	全栈交付	250-实时看板SSE与WebSocket联调.md	ch-250	全栈	meeting-booking-web	待写
-251	part-26	全栈交付	251-部署Vercel与Docker与Nginx.md	ch-251	DevOps	meeting-booking-web	待写
-252	part-27	数据与架构	252-TypeORM实战.md	ch-252	数据库	-	待写
-253	part-27	数据与架构	253-DrizzleORM与SQL优先开发.md	ch-253	数据库	-	待写
-254	part-27	数据与架构	254-MikroORM与UnitOfWork.md	ch-254	数据库	-	待写
-255	part-27	数据与架构	255-MongoDB进阶.md	ch-255	数据库	-	待写
-256	part-27	数据与架构	256-pgvector与RAG.md	ch-256	AI/数据库	-	待写
-257	part-27	数据与架构	257-GraphQL联邦.md	ch-257	GraphQL	-	待写
-258	part-27	数据与架构	258-CQRS与事件溯源.md	ch-258	架构/消息队列	-	待写
-259	part-28	微服务传输与进阶	259-微服务传输层Redis与MQTT与NATS.md	ch-259	数据库/消息队列	-	待写
-260	part-28	微服务传输与进阶	260-微服务传输层RabbitMQ与Kafka与自定义.md	ch-260	消息队列	-	待写
-261	part-28	微服务传输与进阶	261-Hybrid应用Standalone与Serverless.md	ch-261	微服务传输与进阶	-	待写
-262	part-28	微服务传输与进阶	262-DiscoveryService与LazyModule.md	ch-262	微服务传输与进阶	-	待写
-263	part-28	微服务传输与进阶	263-AsyncProvider与InjectionScope.md	ch-263	Nest	-	待写
-264	part-28	微服务传输与进阶	264-CLI-Libraries与Monorepo进阶.md	ch-264	微服务传输与进阶	-	待写
-265	part-29	求职冲刺	265-系统设计与高并发面试.md	ch-265	求职	-	待写
-266	part-29	求职冲刺	266-NestNode与TypeScript高频题.md	ch-266	求职冲刺	-	待写
-267	part-29	求职冲刺	267-数据库Redis与消息队列专项.md	ch-267	数据库/消息队列	-	待写
-268	part-29	求职冲刺	268-项目包装简历与作品集.md	ch-268	求职	-	待写
-269	part-29	求职冲刺	269-模拟面试与12周学习计划.md	ch-269	求职	-	待写
-270	part-30	实战补遗与经典项目拆解	270-MinIO与OSS-自建存储与前端直传.md	ch-270	文件/存储	-	待写
-271	part-30	实战补遗与经典项目拆解	271-大文件流式下载与Range断点续传.md	ch-271	文件/性能	-	待写
-272	part-30	实战补遗与经典项目拆解	272-Excel导入导出.md	ch-272	工程化	-	待写
-273	part-30	实战补遗与经典项目拆解	273-用代码动态生成PPT.md	ch-273	工程化	-	待写
-274	part-30	实战补遗与经典项目拆解	274-服务器资源监控接口.md	ch-274	可观测性	-	待写
-275	part-30	实战补遗与经典项目拆解	275-GitHub与Google三方登录.md	ch-275	认证	-	待写
-276	part-30	实战补遗与经典项目拆解	276-单token无限续期与无感刷新.md	ch-276	认证	-	待写
-277	part-30	实战补遗与经典项目拆解	277-灵活DTO与class-validator自定义装饰器.md	ch-277	基础	-	待写
-278	part-30	实战补遗与经典项目拆解	278-Entity序列化与VO取舍.md	ch-278	基础	-	待写
-279	part-30	实战补遗与经典项目拆解	279-TypeORM迁移深水区与Prisma对照.md	ch-279	ORM	-	待写
-280	part-30	实战补遗与经典项目拆解	280-图书管理系统拆解-旧版全栈复盘.md	ch-280	项目复盘	-	待写
-281	part-30	实战补遗与经典项目拆解	281-考试系统拆解-微服务与自动判卷.md	ch-281	项目复盘	-	待写
-282	part-30	实战补遗与经典项目拆解	282-聊天室拆解-Socketio与全链路.md	ch-282	项目复盘	-	待写
-283	part-30	实战补遗与经典项目拆解	283-请求日志审计日志与脱敏.md	ch-283	可观测性	-	待写
-284	part-30	实战补遗与经典项目拆解	284-部署到阿里云-前后端上线清单.md	ch-284	部署	-	待写
-285	part-30	实战补遗与经典项目拆解	285-200版与205版差异复盘与学习路线.md	ch-285	复盘	-	待写
-286	part-30	实战补遗与经典项目拆解	286-286主题覆盖清单与查漏补缺.md	ch-286	复盘	-	待写
-287	part-30	实战补遗与经典项目拆解	287-Nest12迁移与ESM踩坑合集.md	ch-287	基础	-	待写
+section	chapter	chapter_title	part	file	title	slug	domains	project	status
+01.01	01	导学、CLI 与调试	part-01	book/ch-01-导学与CLI/01.01-开篇词.md	开篇词	ch-01-01	导学	-	已写
+01.02	01	导学、CLI 与调试	part-01	book/ch-01-导学与CLI/01.02-给你5个学习Nest的理由，你会心动么.md	给你5个学习Nest的理由，你会心动么	ch-01-02	导学	-	已写
+01.03	01	导学、CLI 与调试	part-01	book/ch-01-导学与CLI/01.03-快速掌握NestCLI.md	快速掌握NestCLI	ch-01-03	Nest 核心基础	-	已写
+01.04	01	导学、CLI 与调试	part-01	book/ch-01-导学与CLI/01.04-5种HTTP数据传输方式.md	5种HTTP数据传输方式	ch-01-04	Nest 核心基础	-	已写
+01.05	01	导学、CLI 与调试	part-01	book/ch-01-导学与CLI/01.05-IoC解决了什么痛点问题.md	IoC解决了什么痛点问题	ch-01-05	Nest	-	已写
+01.06	01	导学、CLI 与调试	part-01	book/ch-01-导学与CLI/01.06-如何调试Nest项目.md	如何调试Nest项目	ch-01-06	Nest 核心基础	-	已写
+02.01	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.01-使用多种Provider，灵活注入对象.md	使用多种Provider，灵活注入对象	ch-02-01	Nest	-	已写
+02.02	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.02-全局模块和生命周期.md	全局模块和生命周期	ch-02-02	Nest	-	已写
+02.03	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.03-AOP架构有什么好处.md	AOP架构有什么好处	ch-02-03	架构/Nest	-	已写
+02.04	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.04-一网打尽Nest全部装饰器.md	一网打尽Nest全部装饰器	ch-02-04	Nest	-	已写
+02.05	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.05-ExecutionContext：切换不同上下文.md	ExecutionContext：切换不同上下文	ch-02-05	Nest 核心基础	-	已写
+02.06	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.06-Nest如何自定义装饰器.md	Nest如何自定义装饰器	ch-02-06	Nest	-	已写
+02.07	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.07-Metadata和Reflector.md	Metadata和Reflector	ch-02-07	Nest 核心基础	-	已写
+02.08	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.08-Module和Provider的循环依赖怎么处理.md	Module和Provider的循环依赖怎么处理	ch-02-08	Nest	-	已写
+02.09	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.09-如何创建动态模块.md	如何创建动态模块	ch-02-09	Nest	-	已写
+02.10	02	Nest 核心：模块、依赖注入与生命周期	part-01	book/ch-02-核心概念/02.10-图解串一串Nest核心概念.md	图解串一串Nest核心概念	ch-02-10	Nest 核心基础	-	已写
+03.01	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.01-Nest和Express的关系，如何切到fastify.md	Nest和Express的关系，如何切到fastify	ch-03-01	Nest 核心基础	-	已写
+03.02	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.02-Nest的Middleware.md	Nest的Middleware	ch-03-02	Nest	-	已写
+03.03	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.03-RxJS和Interceptor.md	RxJS和Interceptor	ch-03-03	Nest	-	已写
+03.04	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.04-内置Pipe和自定义Pipe.md	内置Pipe和自定义Pipe	ch-03-04	Nest	-	已写
+03.05	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.05-如何使用ValidationPipe验证post请求参数.md	如何使用ValidationPipe验证post请求参数	ch-03-05	Nest	-	已写
+03.06	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.06-如何自定义ExceptionFilter.md	如何自定义ExceptionFilter	ch-03-06	Nest 核心基础	-	已写
+04.01	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.01-Express如何使用multer实现文件上传.md	Express如何使用multer实现文件上传	ch-04-01	Nest 核心基础	-	已写
+04.02	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.02-Nest如何使用multer实现文件上传.md	Nest如何使用multer实现文件上传	ch-04-02	Nest 核心基础	-	已写
+04.03	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.03-大文件分片上传.md	大文件分片上传	ch-04-03	Nest 核心基础	-	已写
+04.04	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.04-Nest里如何打印日志.md	Nest里如何打印日志	ch-04-04	可观测	-	已写
+04.05	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.05-为什么Node里要用Winston打印日志.md	为什么Node里要用Winston打印日志	ch-04-05	可观测	-	已写
+04.06	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.06-Nest集成日志框架Winston.md	Nest集成日志框架Winston	ch-04-06	可观测	-	已写
+05.01	05	容器化与进程管理	part-01	book/ch-05-容器化/05.01-通过Desktop学Docker也太简单了.md	通过Desktop学Docker也太简单了	ch-05-01	DevOps	-	已写
+05.02	05	容器化与进程管理	part-01	book/ch-05-容器化/05.02-你的第一个Dockerfile.md	你的第一个Dockerfile	ch-05-02	DevOps	-	已写
+05.03	05	容器化与进程管理	part-01	book/ch-05-容器化/05.03-Nest项目如何编写Dockerfile.md	Nest项目如何编写Dockerfile	ch-05-03	DevOps	-	已写
+05.04	05	容器化与进程管理	part-01	book/ch-05-容器化/05.04-提升Dockerfile水平的5个技巧.md	提升Dockerfile水平的5个技巧	ch-05-04	DevOps	-	已写
+05.05	05	容器化与进程管理	part-01	book/ch-05-容器化/05.05-Docker是怎么实现的.md	Docker是怎么实现的	ch-05-05	DevOps	-	已写
+05.06	05	容器化与进程管理	part-01	book/ch-05-容器化/05.06-为什么Node应用要用PM2来跑.md	为什么Node应用要用PM2来跑	ch-05-06	容器化与进程管理	-	已写
+06.01	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.01-快速入门PostgreSQL.md	快速入门PostgreSQL	ch-06-01	数据库	-	已写
+06.02	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.02-SQL查询语句的所有语法和函数PostgreSQL版.md	SQL查询语句的所有语法和函数PostgreSQL版	ch-06-02	数据库	-	已写
+06.03	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.03-一对一、JOIN查询与级联.md	一对一、JOIN查询与级联	ch-06-03	PostgreSQL	-	已写
+06.04	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.04-一对多、多对多的表设计.md	一对多、多对多的表设计	ch-06-04	PostgreSQL	-	已写
+06.05	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.05-子查询和EXISTS.md	子查询和EXISTS	ch-06-05	PostgreSQL	-	已写
+06.06	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.06-SQL综合练习.md	SQL综合练习	ch-06-06	数据库	-	已写
+06.07	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.07-PostgreSQL的事务和隔离级别.md	PostgreSQL的事务和隔离级别	ch-06-07	数据库	-	已写
+06.08	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.08-PostgreSQL的视图、存储过程和函数.md	PostgreSQL的视图、存储过程和函数	ch-06-08	数据库	-	已写
+06.09	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.09-使用Node操作PostgreSQL的两种方式.md	使用Node操作PostgreSQL的两种方式	ch-06-09	数据库	-	已写
+06.10	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.10-数据库选型-为什么公司里选择PostgreSQL作为主库.md	数据库选型-为什么公司里选择PostgreSQL作为主库	ch-06-10	数据库	-	待写
+06.11	06	PostgreSQL 与 SQL	part-02	book/ch-06-PostgreSQL与SQL/06.11-PostgreSQL和MySQL的区别.md	PostgreSQL和MySQL的区别	ch-06-11	数据库	-	待写
+07.01	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.01-快速掌握Prisma8.md	快速掌握Prisma8	ch-07-01	数据库	-	已写
+07.02	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.02-Prisma8一对一映射与关联CRUD.md	Prisma8一对一映射与关联CRUD	ch-07-02	数据库	-	已写
+07.03	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.03-Prisma8一对多映射与关联CRUD.md	Prisma8一对多映射与关联CRUD	ch-07-03	数据库	-	已写
+07.04	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.04-Prisma8多对多映射与关联CRUD.md	Prisma8多对多映射与关联CRUD	ch-07-04	数据库	-	已写
+07.05	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.05-Prisma8常用命令与迁移工作流.md	Prisma8常用命令与迁移工作流	ch-07-05	数据库	-	已写
+07.06	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.06-Prisma8知识点查缺补漏.md	Prisma8知识点查缺补漏	ch-07-06	数据库	-	已写
+07.07	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.07-在Nest里集成Prisma8.md	在Nest里集成Prisma8	ch-07-07	数据库	-	已写
+07.08	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.08-Prisma8架构与contract模型深入.md	Prisma8架构与contract模型深入	ch-07-08	AI/数据库/架构	-	待写
+07.09	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.09-Prisma8的全部命令.md	Prisma8的全部命令	ch-07-09	数据库	-	待写
+07.10	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.10-Prisma8的全部contract语法.md	Prisma8的全部contract语法	ch-07-10	数据库	-	待写
+07.11	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.11-Prisma8单表CRUD的全部API.md	Prisma8单表CRUD的全部API	ch-07-11	数据库	-	待写
+07.12	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.12-Prisma8多表CRUD的全部API.md	Prisma8多表CRUD的全部API	ch-07-12	数据库	-	待写
+07.13	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.13-在Nest里工程化集成Prisma8.md	在Nest里工程化集成Prisma8	ch-07-13	数据库	-	待写
+07.14	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.14-TypeORM实战.md	TypeORM实战	ch-07-14	数据库	-	待写
+07.15	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.15-DrizzleORM与SQL优先开发.md	DrizzleORM与SQL优先开发	ch-07-15	数据库	-	待写
+07.16	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.16-MikroORM与UnitOfWork.md	MikroORM与UnitOfWork	ch-07-16	数据库	-	待写
+07.17	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.17-MongoDB进阶.md	MongoDB进阶	ch-07-17	数据库	-	待写
+07.18	07	Prisma 8 与 ORM 选型	part-02	book/ch-07-Prisma8与选型/07.18-TypeORM迁移深水区与Prisma对照.md	TypeORM迁移深水区与Prisma对照	ch-07-18	ORM	-	待写
+08.01	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.01-快速入门Redis.md	快速入门Redis	ch-08-01	数据库	-	已写
+08.02	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.02-在Nest里操作Redis.md	在Nest里操作Redis	ch-08-02	数据库	-	已写
+08.03	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.03-为什么推荐ioredis而不是cache-manager操作Redis.md	为什么推荐ioredis而不是cache-manager操作Redis	ch-08-03	数据库	-	已写
+08.04	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.04-使用Sequelize做ORM框架.md	使用Sequelize做ORM框架	ch-08-04	数据库	-	待写
+08.05	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.05-Prisma8、TypeORM、Sequelize三大ORM框架对比.md	Prisma8、TypeORM、Sequelize三大ORM框架对比	ch-08-05	数据库	-	待写
+08.06	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.06-为什么前端监控系统要用RabbitMQ.md	为什么前端监控系统要用RabbitMQ	ch-08-06	全栈/消息队列	-	待写
+08.07	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.07-快速掌握RocketMQ.md	快速掌握RocketMQ	ch-08-07	消息队列	-	待写
+08.08	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.08-快速掌握Kafka.md	快速掌握Kafka	ch-08-08	消息队列	-	待写
+08.09	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.09-消息队列选型.md	消息队列选型	ch-08-09	消息队列	-	待写
+08.10	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.10-基于Redis实现消息队列.md	基于Redis实现消息队列	ch-08-10	数据库/消息队列	-	待写
+08.11	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.11-基于Redis实现分布式锁.md	基于Redis实现分布式锁	ch-08-11	数据库	-	待写
+08.12	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.12-Redis的Stream数据结构.md	Redis的Stream数据结构	ch-08-12	数据库	-	待写
+08.13	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.13-Redis的布隆过滤器.md	Redis的布隆过滤器	ch-08-13	数据库	-	待写
+08.14	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.14-基于Redis实现关注关系.md	基于Redis实现关注关系	ch-08-14	数据库	-	待写
+08.15	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.15-基于Redis实现uv计数.md	基于Redis实现uv计数	ch-08-15	数据库	-	待写
+08.16	08	Redis、缓存与消息	part-02	book/ch-08-Redis与缓存/08.16-面试题：说说Redis的应用场景.md	面试题：说说Redis的应用场景	ch-08-16	数据库/求职	-	待写
+09.01	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.01-两种登录状态保存方式：JWT、Session.md	两种登录状态保存方式：JWT、Session	ch-09-01	HTTP	-	已写
+09.02	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.02-Nest里实现Session和JWT.md	Nest里实现Session和JWT	ch-09-02	HTTP	-	已写
+09.03	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.03-PostgreSQL+Prisma8+JWT实现登录注册.md	PostgreSQL+Prisma8+JWT实现登录注册	ch-09-03	数据库	-	已写
+09.04	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.04-基于ACL实现权限控制.md	基于ACL实现权限控制	ch-09-04	Redis 基础与认证鉴权	-	已写
+09.05	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.05-基于RBAC实现权限控制.md	基于RBAC实现权限控制	ch-09-05	Redis 基础与认证鉴权	-	已写
+09.06	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.06-基于access_token和refresh_token实现无感刷新登录状态.md	基于access_token和refresh_token实现无感刷新登录状态	ch-09-06	Redis 基础与认证鉴权	-	已写
+09.07	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.07-使用passport做身份认证.md	使用passport做身份认证	ch-09-07	分布式架构	-	待写
+09.08	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.08-实现单点登录.md	实现单点登录	ch-09-08	分布式架构	-	待写
+09.09	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.09-如何用OAuth2.0做三方授权.md	如何用OAuth2.0做三方授权	ch-09-09	数据库选型	-	待写
+09.10	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.10-实现三方扫码登录.md	实现三方扫码登录	ch-09-10	数据库选型	-	待写
+09.11	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.11-微信支付、支付宝支付.md	微信支付、支付宝支付	ch-09-11	数据库选型	-	待写
+09.12	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.12-HelmetCORS与CSRF与安全响应头.md	HelmetCORS与CSRF与安全响应头	ch-09-12	安全	-	待写
+09.13	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.13-限流防刷与验证码.md	限流防刷与验证码	ch-09-13	安全	-	待写
+09.14	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.14-加密哈希与密码存储.md	加密哈希与密码存储	ch-09-14	安全	-	待写
+09.15	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.15-密钥凭证与环境变量管理.md	密钥凭证与环境变量管理	ch-09-15	安全	-	待写
+09.16	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.16-多租户与数据隔离.md	多租户与数据隔离	ch-09-16	安全	-	待写
+09.17	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.17-OWASP-API-Top10与安全审计.md	OWASP-API-Top10与安全审计	ch-09-17	安全	-	待写
+09.18	09	认证、授权与安全	part-02	book/ch-09-认证与安全/09.18-依赖供应链与依赖安全.md	依赖供应链与依赖安全	ch-09-18	安全	-	待写
+10.01	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.01-如何动态读取不同环境的配置.md	如何动态读取不同环境的配置	ch-10-01	Redis 基础与认证鉴权	-	已写
+10.02	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.02-为什么要使用DockerCompose.md	为什么要使用DockerCompose	ch-10-02	DevOps	-	已写
+10.03	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.03-Docker容器通信的最简单方式：桥接网络.md	Docker容器通信的最简单方式：桥接网络	ch-10-03	DevOps	-	已写
+10.04	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.04-Docker支持重启策略，是否还需要PM2.md	Docker支持重启策略，是否还需要PM2	ch-10-04	DevOps	-	已写
+10.05	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.05-搭建私有Docker镜像仓库.md	搭建私有Docker镜像仓库	ch-10-05	DevOps	-	待写
+10.06	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.06-快速掌握Nginx的2大核心用法.md	快速掌握Nginx的2大核心用法	ch-10-06	DevOps	-	待写
+10.07	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.07-基于Nginx实现灰度系统.md	基于Nginx实现灰度系统	ch-10-07	DevOps	-	待写
+10.08	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.08-Nginx的全部配置.md	Nginx的全部配置	ch-10-08	DevOps	-	待写
+10.09	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.09-基于Redis实现分布式session.md	基于Redis实现分布式session	ch-10-09	数据库	-	待写
+10.10	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.10-Redis+高德地图，实现附近的充电宝.md	Redis+高德地图，实现附近的充电宝	ch-10-10	数据库	-	待写
+10.11	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.11-基于Redis实现王者荣耀段位排行榜.md	基于Redis实现王者荣耀段位排行榜	ch-10-11	数据库	-	待写
+11.01	11	工程化设施	part-02	book/ch-11-工程化/11.01-用Swagger自动生成api文档.md	用Swagger自动生成api文档	ch-11-01	HTTP	-	待写
+11.02	11	工程化设施	part-02	book/ch-11-工程化/11.02-用Scalar、Redoc美化API文档与契约交付.md	用Scalar、Redoc美化API文档与契约交付	ch-11-02	HTTP	-	待写
+11.03	11	工程化设施	part-02	book/ch-11-工程化/11.03-使用compodoc生成文档.md	使用compodoc生成文档	ch-11-03	工程化设施	-	待写
+11.04	11	工程化设施	part-02	book/ch-11-工程化/11.04-Node如何发邮件.md	Node如何发邮件	ch-11-04	工程化设施	-	待写
+11.05	11	工程化设施	part-02	book/ch-11-工程化/11.05-实现基于邮箱验证码的登录.md	实现基于邮箱验证码的登录	ch-11-05	安全	-	待写
+11.06	11	工程化设施	part-02	book/ch-11-工程化/11.06-使用阿里云的邮件和短信服务.md	使用阿里云的邮件和短信服务	ch-11-06	工程化设施	-	待写
+11.07	11	工程化设施	part-02	book/ch-11-工程化/11.07-定时任务+Redis实现阅读量计数.md	定时任务+Redis实现阅读量计数	ch-11-07	数据库	-	待写
+11.08	11	工程化设施	part-02	book/ch-11-工程化/11.08-Nest的3种定时任务.md	Nest的3种定时任务	ch-11-08	工程化设施	-	待写
+11.09	11	工程化设施	part-02	book/ch-11-工程化/11.09-短链服务自己写一个.md	短链服务自己写一个	ch-11-09	工程化设施	-	待写
+11.10	11	工程化设施	part-02	book/ch-11-工程化/11.10-Nest实现ServerSentEvent数据推送.md	Nest实现ServerSentEvent数据推送	ch-11-10	工程化设施	-	待写
+11.11	11	工程化设施	part-02	book/ch-11-工程化/11.11-基于sharp实现gif压缩工具.md	基于sharp实现gif压缩工具	ch-11-11	HTTP	-	待写
+11.12	11	工程化设施	part-02	book/ch-11-工程化/11.12-实现扫二维码登录.md	实现扫二维码登录	ch-11-12	工程化设施	-	待写
+11.13	11	工程化设施	part-02	book/ch-11-工程化/11.13-Nest的REPL模式.md	Nest的REPL模式	ch-11-13	工程化设施	-	待写
+11.14	11	工程化设施	part-02	book/ch-11-工程化/11.14-使用Prometheus实现Node性能监控.md	使用Prometheus实现Node性能监控	ch-11-14	工程化设施	-	待写
+12.01	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.01-需求分析与原型.md	需求分析与原型	ch-12-01	项目一	meeting-booking	待写
+12.02	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.02-技术方案与数据库设计.md	技术方案与数据库设计	ch-12-02	数据库	meeting-booking	待写
+12.03	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.03-项目骨架与工程约定.md	项目骨架与工程约定	ch-12-03	Nest	meeting-booking	待写
+12.04	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.04-用户管理模块.md	用户管理模块	ch-12-04	Nest,Nest,Nest,Nest,Nest,Nest,Nest,Nest	meeting-booking,meeting-booking,meeting-booking,meeting-booking,meeting-booking,meeting-booking,meeting-booking,meeting-booking	待写
+12.05	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.05-会议室管理模块.md	会议室管理模块	ch-12-05	Nest,全栈/Nest,全栈/Nest	meeting-booking,meeting-booking,meeting-booking	待写
+12.06	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.06-预订管理模块.md	预订管理模块	ch-12-06	Nest,全栈/Nest,全栈/Nest	meeting-booking,meeting-booking,meeting-booking	待写
+12.07	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.07-统计管理模块.md	统计管理模块	ch-12-07	Nest,全栈/Nest	meeting-booking,meeting-booking	待写
+12.08	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.08-部署、验收与复盘.md	部署、验收与复盘	ch-12-08	DevOps	meeting-booking	待写
+13.01	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.01-电商：需求分析与核心域.md	电商：需求分析与核心域	ch-13-01	项目二	ecommerce	待写
+13.02	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.02-电商：数据库设计.md	电商：数据库设计	ch-13-02	数据库	ecommerce	待写
+13.03	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.03-电商：微服务拆分与技术集成.md	电商：微服务拆分与技术集成	ch-13-03	消息队列,数据库/消息队列	ecommerce,ecommerce	待写
+13.04	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.04-电商：功能开发.md	电商：功能开发	ch-13-04	项目二,项目二	ecommerce,ecommerce	待写
+13.05	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.05-电商：前端与管理后台.md	电商：前端与管理后台	ch-13-05	全栈	ecommerce	待写
+13.06	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.06-电商：部署与验收.md	电商：部署与验收	ch-13-06	DevOps	ecommerce	待写
+13.07	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.07-点评：需求分析与原型.md	点评：需求分析与原型	ch-13-07	项目三	dianping	待写
+13.08	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.08-点评：技术方案与数据设计.md	点评：技术方案与数据设计	ch-13-08	项目三	dianping	待写
+13.09	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.09-点评：后端开发.md	点评：后端开发	ch-13-09	项目三	dianping	待写
+13.10	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.10-点评：前端与验收.md	点评：前端与验收	ch-13-10	全栈,DevOps	dianping,dianping	待写
+14.01	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.01-聊天室：需求分析与原型.md	聊天室：需求分析与原型	ch-14-01	项目四	chatroom	待写
+14.02	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.02-聊天室：数据库设计.md	聊天室：数据库设计	ch-14-02	数据库	chatroom	待写
+14.03	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.03-聊天室：微服务拆分.md	聊天室：微服务拆分	ch-14-03	消息队列	chatroom	待写
+14.04	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.04-聊天室：功能开发.md	聊天室：功能开发	ch-14-04	项目四,项目四	chatroom,chatroom	待写
+14.05	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.05-聊天室：前端与验收.md	聊天室：前端与验收	ch-14-05	全栈,DevOps	chatroom,chatroom	待写
+14.06	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.06-教育：需求分析与数据设计.md	教育：需求分析与数据设计	ch-14-06	GraphQL 与教育平台,数据库	education,education	待写
+14.07	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.07-教育：微服务拆分与GraphQL层.md	教育：微服务拆分与 GraphQL 层	ch-14-07	消息队列,GraphQL	education,education	待写
+14.08	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.08-教育：功能开发与上线.md	教育：功能开发与上线	ch-14-08	GraphQL 与教育平台,GraphQL 与教育平台	education,education	待写
+14.09	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.09-博客：需求分析与数据设计.md	博客：需求分析与数据设计	ch-14-09	项目五,数据库	blog,blog	待写
+14.10	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.10-博客：内容与检索集成.md	博客：内容与检索集成	ch-14-10	数据库,项目五	blog,blog	待写
+14.11	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.11-博客：功能开发.md	博客：功能开发	ch-14-11	项目五	blog	待写
+14.12	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.12-博客：前端与验收.md	博客：前端与验收	ch-14-12	全栈,DevOps	blog,blog	待写
+14.13	14	项目四/五：聊天室、教育平台与博客	part-03	book/ch-14-项目四五/14.13-博客：重构与复盘.md	博客：重构与复盘	ch-14-13	DevOps	blog	待写
+15.01	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.01-Nest如何创建微服务.md	Nest如何创建微服务	ch-15-01	消息队列	-	待写
+15.02	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.02-Nest的Monorepo和Library.md	Nest的Monorepo和Library	ch-15-02	微服务	-	待写
+15.03	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.03-用Etcd实现微服务配置中心和注册中心.md	用Etcd实现微服务配置中心和注册中心	ch-15-03	消息队列	-	待写
+15.04	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.04-Nest集成Etcd做注册中心、配置中心.md	Nest集成Etcd做注册中心、配置中心	ch-15-04	微服务	-	待写
+15.05	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.05-使用Nacos做配置中心和注册中心.md	使用Nacos做配置中心和注册中心	ch-15-05	微服务	-	待写
+15.06	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.06-使用ZoopKeeper做注册中心.md	使用ZoopKeeper做注册中心	ch-15-06	微服务	-	待写
+15.07	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.07-使用Zuul做配置中心和注册中心.md	使用Zuul做配置中心和注册中心	ch-15-07	微服务	-	待写
+15.08	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.08-注册中心功能总结.md	注册中心功能总结	ch-15-08	微服务	-	待写
+15.09	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.09-基于gRPC实现跨语言的微服务通信.md	基于gRPC实现跨语言的微服务通信	ch-15-09	消息队列	-	待写
+15.10	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.10-深入掌握gRPC.md	深入掌握gRPC	ch-15-10	微服务	-	待写
+15.11	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.11-BFF层的作用.md	BFF层的作用	ch-15-11	分布式架构	-	待写
+15.12	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.12-什么是分布式架构.md	什么是分布式架构	ch-15-12	架构	-	待写
+15.13	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.13-Nest应用的可观测性-日志、指标与链路追踪.md	Nest应用的可观测性-日志、指标与链路追踪	ch-15-13	可观测	-	待写
+15.14	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.14-生产环境性能排查与容量规划.md	生产环境性能排查与容量规划	ch-15-14	分布式架构	-	待写
+15.15	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.15-图解微服务架构.md	图解微服务架构	ch-15-15	架构/消息队列	-	待写
+15.16	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.16-微服务传输层Redis与MQTT与NATS.md	微服务传输层Redis与MQTT与NATS	ch-15-16	数据库/消息队列	-	待写
+15.17	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.17-微服务传输层RabbitMQ与Kafka与自定义.md	微服务传输层RabbitMQ与Kafka与自定义	ch-15-17	消息队列	-	待写
+15.18	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.18-Hybrid应用Standalone与Serverless.md	Hybrid应用Standalone与Serverless	ch-15-18	微服务传输与进阶	-	待写
+15.19	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.19-DiscoveryService与LazyModule.md	DiscoveryService与LazyModule	ch-15-19	微服务传输与进阶	-	待写
+15.20	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.20-AsyncProvider与InjectionScope.md	AsyncProvider与InjectionScope	ch-15-20	Nest	-	待写
+15.21	15	微服务与分布式架构	part-04	book/ch-15-微服务/15.21-CLI-Libraries与Monorepo进阶.md	CLI-Libraries与Monorepo进阶	ch-15-21	微服务传输与进阶	-	待写
+16.01	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.01-什么时候需要WebSocket.md	什么时候需要WebSocket	ch-16-01	WebSocket 与实时通信	-	待写
+16.02	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.02-用Node.js手写WebSocket协议.md	用Node.js手写WebSocket协议	ch-16-02	WebSocket 与实时通信	-	待写
+16.03	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.03-MongoDB快速入门.md	MongoDB快速入门	ch-16-03	数据库	-	待写
+16.04	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.04-在Nest里操作MongoDB.md	在Nest里操作MongoDB	ch-16-04	数据库	-	待写
+16.05	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.05-Nest如何开发WebSocket服务.md	Nest如何开发WebSocket服务	ch-16-05	WebSocket 与实时通信	-	待写
+16.06	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.06-Redis+WebSocket实时外卖员距离.md	Redis+WebSocket实时外卖员距离	ch-16-06	数据库	-	待写
+16.07	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.07-WebSocket的面试题.md	WebSocket的面试题	ch-16-07	求职	-	待写
+16.08	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.08-GraphQL快速入门.md	GraphQL快速入门	ch-16-08	GraphQL	education	待写
+16.09	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.09-Nest如何开发GraphQL服务.md	Nest如何开发GraphQL服务	ch-16-09	GraphQL	education	待写
+16.10	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.10-Kafka消息中间件和RabbitMQ有什么区别.md	Kafka消息中间件和RabbitMQ有什么区别	ch-16-10	消息队列	education	待写
+16.11	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.11-GraphQL的面试题.md	GraphQL的面试题	ch-16-11	GraphQL/求职	education	待写
+16.12	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.12-为什么要用ElasticSearch做全文检索.md	为什么要用ElasticSearch做全文检索	ch-16-12	全文检索与云原生	-	待写
+16.13	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.13-部署一套Kubenetes环境.md	部署一套Kubenetes环境	ch-16-13	DevOps	-	待写
+16.14	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.14-ElasticSearch和PostgreSQL如何配合.md	ElasticSearch和PostgreSQL如何配合	ch-16-14	数据库	-	待写
+16.15	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.15-Node里操作ElasticSearch.md	Node里操作ElasticSearch	ch-16-15	全文检索与云原生	-	待写
+16.16	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.16-Nest集成ElasticSearch.md	Nest集成ElasticSearch	ch-16-16	全文检索与云原生	-	待写
+16.17	16	实时通信、GraphQL 与全文检索	part-04	book/ch-16-实时通信与GraphQL/16.17-什么是Kubenetes.md	什么是Kubenetes	ch-16-17	全文检索与云原生	-	待写
+17.01	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.01-幂等键.md	幂等键	ch-17-01	可靠性	-	待写
+17.02	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.02-事务与消息一致性Outbox模式.md	事务与消息一致性Outbox模式	ch-17-02	可靠性	-	待写
+17.03	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.03-Outbox实战.md	Outbox实战	ch-17-03	可靠性/消息队列	-	待写
+17.04	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.04-重试死信与消息可靠性.md	重试死信与消息可靠性	ch-17-04	可靠性	-	待写
+17.05	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.05-分布式锁.md	分布式锁	ch-17-05	数据库	-	待写
+17.06	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.06-DurableWorkflows.md	DurableWorkflows	ch-17-06	可靠性工程	-	待写
+17.07	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.07-熔断超时限流与降级.md	熔断超时限流与降级	ch-17-07	可靠性/安全	-	待写
+17.08	17	可靠性工程	part-04	book/ch-17-可靠性工程/17.08-健康检查与优雅停机.md	健康检查与优雅停机	ch-17-08	可靠性	-	待写
+18.01	18	可观测性	part-04	book/ch-18-可观测性/18.01-OpenTelemetry与observability-SDK.md	OpenTelemetry与observability-SDK	ch-18-01	可观测	-	待写
+18.02	18	可观测性	part-04	book/ch-18-可观测性/18.02-分布式追踪.md	分布式追踪	ch-18-02	可观测	-	待写
+18.03	18	可观测性	part-04	book/ch-18-可观测性/18.03-指标与告警.md	指标与告警	ch-18-03	可观测	-	待写
+18.04	18	可观测性	part-04	book/ch-18-可观测性/18.04-结构化日志与日志聚合.md	结构化日志与日志聚合	ch-18-04	可观测	-	待写
+18.05	18	可观测性	part-04	book/ch-18-可观测性/18.05-错误监控与APM接入.md	错误监控与APM接入	ch-18-05	可观测	-	待写
+18.06	18	可观测性	part-04	book/ch-18-可观测性/18.06-生产规则SLO与Dashboard.md	生产规则SLO与Dashboard	ch-18-06	可观测	-	待写
+18.07	18	可观测性	part-04	book/ch-18-可观测性/18.07-CICD从GitHubActions到发布.md	CICD从GitHubActions到发布	ch-18-07	DevOps	-	待写
+19.01	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.01-Webhooks签名验签与防重放.md	Webhooks签名验签与防重放	ch-19-01	HTTP	-	待写
+19.02	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.02-API版本化与兼容策略.md	API版本化与兼容策略	ch-19-02	HTTP	-	待写
+19.03	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.03-CookieSession与安全属性.md	CookieSession与安全属性	ch-19-03	HTTP/安全	-	待写
+19.04	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.04-HTTP压缩缓存头与传输优化.md	HTTP压缩缓存头与传输优化	ch-19-04	HTTP/数据库	-	待写
+19.05	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.05-MVC与模板渲染.md	MVC与模板渲染	ch-19-05	HTTP	-	待写
+19.06	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.06-HTTPClient.md	HTTPClient	ch-19-06	可靠性/HTTP	-	待写
+19.07	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.07-i18n多语言API设计.md	i18n多语言API设计	ch-19-07	HTTP	-	待写
+19.08	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.08-文件存储.md	文件存储	ch-19-08	HTTP	-	待写
+19.09	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.09-BullMQ任务队列.md	BullMQ任务队列	ch-19-09	消息队列	-	待写
+19.10	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.10-EventEmitter异步事件与AsyncLocalStorage.md	EventEmitter异步事件与AsyncLocalStorage	ch-19-10	消息队列	-	待写
+19.11	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.11-Nextjs16-App-Router与RSC.md	Nextjs16-App-Router与RSC	ch-19-11	全栈	meeting-booking-web	待写
+19.12	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.12-Next16与shadcn搭管理后台.md	Next16与shadcn搭管理后台	ch-19-12	全栈	meeting-booking-web	待写
+19.13	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.13-TanStackQuery与API客户端.md	TanStackQuery与API客户端	ch-19-13	全栈	meeting-booking-web	待写
+19.14	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.14-端到端认证httpOnly-Cookie与JWT.md	端到端认证httpOnly-Cookie与JWT	ch-19-14	HTTP	meeting-booking-web	待写
+19.15	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.15-SSR-RSC数据获取与缓存.md	SSR-RSC数据获取与缓存	ch-19-15	全栈/数据库	meeting-booking-web	待写
+19.16	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.16-实时看板SSE与WebSocket联调.md	实时看板SSE与WebSocket联调	ch-19-16	全栈	meeting-booking-web	待写
+19.17	19	HTTP、任务、事件与全栈交付	part-04	book/ch-19-HTTP与全栈交付/19.17-部署Vercel与Docker与Nginx.md	部署Vercel与Docker与Nginx	ch-19-17	DevOps	meeting-booking-web	待写
+20.01	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.01-如何调试Nest源码.md	如何调试Nest源码	ch-20-01	框架原理与源码	-	待写
+20.02	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.02-NestIOC实现原理.md	NestIOC实现原理	ch-20-02	框架原理与源码	-	待写
+20.03	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.03-手写Nest的IOC容器.md	手写Nest的IOC容器	ch-20-03	框架原理与源码	-	待写
+20.04	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.04-NestAOP实现原理.md	NestAOP实现原理	ch-20-04	Nest	-	待写
+20.05	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.05-Nest的路由是怎么实现的.md	Nest的路由是怎么实现的	ch-20-05	框架原理与源码	-	待写
+20.06	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.06-NestCLI实现原理.md	NestCLI实现原理	ch-20-06	框架原理与源码	-	待写
+20.07	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.07-面试题-PostgreSQL中SQL的执行流程.md	面试题-PostgreSQL中SQL的执行流程	ch-20-07	数据库/求职	-	待写
+20.08	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.08-面试题-PostgreSQL索引优化.md	面试题-PostgreSQL索引优化	ch-20-08	数据库/求职	-	待写
+20.09	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.09-面试题：redis缓存雪崩、缓存击穿、缓存穿透.md	面试题：redis缓存雪崩、缓存击穿、缓存穿透	ch-20-09	数据库/求职	-	待写
+20.10	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.10-小册总结.md	小册总结	ch-20-10	面试题与总结	-	待写
+20.11	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.11-用NestJS-AI接入第一个模型.md	用NestJS-AI接入第一个模型	ch-20-11	AI	-	待写
+20.12	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.12-结构化输出与Schema校验.md	结构化输出与Schema校验	ch-20-12	AI 与 MCP	-	待写
+20.13	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.13-把Service方法变成AI工具.md	把Service方法变成AI工具	ch-20-13	AI	-	待写
+20.14	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.14-用MCP把Nest应用变成工具服务器.md	用MCP把Nest应用变成工具服务器	ch-20-14	AI	-	待写
+20.15	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.15-MCP接入实战.md	MCP接入实战	ch-20-15	AI	-	待写
+20.16	20	框架原理与 AI 工程	part-04	book/ch-20-原理与AI/20.16-AI工程化.md	AI工程化	ch-20-16	AI/可靠性/安全	-	待写
+21.01	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.01-pgvector与RAG.md	pgvector与RAG	ch-21-01	AI/数据库	-	待写
+21.02	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.02-GraphQL联邦.md	GraphQL联邦	ch-21-02	GraphQL	-	待写
+21.03	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.03-CQRS与事件溯源.md	CQRS与事件溯源	ch-21-03	架构/消息队列	-	待写
+21.04	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.04-系统设计与高并发面试.md	系统设计与高并发面试	ch-21-04	求职	-	待写
+21.05	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.05-NestNode与TypeScript高频题.md	NestNode与TypeScript高频题	ch-21-05	求职冲刺	-	待写
+21.06	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.06-数据库Redis与消息队列专项.md	数据库Redis与消息队列专项	ch-21-06	数据库/消息队列	-	待写
+21.07	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.07-项目包装简历与作品集.md	项目包装简历与作品集	ch-21-07	求职	-	待写
+21.08	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.08-模拟面试与12周学习计划.md	模拟面试与12周学习计划	ch-21-08	求职	-	待写
+21.09	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.09-MinIO与OSS-自建存储与前端直传.md	MinIO与OSS-自建存储与前端直传	ch-21-09	文件/存储	-	待写
+21.10	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.10-大文件流式下载与Range断点续传.md	大文件流式下载与Range断点续传	ch-21-10	文件/性能	-	待写
+21.11	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.11-Excel导入导出.md	Excel导入导出	ch-21-11	工程化	-	待写
+21.12	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.12-用代码动态生成PPT.md	用代码动态生成PPT	ch-21-12	工程化	-	待写
+21.13	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.13-服务器资源监控接口.md	服务器资源监控接口	ch-21-13	可观测性	-	待写
+21.14	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.14-GitHub与Google三方登录.md	GitHub与Google三方登录	ch-21-14	认证	-	待写
+21.15	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.15-单token无限续期与无感刷新.md	单token无限续期与无感刷新	ch-21-15	认证	-	待写
+21.16	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.16-灵活DTO与class-validator自定义装饰器.md	灵活DTO与class-validator自定义装饰器	ch-21-16	基础	-	待写
+21.17	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.17-Entity序列化与VO取舍.md	Entity序列化与VO取舍	ch-21-17	基础	-	待写
+21.18	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.18-图书管理系统拆解-旧版全栈复盘.md	图书管理系统拆解-旧版全栈复盘	ch-21-18	项目复盘	-	待写
+21.19	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.19-考试系统拆解-微服务与自动判卷.md	考试系统拆解-微服务与自动判卷	ch-21-19	项目复盘	-	待写
+21.20	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.20-聊天室拆解-Socketio与全链路.md	聊天室拆解-Socketio与全链路	ch-21-20	项目复盘	-	待写
+21.21	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.21-请求日志审计日志与脱敏.md	请求日志审计日志与脱敏	ch-21-21	可观测性	-	待写
+21.22	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.22-部署到阿里云-前后端上线清单.md	部署到阿里云-前后端上线清单	ch-21-22	部署	-	待写
+21.23	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.23-200版与205版差异复盘与学习路线.md	200版与205版差异复盘与学习路线	ch-21-23	复盘	-	待写
+21.24	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.24-286主题覆盖清单与查漏补缺.md	286主题覆盖清单与查漏补缺	ch-21-24	复盘	-	待写
+21.25	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.25-Nest12迁移与ESM踩坑合集.md	Nest12迁移与ESM踩坑合集	ch-21-25	基础	-	待写

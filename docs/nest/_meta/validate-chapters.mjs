@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * 章节质量门禁：默认校验所有「已写」章节（去教材腔 / 信息量下限 / 配图按需）。
+ * 章节质量门禁：默认校验所有「已写」节（去教材腔 / 信息量下限 / 配图按需）。
  *
  * 用法：
- *   node _meta/validate-chapters.mjs            # 校验全部已写章节
- *   node _meta/validate-chapters.mjs 206 211    # 校验指定区间
- *   node _meta/validate-chapters.mjs --all      # 要求全部 268 章已写（Phase 2 后使用）
+ *   node _meta/validate-chapters.mjs                    # 校验全部已写节
+ *   node _meta/validate-chapters.mjs 5.01 5.03          # 校验指定节号区间
+ *   node _meta/validate-chapters.mjs --all              # 要求全部节已写
  *   node _meta/validate-chapters.mjs --json
  */
 import { readFile } from 'node:fs/promises';
@@ -15,11 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tsvPath = path.join(root, '_meta', 'chapters.tsv');
+const EXPECT_SECTIONS = 264;
 
 // 信息量下限（不是字数配额）：低于此值大概率没讲清问题。
 const MIN_HAN = 800;
 
-// 图按需：这些领域涉及结构/流程/关系，必须有图；其他章节有图更好，不强制。
+// 图按需：这些领域涉及结构/流程/关系，必须有图；其他节有图更好，不强制。
 const FIGURE_REQUIRED_DOMAINS = ['架构', '原理', '流程', '协议', '时序', '关系', '部署', '生命周期', '数据流', '可靠性', '可观测'];
 
 // 教材腔：一旦命中即不达标（正文要像同事当面讲，不是课程讲义）。
@@ -37,7 +38,7 @@ const FORBIDDEN = [
 const args = process.argv.slice(2);
 const jsonMode = args.includes('--json');
 const allMode = args.includes('--all');
-const rangeArgs = args.filter((arg) => /^\d+$/.test(arg)).map(Number);
+const rangeArgs = args.filter((arg) => /^\d+\.\d+$/.test(arg));
 
 const stripCode = (md) => md.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '');
 const countHan = (md) => (stripCode(md).match(/[\u4e00-\u9fff]/g) ?? []).length;
@@ -52,12 +53,20 @@ const rows = (await readFile(tsvPath, 'utf8'))
   .filter((line) => line.trim().length > 0)
   .slice(1)
   .map((line) => {
-    const [chapter, part, partTitle, file, slug, domains, project, status] = line.split('\t');
-    return { num: Number(chapter), part, partTitle, file, slug, domains, project, status };
+    const [section, chapter, chapterTitle, part, file, title, slug, domains, project, status] = line.split('\t');
+    return { section, chapter, chapterTitle, part, file, title, slug, domains, project, status };
   });
 
+if (rows.length !== EXPECT_SECTIONS) {
+  console.error(`❌ chapters.tsv 应为 ${EXPECT_SECTIONS} 节，实际 ${rows.length}`);
+  process.exit(1);
+}
+
 const selected = rangeArgs.length
-  ? rows.filter((row) => row.num >= Math.min(...rangeArgs) && row.num <= Math.max(...rangeArgs))
+  ? rows.filter((row) => {
+      const n = Number(row.section);
+      return n >= Math.min(...rangeArgs.map(Number)) && n <= Math.max(...rangeArgs.map(Number));
+    })
   : rows;
 
 const report = {
@@ -73,12 +82,12 @@ const report = {
 };
 
 for (const row of selected) {
-  const filePath = path.join(root, row.part, row.file);
+  const filePath = path.join(root, row.file);
   const exists = existsSync(filePath);
   if (row.status !== '已写' || !exists) {
-    if (row.status === '已写' && !exists) report.missing.push({ num: row.num, file: `${row.part}/${row.file}` });
-    else report.pending.push({ num: row.num });
-    if (allMode) report.missing.push({ num: row.num, file: `${row.part}/${row.file}` });
+    if (row.status === '已写' && !exists) report.missing.push({ section: row.section, file: row.file });
+    else report.pending.push({ section: row.section });
+    if (allMode) report.missing.push({ section: row.section, file: row.file });
     continue;
   }
   report.written += 1;
@@ -89,12 +98,12 @@ for (const row of selected) {
   const needFigure = figureRequired(row.domains);
   const figure = hasFigure(md);
   const ok = textbookHits.length === 0 && han >= MIN_HAN && (!needFigure || figure);
-  const entry = { num: row.num, han, codeBlocks, textbookHits, hasFigure: figure, needFigure, ok };
+  const entry = { section: row.section, han, codeBlocks, textbookHits, hasFigure: figure, needFigure, ok };
   report.chapters.push(entry);
   if (!ok) {
-    if (textbookHits.length > 0) report.textbook.push({ num: row.num, hits: textbookHits });
-    if (han < MIN_HAN) report.short.push({ num: row.num, han });
-    if (needFigure && !figure) report.noFigure.push({ num: row.num });
+    if (textbookHits.length > 0) report.textbook.push({ section: row.section, hits: textbookHits });
+    if (han < MIN_HAN) report.short.push({ section: row.section, han });
+    if (needFigure && !figure) report.noFigure.push({ section: row.section });
   } else {
     report.ok += 1;
   }
@@ -103,23 +112,23 @@ for (const row of selected) {
 if (jsonMode) {
   console.log(JSON.stringify(report, null, 2));
 } else {
-  console.log(`校验章节: ${report.total}（已写 ${report.written}，待写 ${report.pending.length}）`);
+  console.log(`校验节: ${report.total}（已写 ${report.written}，待写 ${report.pending.length}）`);
   console.log(`达标: ${report.ok}`);
-  if (report.missing.length) console.log(`状态为已写但文件缺失: ${report.missing.length}（${report.missing.map((m) => m.num).join(', ')}）`);
+  if (report.missing.length) console.log(`状态为已写但文件缺失: ${report.missing.length}（${report.missing.map((m) => m.section).join(', ')}）`);
   console.log(`教材腔命中: ${report.textbook.length}`);
   if (report.textbook.length) {
-    console.log(report.textbook.map((m) => `  #${m.num}: ${m.hits.join('/')}`).join('\n'));
+    console.log(report.textbook.map((m) => `  ${m.section}: ${m.hits.join('/')}`).join('\n'));
   }
   console.log(`信息量不足 ${MIN_HAN} 汉字: ${report.short.length}`);
-  if (report.short.length) console.log(`  ${report.short.map((s) => `#${s.num}(${s.han}字)`).join(', ')}`);
+  if (report.short.length) console.log(`  ${report.short.map((s) => `${s.section}(${s.han}字)`).join(', ')}`);
   console.log(`按需缺图: ${report.noFigure.length}`);
-  if (report.noFigure.length) console.log(`  ${report.noFigure.map((n) => `#${n.num}`).join(', ')}`);
+  if (report.noFigure.length) console.log(`  ${report.noFigure.map((n) => n.section).join(', ')}`);
   const done = report.chapters.filter((c) => c.ok);
   if (done.length) {
     const avg = Math.round(done.reduce((sum, c) => sum + c.han, 0) / done.length);
     const avgCode = (done.reduce((sum, c) => sum + c.codeBlocks, 0) / done.length).toFixed(1);
     const avgFig = (done.reduce((sum, c) => sum + (c.hasFigure ? 1 : 0), 0) / done.length).toFixed(2);
-    console.log(`达标章节平均汉字: ${avg}，平均代码块: ${avgCode}，有图比例: ${avgFig}`);
+    console.log(`达标节平均汉字: ${avg}，平均代码块: ${avgCode}，有图比例: ${avgFig}`);
   }
 }
 

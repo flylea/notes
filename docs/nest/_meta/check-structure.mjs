@@ -1,13 +1,12 @@
 #!/usr/bin/env node
-// 结构一致性门禁：chapters.tsv / parts.tsv / README / _part.md / 章节页脚。
+// 结构一致性门禁：chapters.tsv / BOOK-OUTLINE.tsv / README / 章导读 / 节页脚。
 // 用法：node _meta/check-structure.mjs
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-
 const errors = [];
 const err = (msg) => errors.push(msg);
 
@@ -18,159 +17,186 @@ const readTsv = (name, expectedCols) => {
     return [];
   }
   const lines = readFileSync(path, 'utf8').split('\n').filter(Boolean);
-  if (lines.length === 0) {
+  if (!lines.length) {
     err(`_meta/${name} 为空`);
     return [];
   }
   const rows = lines.map((line) => line.split('\t'));
-  const header = rows[0];
-  if (header.length !== expectedCols) err(`_meta/${name} 表头应为 ${expectedCols} 列，实际 ${header.length} 列`);
-  for (const [i, row] of rows.slice(1).entries()) {
-    if (row.length !== expectedCols) err(`_meta/${name} 第 ${i + 2} 行应为 ${expectedCols} 列，实际 ${row.length} 列`);
+  if (rows[0].length !== expectedCols) {
+    err(`_meta/${name} 表头应为 ${expectedCols} 列，实际 ${rows[0].length} 列`);
   }
+  rows.slice(1).forEach((row, i) => {
+    if (row.length !== expectedCols) err(`_meta/${name} 第 ${i + 2} 行应为 ${expectedCols} 列，实际 ${row.length} 列`);
+  });
   return rows.slice(1);
 };
 
-const chapterRows = readTsv('chapters.tsv', 8);
-const partRows = readTsv('parts.tsv', 12);
+const rows = readTsv('chapters.tsv', 10);
+const outlineRows = readTsv('BOOK-OUTLINE.tsv', 10);
 
-const chapters = chapterRows.map((r) => ({
-  num: Number(r[0]), part: r[1], partTitle: r[2], file: r[3], slug: r[4],
-  domains: r[5], project: r[6], status: r[7],
+const chapters = outlineRows.map((r) => ({
+  part: Number(r[0]),
+  partTitle: r[1],
+  ch: r[2],
+  title: r[3],
+  count: Number(r[4]),
+  written: Number(r[5]),
+  source: r[6],
+  goal: r[7],
+  outcome: r[8],
+  hours: Number(r[9]),
 }));
-const parts = partRows.map((r) => ({
-  part: r[0], no: Number(r[1]), section: r[2], sectionNo: Number(r[3]),
-  title: r[4], range: r[5], count: Number(r[6]),
+
+const sections = rows.map((r) => ({
+  section: r[0],
+  ch: r[1],
+  chapterTitle: r[2],
+  part: r[3],
+  file: r[4],
+  title: r[5],
+  slug: r[6],
+  domains: r[7],
+  project: r[8],
+  status: r[9],
 }));
 
-// ---------- chapters ----------
-if (chapters.length !== 287) err(`chapters.tsv 应为 287 行，实际 ${chapters.length}`);
-const nums = chapters.map((c) => c.num);
-const expectNums = Array.from({ length: chapters.length }, (_, i) => i + 1);
-if (nums.some((n, i) => n !== expectNums[i])) err('章号不是从 1 开始的连续序号');
-if (new Set(nums).size !== nums.length) err('章号有重复');
-if (new Set(chapters.map((c) => c.slug)).size !== chapters.length) err('slug 有重复');
+// ---------- 规模 ----------
+const EXPECT_CHAPTERS = 21;
+const EXPECT_SECTIONS = 264;
+const EXPECT_PARTS = 4;
+if (chapters.length !== EXPECT_CHAPTERS) err(`BOOK-OUTLINE.tsv 应为 ${EXPECT_CHAPTERS} 行，实际 ${chapters.length}`);
+if (sections.length !== EXPECT_SECTIONS) err(`chapters.tsv 应为 ${EXPECT_SECTIONS} 行，实际 ${sections.length}`);
 
-const partMap = new Map(parts.map((p) => [p.part, p]));
-const byPart = new Map(parts.map((p) => [p.part, []]));
+// ---------- 章 ----------
+chapters.forEach((c, i) => {
+  const n = i + 1;
+  if (c.ch !== String(n).padStart(2, '0')) err(`第 ${n} 章编号应为 ${String(n).padStart(2, '0')}，实际 ${c.ch}`);
+  if (c.part < 1 || c.part > EXPECT_PARTS) err(`第 ${c.ch} 章 part=${c.part} 超出 1..${EXPECT_PARTS}`);
+  const list = sections.filter((s) => s.ch === c.ch);
+  if (list.length !== c.count) err(`第 ${c.ch} 章实际节数 ${list.length} ≠ outline ${c.count}`);
+});
+const partNums = [...new Set(chapters.map((c) => c.part))].sort();
+if (partNums.join(',') !== Array.from({ length: EXPECT_PARTS }, (_, i) => i + 1).join(',')) {
+  err(`部编号不是 1..${EXPECT_PARTS}：${partNums.join(',')}`);
+}
 
-for (const c of chapters) {
-  const p = partMap.get(c.part);
-  if (!p) {
-    err(`第 ${c.num} 章的 part 不存在：${c.part}`);
+// ---------- 节 ----------
+const chDirs = new Map();
+for (const s of sections) {
+  const m = /^book\/(ch-\d{2}-[^/]+)\/(\d{2})\.(\d{2})-(.+)\.md$/.exec(s.file);
+  if (!m) {
+    err(`节 ${s.section} 文件路径不符合 book/ch-NN-*/NN.MM-*.md：${s.file}`);
     continue;
   }
-  byPart.get(c.part).push(c);
-  if (c.partTitle !== p.title) err(`第 ${c.num} 章 part_title 与 parts.tsv 不一致`);
-  if (!/^\d{3}-.+\.md$/.test(c.file)) err(`第 ${c.num} 章文件名不符合 NNN-*.md：${c.file}`);
-  if (Number(c.file.slice(0, 3)) !== c.num) err(`第 ${c.num} 章文件名前缀与章号不一致：${c.file}`);
-  if (c.slug !== `ch-${String(c.num).padStart(3, '0')}`) err(`第 ${c.num} 章 slug 格式错误：${c.slug}`);
-  if (!['已写', '待写'].includes(c.status)) err(`第 ${c.num} 章 status 非法：${c.status}`);
-  const exists = existsSync(join(root, c.part, c.file));
-  if ((c.status === '已写') !== exists) err(`第 ${c.num} 章 status=${c.status} 但文件${exists ? '存在' : '不存在'}`);
-}
-
-// ---------- parts ----------
-if (parts.length !== 31) err(`parts.tsv 应为 31 行，实际 ${parts.length}`);
-parts.forEach((p, i) => {
-  if (p.no !== i) err(`Part 序号不连续：${p.part} no=${p.no}，期望 ${i}`);
-  if (!/^part-\d{2}$/.test(p.part)) err(`Part 目录名非法：${p.part}`);
-  if (p.part !== `part-${String(p.no).padStart(2, '0')}`) err(`Part 目录名与 no 不一致：${p.part}`);
-  if (!/^\d+-\d+$/.test(p.range)) err(`Part 区间格式错误：${p.part} ${p.range}`);
-  const [start, end] = p.range.split('-').map(Number);
-  if (end - start + 1 !== p.count) err(`Part ${p.part} count=${p.count} 与区间 ${p.range} 不符`);
-  const list = byPart.get(p.part) ?? [];
-  if (list.length !== p.count) err(`Part ${p.part} 实际章节数 ${list.length} ≠ count ${p.count}`);
-  const first = list[0]?.num;
-  const last = list[list.length - 1]?.num;
-  if (first !== start || last !== end) err(`Part ${p.part} 章节范围 ${first}-${last} 与 tsv 区间 ${p.range} 不符`);
-});
-
-// 章号覆盖：所有 Part 区间并集 = 1..287 且不重叠
-{
-  const seen = new Map();
-  for (const p of parts) {
-    const [start, end] = p.range.split('-').map(Number);
-    for (let n = start; n <= end; n += 1) {
-      if (seen.has(n)) err(`章号 ${n} 同时属于 ${seen.get(n)} 与 ${p.part}`);
-      seen.set(n, p.part);
-    }
+  const [, dir, chNum, secNum, fileTitle] = m;
+  chDirs.set(s.ch, dir);
+  if (chNum !== s.ch) err(`节 ${s.section} 路径章号 ${chNum} ≠ 字段 ${s.ch}`);
+  if (dir !== chDirs.get(s.ch)) err(`第 ${s.ch} 章节目录不一致：${dir} vs ${chDirs.get(s.ch)}`);
+  if (`${chNum}.${secNum}` !== s.section) err(`节号与路径不一致：${s.section} vs ${s.file}`);
+  if (!fileTitle) err(`节 ${s.section} 文件名标题为空`);
+  if (s.slug !== `ch-${chNum}-${secNum}`) err(`节 ${s.section} slug 格式错误：${s.slug}`);
+  if (!['已写', '待写'].includes(s.status)) err(`节 ${s.section} status 非法：${s.status}`);
+  const exists = existsSync(join(root, s.file));
+  if ((s.status === '已写') !== exists) err(`节 ${s.section} status=${s.status} 但文件${exists ? '存在' : '不存在'}`);
+  const ch = chapters.find((c) => c.ch === s.ch);
+  if (!ch) err(`节 ${s.section} 的章 ${s.ch} 不在 outline`);
+  else {
+    if (ch.title !== s.chapterTitle) err(`节 ${s.section} chapter_title 与 outline 不一致`);
+    if (`part-${String(ch.part).padStart(2, '0')}` !== s.part) err(`节 ${s.section} part 与 outline 不一致`);
   }
-  if (seen.size !== 287) err(`Part 区间覆盖 ${seen.size} 章，应为 287`);
 }
 
-// ---------- Part hub ----------
-for (const p of parts) {
-  const hub = join(root, p.part, '_part.md');
+// 每章节号连续 01..N
+for (const c of chapters) {
+  const list = sections.filter((s) => s.ch === c.ch);
+  list.forEach((s, i) => {
+    const expect = `${c.ch}.${String(i + 1).padStart(2, '0')}`;
+    if (s.section !== expect) err(`第 ${c.ch} 章节号不连续：期望 ${expect}，实际 ${s.section}`);
+  });
+}
+
+// 已写数与 outline written 一致
+for (const c of chapters) {
+  const w = sections.filter((s) => s.ch === c.ch && s.status === '已写').length;
+  if (w !== c.written) err(`第 ${c.ch} 章已写数 ${w} ≠ outline ${c.written}（需重跑 restructure 或手改 outline）`);
+}
+
+// ---------- 章导读 ----------
+for (const c of chapters) {
+  const dir = chDirs.get(c.ch);
+  if (!dir) continue;
+  const hub = join(root, 'book', dir, '_chapter.md');
   if (!existsSync(hub)) {
-    err(`缺 Part hub：${p.part}/_part.md`);
+    err(`缺章导读：${dir}/_chapter.md`);
     continue;
   }
   const md = readFileSync(hub, 'utf8');
-  const expected = `# Part ${String(p.no).padStart(2, '0')} · ${p.title}`;
-  if (!md.includes(expected)) err(`${p.part}/_part.md 标题不符：期望「${expected}」`);
+  if (!md.includes(`# 第 ${Number(c.ch)} 章 ${c.title}`)) err(`第 ${c.ch} 章导读标题不符`);
+  for (const key of ['## 这一章解决什么问题', '## 知识地图', '## 验收清单', '## 节清单']) {
+    if (!md.includes(key)) err(`第 ${c.ch} 章导读缺小节：${key}`);
+  }
+  if (!md.includes('```mermaid')) err(`第 ${c.ch} 章导读缺 Mermaid 知识地图`);
 }
 
 // ---------- README ----------
 const readmePath = join(root, 'README.md');
-if (!existsSync(readmePath)) {
-  err('缺 README.md');
-} else {
+if (!existsSync(readmePath)) err('缺 README.md');
+else {
   const readme = readFileSync(readmePath, 'utf8');
-  if (!readme.includes('完整目录（287 章）')) err('README 缺「完整目录（287 章）」');
-  const missingSections = parts
-    .reduce((acc, p) => (acc.includes(p.sectionNo) ? acc : [...acc, p.sectionNo]), [])
-    .filter((no) => !readme.includes(`## 第 ${no} 篇`));
-  if (missingSections.length) err(`README 缺篇标题：${missingSections.join(', ')}`);
-  for (const p of parts) {
-    const heading = `### Part ${String(p.no).padStart(2, '0')} · ${p.title}`;
-    if (!readme.includes(heading)) err(`README 缺 Part 标题：${heading}`);
-  }
+  const banner = `4 部 / ${chapters.length} 章 / ${sections.length} 节`;
+  if (!readme.includes(banner)) err(`README 缺规模声明「${banner}」`);
   for (const c of chapters) {
-    const base = c.file.replace(/^\d{3}-/, '').replace(/\.md$/, '');
-    const num = String(c.num).padStart(3, '0');
-    if (c.status === '已写') {
-      if (!readme.includes(`](${c.part}/${c.file})`)) err(`README 缺第 ${c.num} 章链接：${c.part}/${c.file}`);
-    } else if (!readme.includes(`${num} ${base}（待写）`)) {
-      err(`README 缺待写章节条目：${num} ${base}`);
+    if (!readme.includes(`_chapter.md`)) break;
+    if (!readme.includes(`（${sections.filter((s) => s.ch === c.ch && s.status === '已写').length}/${c.count} 节`)) {
+      err(`README 缺第 ${c.ch} 章进度`);
     }
   }
+  for (const s of sections) {
+    const label = s.status === '已写' ? `](${s.file})` : `${s.section} ${s.title}（待写）`;
+    if (!readme.includes(label)) err(`README 缺节条目：${s.section} ${s.title}`);
+  }
 }
 
-// ---------- 章节页脚 ----------
-const sorted = [...chapters].sort((a, b) => a.num - b.num);
-const writtenMap = new Map(chapters.map((c) => [c.num, c]));
-const isWritten = (c) => c && c.status === '已写';
-const titleOf = (c) => c.file.replace(/^\d{3}-/, '').replace(/\.md$/, '');
-
-for (const c of chapters) {
-  if (c.status !== '已写') continue;
-  const path = join(root, c.part, c.file);
-  const md = readFileSync(path, 'utf8');
+// ---------- 节页脚 ----------
+const order = [...sections].sort((a, b) => a.section.localeCompare(b.section));
+const idx = new Map(order.map((s, i) => [s.section, i]));
+const linkOf = (from, to) => {
+  const fromDir = from.file.split('/')[1];
+  const toDir = to.file.split('/')[1];
+  const href = fromDir === toDir ? to.file.split('/')[2] : `../${toDir}/${to.file.split('/')[2]}`;
+  return `${to.section} ${to.title}](${href})`;
+};
+let footerChecked = 0;
+for (const s of sections.filter((x) => x.status === '已写')) {
+  const md = readFileSync(join(root, s.file), 'utf8');
   const m = md.match(/<!-- chapter-nav:start -->([\s\S]*?)<!-- chapter-nav:end -->/);
   if (!m) {
-    err(`第 ${c.num} 章缺页脚导航`);
+    err(`节 ${s.section} 缺页脚导航`);
     continue;
   }
-  const block = m[1];
-  if (!block.includes('[本 Part 目录](_part.md)')) err(`第 ${c.num} 章页脚缺 Part 目录链接`);
-
-  const i = sorted.findIndex((x) => x.num === c.num);
-  const prev = sorted[i - 1];
-  const next = sorted[i + 1];
-  const expectLink = (target) => {
-    const rel = c.part === target.part ? target.file : `../${target.part}/${target.file}`;
-    return `${String(target.num).padStart(3, '0')} ${titleOf(target)}](${rel})`;
-  };
-  if (isWritten(prev) && !block.includes(expectLink(prev))) err(`第 ${c.num} 章页脚上一篇链接错误`);
-  if (isWritten(next) && !block.includes(expectLink(next))) err(`第 ${c.num} 章页脚下一篇链接错误`);
+  footerChecked += 1;
+  if (!m[1].includes('[本章目录](_chapter.md)')) err(`节 ${s.section} 页脚缺本章目录链接`);
+  const noCode = md.replace(/```[\s\S]*?```/g, '');
+  if (noCode.match(/^# /gm)?.length !== 1) err(`节 ${s.section} H1 数量不为 1`);
+  else if (!noCode.startsWith(`# ${s.section} `)) err(`节 ${s.section} H1 不以「# ${s.section} 」开头`);
+  const i = idx.get(s.section);
+  const prev = order[i - 1];
+  const next = order[i + 1];
+  if (prev && prev.status === '已写' && !m[1].includes(linkOf(s, prev))) err(`节 ${s.section} 页脚上一节链接错误`);
+  if (next && next.status === '已写' && !m[1].includes(linkOf(s, next))) err(`节 ${s.section} 页脚下一节链接错误`);
 }
+
+// ---------- 旧结构残留 ----------
+const leftovers = readdirSync(root).filter((n) => /^part-\d{2}$/.test(n));
+if (leftovers.length) err(`仍存在旧 part-* 目录：${leftovers.join(', ')}`);
 
 // ---------- 结果 ----------
 if (errors.length) {
   console.error(`❌ check-structure: ${errors.length} 个问题`);
-  for (const e of errors) console.error(` - ${e}`);
+  for (const e of errors.slice(0, 40)) console.error(` - ${e}`);
   process.exit(1);
 }
-const written = chapters.filter((c) => c.status === '已写').length;
-console.log(`✅ check-structure: 0 错误 —— ${chapters.length} 章 / ${parts.length} Part / 已写 ${written} / 待写 ${chapters.length - written}`);
+const written = sections.filter((s) => s.status === '已写').length;
+console.log(
+  `✅ check-structure: 0 错误 —— ${EXPECT_PARTS} 部 / ${chapters.length} 章 / ${sections.length} 节 / 已写 ${written} / 待写 ${sections.length - written}（页脚校验 ${footerChecked}）`,
+);

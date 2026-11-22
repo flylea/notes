@@ -9,7 +9,7 @@ const root = resolve(here, '..');
 
 const [startArg, endArg] = process.argv.slice(2);
 const start = Number(startArg ?? 1);
-const end = Number(endArg ?? 268);
+const end = Number(endArg ?? 264);
 
 const rows = readFileSync(join(root, '_meta/chapters.tsv'), 'utf8')
   .split('\n')
@@ -40,14 +40,14 @@ let total = 0;
 let writtenCount = 0;
 const agg = { han: 0, code: 0, figs: 0 };
 
-out.push('| 章 | 文件 | 状态 | 汉字 | 代码块 | 配图 | 教材腔 | 判定 |');
+out.push('| 节 | 文件 | 状态 | 汉字 | 代码块 | 配图 | 教材腔 | 判定 |');
 out.push('| ---: | --- | :---: | ---: | ---: | ---: | :---: | :---: |');
 
-for (const [num, part, , file, , , , status] of rows) {
+for (const [num, , , , file, , , , , status] of rows) {
   const n = Number(num);
   if (n < start || n > end) continue;
   total += 1;
-  const path = join(root, part, file);
+  const path = join(root, file);
   if (status !== '已写' || !existsSync(path)) {
     out.push(`| ${num} | ${file} | ⬜ 待写 | - | - | - | - | - |`);
     continue;
@@ -73,10 +73,10 @@ for (const [num, part, , file, , , , status] of rows) {
 out.push('');
 if (writtenCount > 0) {
   out.push(
-    `合计：${total} 章（${start}–${end}），其中已写 ${writtenCount} 章；平均汉字 ${Math.round(agg.han / writtenCount)}、平均代码块 ${(agg.code / writtenCount).toFixed(1)}、配图 ${agg.figs}；未达标 ${fail.length} 章。`,
+    `合计：${total} 节（${start}–${end}），其中已写 ${writtenCount} 节；平均汉字 ${Math.round(agg.han / writtenCount)}、平均代码块 ${(agg.code / writtenCount).toFixed(1)}、配图 ${agg.figs}；未达标 ${fail.length} 节。`,
   );
 } else {
-  out.push(`合计：${total} 章（${start}–${end}），本区间暂无已写章节。`);
+  out.push(`合计：${total} 节（${start}–${end}），本区间暂无已写节。`);
 }
 if (fail.length) out.push(`未达标清单：${fail.join('；')}`);
 console.log(out.join('\n'));
