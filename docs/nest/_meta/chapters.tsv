@@ -103,7 +103,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 10.05	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.05-搭建私有Docker镜像仓库.md	搭建私有Docker镜像仓库	ch-10-05	DevOps	-	已写
 10.06	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.06-快速掌握Nginx的2大核心用法.md	快速掌握Nginx的2大核心用法	ch-10-06	DevOps	-	已写
 10.07	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.07-基于Nginx实现灰度系统.md	基于Nginx实现灰度系统	ch-10-07	DevOps	-	已写
-10.08	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.08-Nginx的全部配置.md	Nginx的全部配置	ch-10-08	DevOps	-	待写
+10.08	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.08-Nginx的全部配置.md	Nginx的全部配置	ch-10-08	DevOps	-	已写
 10.09	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.09-基于Redis实现分布式session.md	基于Redis实现分布式session	ch-10-09	数据库	-	待写
 10.10	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.10-Redis+高德地图，实现附近的充电宝.md	Redis+高德地图，实现附近的充电宝	ch-10-10	数据库	-	待写
 10.11	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.11-基于Redis实现王者荣耀段位排行榜.md	基于Redis实现王者荣耀段位排行榜	ch-10-11	数据库	-	待写
