@@ -128,7 +128,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 12.05	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.05-会议室管理模块.md	会议室管理模块	ch-12-05	Nest,全栈/Nest,全栈/Nest	meeting-booking,meeting-booking,meeting-booking	已写
 12.06	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.06-预订管理模块.md	预订管理模块	ch-12-06	Nest,全栈/Nest,全栈/Nest	meeting-booking,meeting-booking,meeting-booking	已写
 12.07	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.07-统计管理模块.md	统计管理模块	ch-12-07	Nest,全栈/Nest	meeting-booking,meeting-booking	已写
-12.08	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.08-部署、验收与复盘.md	部署、验收与复盘	ch-12-08	DevOps	meeting-booking	待写
+12.08	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.08-部署、验收与复盘.md	部署、验收与复盘	ch-12-08	DevOps	meeting-booking	已写
 13.01	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.01-电商：需求分析与核心域.md	电商：需求分析与核心域	ch-13-01	项目二	ecommerce	待写
 13.02	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.02-电商：数据库设计.md	电商：数据库设计	ch-13-02	数据库	ecommerce	待写
 13.03	13	项目二/三：电商与大众点评	part-03	book/ch-13-项目二三/13.03-电商：微服务拆分与技术集成.md	电商：微服务拆分与技术集成	ch-13-03	消息队列,数据库/消息队列	ecommerce,ecommerce	待写
