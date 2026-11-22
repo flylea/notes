@@ -110,7 +110,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 11.01	11	工程化设施	part-02	book/ch-11-工程化/11.01-用Swagger自动生成api文档.md	用Swagger自动生成api文档	ch-11-01	HTTP	-	已写
 11.02	11	工程化设施	part-02	book/ch-11-工程化/11.02-用Scalar、Redoc美化API文档与契约交付.md	用Scalar、Redoc美化API文档与契约交付	ch-11-02	HTTP	-	已写
 11.03	11	工程化设施	part-02	book/ch-11-工程化/11.03-使用compodoc生成文档.md	使用compodoc生成文档	ch-11-03	工程化设施	-	已写
-11.04	11	工程化设施	part-02	book/ch-11-工程化/11.04-Node如何发邮件.md	Node如何发邮件	ch-11-04	工程化设施	-	待写
+11.04	11	工程化设施	part-02	book/ch-11-工程化/11.04-Node如何发邮件.md	Node如何发邮件	ch-11-04	工程化设施	-	已写
 11.05	11	工程化设施	part-02	book/ch-11-工程化/11.05-实现基于邮箱验证码的登录.md	实现基于邮箱验证码的登录	ch-11-05	安全	-	待写
 11.06	11	工程化设施	part-02	book/ch-11-工程化/11.06-使用阿里云的邮件和短信服务.md	使用阿里云的邮件和短信服务	ch-11-06	工程化设施	-	待写
 11.07	11	工程化设施	part-02	book/ch-11-工程化/11.07-定时任务+Redis实现阅读量计数.md	定时任务+Redis实现阅读量计数	ch-11-07	数据库	-	待写
