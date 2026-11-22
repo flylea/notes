@@ -1,6 +1,6 @@
 # 第 11 章 工程化设施
 
-> 第 2 部 · 14 节 · 约 17 学时 · 已写 12 节
+> 第 2 部 · 14 节 · 约 17 学时 · 已写 13 节
 
 ## 这一章解决什么问题
 
@@ -59,7 +59,7 @@ flowchart TD
 - ✅ [11.10 Nest实现ServerSentEvent数据推送](11.10-Nest实现ServerSentEvent数据推送.md)
 - ✅ [11.11 基于sharp实现gif压缩工具](11.11-基于sharp实现gif压缩工具.md)
 - ✅ [11.12 实现扫二维码登录](11.12-实现扫二维码登录.md)
-- ⬜ 11.13 Nest的REPL模式（待写）
+- ✅ [11.13 Nest的REPL模式](11.13-Nest的REPL模式.md)
 - ⬜ 11.14 使用Prometheus实现Node性能监控（待写）
 
 ---

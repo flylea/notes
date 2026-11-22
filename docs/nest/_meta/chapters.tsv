@@ -119,7 +119,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 11.10	11	工程化设施	part-02	book/ch-11-工程化/11.10-Nest实现ServerSentEvent数据推送.md	Nest实现ServerSentEvent数据推送	ch-11-10	工程化设施	-	已写
 11.11	11	工程化设施	part-02	book/ch-11-工程化/11.11-基于sharp实现gif压缩工具.md	基于sharp实现gif压缩工具	ch-11-11	HTTP	-	已写
 11.12	11	工程化设施	part-02	book/ch-11-工程化/11.12-实现扫二维码登录.md	实现扫二维码登录	ch-11-12	工程化设施	-	已写
-11.13	11	工程化设施	part-02	book/ch-11-工程化/11.13-Nest的REPL模式.md	Nest的REPL模式	ch-11-13	工程化设施	-	待写
+11.13	11	工程化设施	part-02	book/ch-11-工程化/11.13-Nest的REPL模式.md	Nest的REPL模式	ch-11-13	工程化设施	-	已写
 11.14	11	工程化设施	part-02	book/ch-11-工程化/11.14-使用Prometheus实现Node性能监控.md	使用Prometheus实现Node性能监控	ch-11-14	工程化设施	-	待写
 12.01	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.01-需求分析与原型.md	需求分析与原型	ch-12-01	项目一	meeting-booking	待写
 12.02	12	项目一：会议室预订系统	part-03	book/ch-12-项目一会议室/12.02-技术方案与数据库设计.md	技术方案与数据库设计	ch-12-02	数据库	meeting-booking	待写
