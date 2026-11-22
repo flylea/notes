@@ -186,6 +186,27 @@ for (const s of sections.filter((x) => x.status === '已写')) {
   if (next && next.status === '已写' && !m[1].includes(linkOf(s, next))) err(`节 ${s.section} 页脚下一节链接错误`);
 }
 
+// ---------- 插图编号 ----------
+for (const s of sections.filter((x) => x.status === '已写')) {
+  const md = readFileSync(join(root, s.file), 'utf8');
+  const mdNoCode = md.replace(/```[\s\S]*?```/g, '');
+  const capRe = /^> \*\*图 (\d+\.\d+)-(\d+)\*\*/gm;
+  const caps = [...mdNoCode.matchAll(capRe)];
+  const seen = new Set();
+  caps.forEach((m, i) => {
+    if (m[1] !== s.section) err(`节 ${s.section} 插图编号 ${m[1]}-${m[2]} 章号不符`);
+    if (Number(m[2]) !== i + 1) err(`节 ${s.section} 插图编号不连续：第 ${i + 1} 张写成 ${m[2]}`);
+    seen.add(`${m[1]}-${m[2]}`);
+  });
+  const refs = [...mdNoCode.matchAll(/图 (\d+\.\d+)-(\d+)/g)].map((m) => `${m[1]}-${m[2]}`);
+  for (const r of new Set(refs)) {
+    if (r.startsWith(`${s.section}-`)) {
+      if (!seen.has(r)) err(`节 ${s.section} 正文引用了不存在的插图 ${r}`);
+    }
+  }
+  if (mdNoCode.includes('**图 ') && caps.length === 0) err(`节 ${s.section} 有插图但编号格式不是「图 NN.MM-K」`);
+}
+
 // ---------- 旧结构残留 ----------
 const leftovers = readdirSync(root).filter((n) => /^part-\d{2}$/.test(n));
 if (leftovers.length) err(`仍存在旧 part-* 目录：${leftovers.join(', ')}`);
