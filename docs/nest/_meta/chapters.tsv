@@ -115,7 +115,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 11.06	11	工程化设施	part-02	book/ch-11-工程化/11.06-使用阿里云的邮件和短信服务.md	使用阿里云的邮件和短信服务	ch-11-06	工程化设施	-	已写
 11.07	11	工程化设施	part-02	book/ch-11-工程化/11.07-定时任务+Redis实现阅读量计数.md	定时任务+Redis实现阅读量计数	ch-11-07	数据库	-	已写
 11.08	11	工程化设施	part-02	book/ch-11-工程化/11.08-Nest的3种定时任务.md	Nest的3种定时任务	ch-11-08	工程化设施	-	已写
-11.09	11	工程化设施	part-02	book/ch-11-工程化/11.09-短链服务自己写一个.md	短链服务自己写一个	ch-11-09	工程化设施	-	待写
+11.09	11	工程化设施	part-02	book/ch-11-工程化/11.09-短链服务自己写一个.md	短链服务自己写一个	ch-11-09	工程化设施	-	已写
 11.10	11	工程化设施	part-02	book/ch-11-工程化/11.10-Nest实现ServerSentEvent数据推送.md	Nest实现ServerSentEvent数据推送	ch-11-10	工程化设施	-	待写
 11.11	11	工程化设施	part-02	book/ch-11-工程化/11.11-基于sharp实现gif压缩工具.md	基于sharp实现gif压缩工具	ch-11-11	HTTP	-	待写
 11.12	11	工程化设施	part-02	book/ch-11-工程化/11.12-实现扫二维码登录.md	实现扫二维码登录	ch-11-12	工程化设施	-	待写
