@@ -1,10 +1,23 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { wrappedSchema } from '../../common/dto/pagination.schema.js';
 import { Role } from '../../common/enums.js';
 import { StatsService } from './stats.service.js';
-import { StatsRangeQueryDto } from './dto/stats-range-query.dto.js';
-import { TrendQueryDto } from './dto/trend-query.dto.js';
+import {
+  bookingTrendSchema,
+  roomUsageSchema,
+  statsOverviewSchema,
+} from './dto/stats-response.schema.js';
+import {
+  type StatsRangeQueryInput,
+  statsRangeQuerySchema,
+} from './dto/stats-range-query.schema.js';
+import { type TrendQueryInput, trendQuerySchema } from './dto/trend-query.schema.js';
+
+const overviewDoc = wrappedSchema(statsOverviewSchema);
+const roomUsageDoc = wrappedSchema(roomUsageSchema);
+const bookingTrendDoc = wrappedSchema(bookingTrendSchema);
 
 @ApiTags('stats')
 @ApiBearerAuth('access-token')
@@ -15,19 +28,22 @@ export class StatsController {
 
   @Get('overview')
   @ApiOperation({ summary: '总览统计（ADMIN，Redis 缓存 30s）' })
+  @ApiOkResponse({ standardSchema: overviewDoc })
   overview() {
     return this.statsService.overview();
   }
 
   @Get('rooms/usage')
   @ApiOperation({ summary: '会议室使用率（ADMIN，Redis 缓存 60s）' })
-  roomUsage(@Query() query: StatsRangeQueryDto) {
+  @ApiOkResponse({ standardSchema: roomUsageDoc })
+  roomUsage(@Query({ schema: statsRangeQuerySchema }) query: StatsRangeQueryInput) {
     return this.statsService.roomUsage(query);
   }
 
   @Get('bookings/trend')
   @ApiOperation({ summary: '预订趋势（ADMIN，Redis 缓存 60s）' })
-  bookingTrend(@Query() query: TrendQueryDto) {
+  @ApiOkResponse({ standardSchema: bookingTrendDoc })
+  bookingTrend(@Query({ schema: trendQuerySchema }) query: TrendQueryInput) {
     return this.statsService.bookingTrend(query);
   }
 }

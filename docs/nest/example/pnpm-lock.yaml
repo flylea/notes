@@ -38,12 +38,6 @@ importers:
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
-      class-transformer:
-        specifier: ^0.5.1
-        version: 0.5.1
-      class-validator:
-        specifier: ^0.15.1
-        version: 0.15.1
       helmet:
         specifier: ^8.3.0
         version: 8.3.0
@@ -4824,7 +4818,8 @@ snapshots:
       '@types/http-errors': 2.0.5
       '@types/node': 24.19.2
 
-  '@types/validator@13.15.10': {}
+  '@types/validator@13.15.10':
+    optional: true
 
   '@types/ws@8.18.2':
     dependencies:
@@ -5168,13 +5163,15 @@ snapshots:
 
   ci-info@4.4.0: {}
 
-  class-transformer@0.5.1: {}
+  class-transformer@0.5.1:
+    optional: true
 
   class-validator@0.15.1:
     dependencies:
       '@types/validator': 13.15.10
       libphonenumber-js: 1.13.15
       validator: 13.15.35
+    optional: true
 
   cli-cursor@5.0.0:
     dependencies:
@@ -5672,7 +5669,8 @@ snapshots:
       jwa: 2.0.1
       safe-buffer: 5.2.1
 
-  libphonenumber-js@1.13.15: {}
+  libphonenumber-js@1.13.15:
+    optional: true
 
   libsodium-wrappers@0.8.4:
     dependencies:
@@ -6524,7 +6522,8 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
-  validator@13.15.35: {}
+  validator@13.15.35:
+    optional: true
 
   vary@1.1.2: {}
 

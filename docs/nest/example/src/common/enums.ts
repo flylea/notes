@@ -1,8 +1,8 @@
 /**
  * 运行时枚举镜像。
  *
- * 数据库枚举的唯一事实来源是 `prisma/contract.prisma`；但 class-validator 的
- * `@IsEnum`、Swagger 的 `enum` 以及业务代码里的比较都需要运行时对象。
+ * 数据库枚举的唯一事实来源是 `prisma/contract.prisma`；但 zod 的
+ * `z.enum()`、Swagger 的 `enum` 以及业务代码里的比较都需要运行时对象。
  * 这里用 `as const` 对象提供同样的取值，新增枚举值时两边要同步修改。
  *
  * 之所以不用 TypeScript `enum`：契约生成的是字符串字面量联合类型，

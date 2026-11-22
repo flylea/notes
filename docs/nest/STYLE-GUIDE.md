@@ -83,8 +83,9 @@
   };
   void bootstrap();
   ```
-- **类型**：`strict` 下不写 `any`；DTO 用 `class-validator`/`class-transformer`；接口返回值显式声明；禁止 `as` 掩盖类型错误（确需时注释原因）。
-- **Nest 惯用法**：构造器注入；`@Injectable()`；模块按业务拆分；全局 `ValidationPipe({ whitelist: true, transform: true })`；异常统一走 `HttpException` 家族 + 全局过滤器。
+- **类型**：`strict` 下不写 `any`；接口返回值显式声明；禁止 `as` 掩盖类型错误（确需时注释原因）。
+- **参数校验**：统一用 **zod 4 schema + Standard Schema**——规则写 `*.schema.ts`，控制器写 `@Body({ schema })` / `@Query({ schema })` / `@Param('id', { schema })`，全局注册 `StandardSchemaValidationPipe`，类型用 `z.infer`；Swagger 请求体靠 `@Body({ schema })` 自动生成，响应用 `@ApiOkResponse({ standardSchema })`。**不要再把 `class-validator` / `class-transformer` 当主写法**（`class-transformer` 2021-11 后未再发版），只在 03.05 保留一段历史说明。
+- **Nest 惯用法**：构造器注入；`@Injectable()`；模块按业务拆分；全局 `StandardSchemaValidationPipe`（schema 默认剥掉未声明键，等价 `whitelist`）；异常统一走 `HttpException` 家族 + 全局过滤器。
 - **数据库（Prisma 8）**：`prisma/contract.prisma` 是唯一 schema 真相；每改一次 contract 必须 `pnpm prisma contract emit` 并提交 `contract.json`/`contract.d.ts`；迁移用 `prisma migration plan` + `prisma db migrate`；禁止手写 SQL 迁移（教学演示除外）。查询统一经 `lib/db` 客户端（`db.orm.public.X`），禁止在组件里散落连接。
 - **配置**：`@nestjs/config` + `ConfigModule.forRoot({ isGlobal: true, validationSchema })`；不散落 `process.env`。
 - **日志**：`Logger`/`nestjs-pino`；禁止 `console.log` 输出敏感信息。

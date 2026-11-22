@@ -7,16 +7,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { all } from '@prisma/orm-postgres/orm-client';
-import { paginate, type PaginatedResult } from '../../common/dto/paginated.dto.js';
+import { paginate, type PaginatedResult } from '../../common/dto/pagination.schema.js';
 import { BookingStatus, Role, RoomStatus } from '../../common/enums.js';
 import type { AuthUser } from '../../common/types/auth-user.js';
 import { PRISMA } from '../../database/database.constants.js';
 import type { Database } from '../../database/prisma.js';
 import type { RoomRow } from '../rooms/rooms.service.js';
 import type { UserRow } from '../users/users.service.js';
-import type { CreateBookingDto } from './dto/create-booking.dto.js';
-import type { QueryBookingsDto } from './dto/query-bookings.dto.js';
-import type { RejectBookingDto } from './dto/reject-booking.dto.js';
+import type { CreateBookingInput } from './dto/create-booking.schema.js';
+import type { QueryBookingsInput } from './dto/query-bookings.schema.js';
+import type { RejectBookingInput } from './dto/reject-booking.schema.js';
 
 /** 占用时间段的状态：只有被驳回/取消的预订不占用会议室。 */
 const OCCUPYING_STATUSES: BookingStatus[] = [BookingStatus.PENDING, BookingStatus.APPROVED];
@@ -45,7 +45,7 @@ export interface BookingDetailRow extends BookingRow {
 export class BookingsService {
   constructor(@Inject(PRISMA) private readonly db: Database) {}
 
-  async create(dto: CreateBookingDto, user: AuthUser): Promise<BookingRow> {
+  async create(dto: CreateBookingInput, user: AuthUser): Promise<BookingRow> {
     const startTime = new Date(dto.startTime);
     const endTime = new Date(dto.endTime);
     this.assertValidWindow(startTime, endTime);
@@ -97,11 +97,10 @@ export class BookingsService {
   }
 
   async findAll(
-    query: QueryBookingsDto,
+    query: QueryBookingsInput,
     user: AuthUser,
   ): Promise<PaginatedResult<BookingDetailRow>> {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 10;
+    const { page, pageSize } = query;
     const from = query.from ? new Date(query.from).toISOString() : null;
     const to = query.to ? new Date(query.to).toISOString() : null;
 
@@ -175,7 +174,7 @@ export class BookingsService {
     return updated;
   }
 
-  async reject(id: string, dto: RejectBookingDto): Promise<BookingRow> {
+  async reject(id: string, dto: RejectBookingInput): Promise<BookingRow> {
     const booking = await this.getBookingOrFail(id);
     if (booking.status !== BookingStatus.PENDING) {
       throw new ConflictException('只有待审批的预订可以驳回');

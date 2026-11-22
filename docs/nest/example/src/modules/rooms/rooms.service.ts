@@ -1,12 +1,12 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { all } from '@prisma/orm-postgres/orm-client';
-import { paginate, type PaginatedResult } from '../../common/dto/paginated.dto.js';
+import { paginate, type PaginatedResult } from '../../common/dto/pagination.schema.js';
 import { RoomStatus } from '../../common/enums.js';
 import { PRISMA } from '../../database/database.constants.js';
 import type { Database } from '../../database/prisma.js';
-import type { CreateRoomDto } from './dto/create-room.dto.js';
-import type { QueryRoomsDto } from './dto/query-rooms.dto.js';
-import type { UpdateRoomDto } from './dto/update-room.dto.js';
+import type { CreateRoomInput } from './dto/create-room.schema.js';
+import type { QueryRoomsInput } from './dto/query-rooms.schema.js';
+import type { UpdateRoomInput } from './dto/update-room.schema.js';
 
 export interface RoomRow {
   id: string;
@@ -34,9 +34,8 @@ const ROOM_FIELDS = [
 export class RoomsService {
   constructor(@Inject(PRISMA) private readonly db: Database) {}
 
-  async findAll(query: QueryRoomsDto): Promise<PaginatedResult<RoomRow>> {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 10;
+  async findAll(query: QueryRoomsInput): Promise<PaginatedResult<RoomRow>> {
+    const { page, pageSize } = query;
     const keyword = query.keyword?.trim();
 
     const filtered = this.db.orm.public.Room.where((room, { fns }) =>
@@ -70,7 +69,7 @@ export class RoomsService {
     return room;
   }
 
-  async create(dto: CreateRoomDto): Promise<RoomRow> {
+  async create(dto: CreateRoomInput): Promise<RoomRow> {
     return this.db.orm.public.Room.select(...ROOM_FIELDS).create({
       name: dto.name,
       capacity: dto.capacity,
@@ -80,7 +79,7 @@ export class RoomsService {
     });
   }
 
-  async update(id: string, dto: UpdateRoomDto): Promise<RoomRow> {
+  async update(id: string, dto: UpdateRoomInput): Promise<RoomRow> {
     await this.findById(id);
 
     const payload: {

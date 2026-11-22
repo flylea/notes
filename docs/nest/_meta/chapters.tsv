@@ -19,7 +19,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 03.02	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.02-Nest的Middleware.md	Nest的Middleware	ch-03-02	Nest	-	已写
 03.03	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.03-RxJS和Interceptor.md	RxJS和Interceptor	ch-03-03	Nest	-	已写
 03.04	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.04-内置Pipe和自定义Pipe.md	内置Pipe和自定义Pipe	ch-03-04	Nest	-	已写
-03.05	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.05-如何使用ValidationPipe验证post请求参数.md	如何使用ValidationPipe验证post请求参数	ch-03-05	Nest	-	已写
+03.05	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.05-如何用StandardSchema校验post请求参数.md	如何用StandardSchema校验post请求参数	ch-03-05	Nest	-	已写
 03.06	03	请求链路：AOP、管道与过滤器	part-01	book/ch-03-请求链路/03.06-如何自定义ExceptionFilter.md	如何自定义ExceptionFilter	ch-03-06	Nest 核心基础	-	已写
 04.01	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.01-Express如何使用multer实现文件上传.md	Express如何使用multer实现文件上传	ch-04-01	Nest 核心基础	-	已写
 04.02	04	文件、日志与运行时诊断	part-01	book/ch-04-文件与日志/04.02-Nest如何使用multer实现文件上传.md	Nest如何使用multer实现文件上传	ch-04-02	Nest 核心基础	-	已写
@@ -253,7 +253,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 21.13	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.13-服务器资源监控接口.md	服务器资源监控接口	ch-21-13	可观测性	-	待写
 21.14	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.14-GitHub与Google三方登录.md	GitHub与Google三方登录	ch-21-14	认证	-	待写
 21.15	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.15-单token无限续期与无感刷新.md	单token无限续期与无感刷新	ch-21-15	认证	-	待写
-21.16	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.16-灵活DTO与class-validator自定义装饰器.md	灵活DTO与class-validator自定义装饰器	ch-21-16	基础	-	待写
+21.16	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.16-灵活schema与自定义校验装饰器.md	灵活schema与自定义校验装饰器	ch-21-16	基础	-	待写
 21.17	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.17-Entity序列化与VO取舍.md	Entity序列化与VO取舍	ch-21-17	基础	-	待写
 21.18	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.18-图书管理系统拆解-旧版全栈复盘.md	图书管理系统拆解-旧版全栈复盘	ch-21-18	项目复盘	-	待写
 21.19	21	求职冲刺与实战补遗	part-04	book/ch-21-求职与补遗/21.19-考试系统拆解-微服务与自动判卷.md	考试系统拆解-微服务与自动判卷	ch-21-19	项目复盘	-	待写

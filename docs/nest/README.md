@@ -139,7 +139,7 @@
   - ✅ [03.02 Nest的Middleware](book/ch-03-请求链路/03.02-Nest的Middleware.md)
   - ✅ [03.03 RxJS和Interceptor](book/ch-03-请求链路/03.03-RxJS和Interceptor.md)
   - ✅ [03.04 内置Pipe和自定义Pipe](book/ch-03-请求链路/03.04-内置Pipe和自定义Pipe.md)
-  - ✅ [03.05 如何使用ValidationPipe验证post请求参数](book/ch-03-请求链路/03.05-如何使用ValidationPipe验证post请求参数.md)
+  - ✅ [03.05 如何用StandardSchema校验post请求参数](book/ch-03-请求链路/03.05-如何用StandardSchema校验post请求参数.md)
   - ✅ [03.06 如何自定义ExceptionFilter](book/ch-03-请求链路/03.06-如何自定义ExceptionFilter.md)
 
 - ✅ **[第 4 章 文件、日志与运行时诊断](book/ch-04-文件与日志/_chapter.md)**（6/6 节 · 约 7 学时）
@@ -415,7 +415,7 @@
   - ⬜ 21.13 服务器资源监控接口（待写）
   - ⬜ 21.14 GitHub与Google三方登录（待写）
   - ⬜ 21.15 单token无限续期与无感刷新（待写）
-  - ⬜ 21.16 灵活DTO与class-validator自定义装饰器（待写）
+  - ⬜ 21.16 灵活schema与自定义校验装饰器（待写）
   - ⬜ 21.17 Entity序列化与VO取舍（待写）
   - ⬜ 21.18 图书管理系统拆解-旧版全栈复盘（待写）
   - ⬜ 21.19 考试系统拆解-微服务与自动判卷（待写）

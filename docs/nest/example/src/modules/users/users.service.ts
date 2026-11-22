@@ -1,12 +1,12 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { all } from '@prisma/orm-postgres/orm-client';
-import { paginate, type PaginatedResult } from '../../common/dto/paginated.dto.js';
+import { paginate, type PaginatedResult } from '../../common/dto/pagination.schema.js';
 import { Role } from '../../common/enums.js';
 import { PRISMA } from '../../database/database.constants.js';
 import type { Database } from '../../database/prisma.js';
-import type { QueryUsersDto } from './dto/query-users.dto.js';
-import type { UpdateProfileDto } from './dto/update-profile.dto.js';
-import type { UpdateUserDto } from './dto/update-user.dto.js';
+import type { QueryUsersInput } from './dto/query-users.schema.js';
+import type { UpdateProfileInput } from './dto/update-profile.schema.js';
+import type { UpdateUserInput } from './dto/update-user.schema.js';
 
 export interface CreateUserData {
   name: string;
@@ -74,9 +74,8 @@ export class UsersService {
     });
   }
 
-  async findAll(query: QueryUsersDto): Promise<PaginatedResult<UserRow>> {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 10;
+  async findAll(query: QueryUsersInput): Promise<PaginatedResult<UserRow>> {
+    const { page, pageSize } = query;
     const keyword = query.keyword?.trim();
 
     const filtered = this.db.orm.public.User.where((user, { fns }) =>
@@ -101,7 +100,7 @@ export class UsersService {
     return paginate(items, totals.total, page, pageSize);
   }
 
-  async update(id: string, dto: UpdateUserDto | UpdateProfileDto): Promise<UserRow> {
+  async update(id: string, dto: UpdateUserInput | UpdateProfileInput): Promise<UserRow> {
     await this.findByIdOrFail(id);
 
     const payload: { name?: string; avatarUrl?: string | null; role?: Role } = {};

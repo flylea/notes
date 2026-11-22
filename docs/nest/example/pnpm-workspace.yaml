@@ -5,6 +5,8 @@ minimumReleaseAge: 0
 verifyDepsBeforeRun: false
 
 allowBuilds:
-  '@scarf/scarf': set this to true or false
-  esbuild: set this to true or false
-  workerd: set this to true or false
+  # 只有 esbuild 的安装脚本是构建链必需的（tsx/esbuild 二进制）；
+  # scarf 只上报下载统计，workerd 属于 Cloudflare 工具链，示例不用。
+  '@scarf/scarf': false
+  esbuild: true
+  workerd: false

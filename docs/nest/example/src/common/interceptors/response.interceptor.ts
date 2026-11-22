@@ -5,7 +5,7 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import { map, type Observable } from 'rxjs';
-import type { PageMeta } from '../dto/paginated.dto.js';
+import type { PageMeta } from '../dto/pagination.schema.js';
 
 export interface ApiResponse<T> {
   data: T;

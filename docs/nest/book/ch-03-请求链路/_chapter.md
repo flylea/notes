@@ -14,7 +14,7 @@ flowchart TD
   s2["03.02 Nest的Middleware"]
   s3["03.03 RxJS和Interceptor"]
   s4["03.04 内置Pipe和自定义Pipe"]
-  s5["03.05 如何使用ValidationPip…"]
+  s5["03.05 如何用StandardSchema…"]
   s6["03.06 如何自定义ExceptionFil…"]
   s1 --> s2
   s2 --> s3
@@ -35,7 +35,7 @@ flowchart TD
 - ✅ [03.02 Nest的Middleware](03.02-Nest的Middleware.md)
 - ✅ [03.03 RxJS和Interceptor](03.03-RxJS和Interceptor.md)
 - ✅ [03.04 内置Pipe和自定义Pipe](03.04-内置Pipe和自定义Pipe.md)
-- ✅ [03.05 如何使用ValidationPipe验证post请求参数](03.05-如何使用ValidationPipe验证post请求参数.md)
+- ✅ [03.05 如何用StandardSchema校验post请求参数](03.05-如何用StandardSchema校验post请求参数.md)
 - ✅ [03.06 如何自定义ExceptionFilter](03.06-如何自定义ExceptionFilter.md)
 
 ---

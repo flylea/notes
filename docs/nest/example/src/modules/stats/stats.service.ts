@@ -3,13 +3,13 @@ import { RedisService } from '../../redis/redis.service.js';
 import { BookingStatus } from '../../common/enums.js';
 import { PRISMA } from '../../database/database.constants.js';
 import type { Database } from '../../database/prisma.js';
-import type { StatsRangeQueryDto } from './dto/stats-range-query.dto.js';
-import type { TrendQueryDto } from './dto/trend-query.dto.js';
+import type { StatsRangeQueryInput } from './dto/stats-range-query.schema.js';
+import type { TrendQueryInput } from './dto/trend-query.schema.js';
 import type {
-  BookingTrendDto,
-  RoomUsageDto,
-  StatsOverviewDto,
-} from './dto/stats-response.dto.js';
+  BookingTrend,
+  RoomUsage,
+  StatsOverview,
+} from './dto/stats-response.schema.js';
 
 const OVERVIEW_CACHE_TTL = 30;
 const USAGE_CACHE_TTL = 60;
@@ -24,9 +24,9 @@ export class StatsService {
     private readonly redis: RedisService,
   ) {}
 
-  async overview(): Promise<StatsOverviewDto> {
+  async overview(): Promise<StatsOverview> {
     const cacheKey = 'stats:overview';
-    const cached = await this.redis.getJson<StatsOverviewDto>(cacheKey);
+    const cached = await this.redis.getJson<StatsOverview>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -44,7 +44,7 @@ export class StatsService {
         ),
       ]);
 
-    const result: StatsOverviewDto = {
+    const result: StatsOverview = {
       totalUsers: totalUsers.total,
       totalRooms: totalRooms.total,
       totalBookings: totalBookings.total,
@@ -61,10 +61,10 @@ export class StatsService {
    * 房间使用率 = 区间内 APPROVED 预订总时长 / 区间总时长。
    * 这里先在数据库按区间过滤，再在应用层汇总（数据量大时可改成 SQL GROUP BY）。
    */
-  async roomUsage(query: StatsRangeQueryDto): Promise<RoomUsageDto> {
+  async roomUsage(query: StatsRangeQueryInput): Promise<RoomUsage> {
     const { from, to } = this.resolveRange(query);
     const cacheKey = `stats:room-usage:${from.toISOString()}:${to.toISOString()}`;
-    const cached = await this.redis.getJson<RoomUsageDto>(cacheKey);
+    const cached = await this.redis.getJson<RoomUsage>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -93,7 +93,7 @@ export class StatsService {
     }
 
     const totalMinutes = (to.getTime() - from.getTime()) / 60_000;
-    const result: RoomUsageDto = {
+    const result: RoomUsage = {
       range: { from: from.toISOString(), to: to.toISOString() },
       totalRooms: rooms.length,
       rooms: rooms.map((room) => {
@@ -118,15 +118,15 @@ export class StatsService {
     return result;
   }
 
-  async bookingTrend(query: TrendQueryDto): Promise<BookingTrendDto> {
-    const days = query.days ?? 14;
+  async bookingTrend(query: TrendQueryInput): Promise<BookingTrend> {
+    const { days } = query;
     const now = new Date();
     const start = new Date(now);
     start.setUTCHours(0, 0, 0, 0);
     start.setUTCDate(start.getUTCDate() - (days - 1));
 
     const cacheKey = `stats:booking-trend:${days}:${start.toISOString().slice(0, 10)}`;
-    const cached = await this.redis.getJson<BookingTrendDto>(cacheKey);
+    const cached = await this.redis.getJson<BookingTrend>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -150,12 +150,12 @@ export class StatsService {
       return { date, count: counts.get(date) ?? 0 };
     });
 
-    const result: BookingTrendDto = { days, items };
+    const result: BookingTrend = { days, items };
     await this.redis.setJson(cacheKey, result, TREND_CACHE_TTL);
     return result;
   }
 
-  private resolveRange(query: StatsRangeQueryDto): { from: Date; to: Date } {
+  private resolveRange(query: StatsRangeQueryInput): { from: Date; to: Date } {
     const to = query.to ? new Date(query.to) : new Date();
     const from = query.from ? new Date(query.from) : new Date(to.getTime() - DEFAULT_RANGE_MS);
 

@@ -6,10 +6,10 @@ import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../../common/types/auth-user.js';
 import { RedisService } from '../../redis/redis.service.js';
 import { UsersService, type UserRow } from '../users/users.service.js';
-import type { AuthResponseDto } from './dto/auth-response.dto.js';
-import type { LoginDto } from './dto/login.dto.js';
-import type { RegisterDto } from './dto/register.dto.js';
-import type { RefreshTokenDto } from './dto/refresh-token.dto.js';
+import type { AuthResponse } from './dto/auth-response.schema.js';
+import type { LoginInput } from './dto/login.schema.js';
+import type { RefreshTokenInput } from './dto/refresh-token.schema.js';
+import type { RegisterInput } from './dto/register.schema.js';
 
 const BCRYPT_ROUNDS = 10;
 const REVOKED_PREFIX = 'auth:revoked:';
@@ -36,7 +36,7 @@ export class AuthService {
     this.refreshExpiresIn = config.getOrThrow<string>('jwt.refreshExpiresIn');
   }
 
-  async register(dto: RegisterDto): Promise<AuthResponseDto> {
+  async register(dto: RegisterInput): Promise<AuthResponse> {
     const existing = await this.users.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('该邮箱已注册');
@@ -51,7 +51,7 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginInput): Promise<AuthResponse> {
     const user = await this.users.findByEmailWithPassword(dto.email);
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('邮箱或密码错误');
@@ -63,7 +63,7 @@ export class AuthService {
    * refresh token rotation：校验旧 token → 签发新 token → 撤销旧 token。
    * 撤销记录写入 Redis；Redis 不可用时退化为“仅过期失效”，README 已说明。
    */
-  async refresh(dto: RefreshTokenDto): Promise<AuthResponseDto> {
+  async refresh(dto: RefreshTokenInput): Promise<AuthResponse> {
     let payload: JwtPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(dto.refreshToken, {
@@ -106,7 +106,7 @@ export class AuthService {
     return { success: true };
   }
 
-  private async issueTokens(user: TokenUser): Promise<AuthResponseDto> {
+  private async issueTokens(user: TokenUser): Promise<AuthResponse> {
     const basePayload = {
       sub: user.id,
       email: user.email,

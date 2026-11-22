@@ -44,6 +44,17 @@
 - 不逐字复制小册；小册过时写法（Nest 9/10/11、CommonJS、MySQL/TypeORM 主线）要指出并给 Nest 12 写法。
 - 代码必须语法正确、可运行、imports 完整（ESM 相对导入带 `.js`）；不写伪代码。
 
+## 参数校验口径（2026-11-22 决定）
+
+统一用 **zod 4 schema + Standard Schema**，不要写 `class-validator` / `class-transformer` 的 DTO：
+
+- 规则文件放 `*.schema.ts`，导出 `xxxSchema` 与 `z.infer` 出来的 `XxxInput` 类型；
+- 控制器写 `@Body({ schema })` / `@Query({ schema })` / `@Param('id', { schema: z.uuid() })`；
+- 全局注册 `StandardSchemaValidationPipe`（不再用 `ValidationPipe`）；
+- Swagger 请求体靠 `@Body({ schema })` 自动生成；响应用 `@ApiOkResponse({ standardSchema })`；
+- 分页参数用 `z.coerce.number().int()...default(...)`，handler 收到的是数字；
+- 详细对照表见 `_meta/audit/STANDARD-SCHEMA-MIGRATION.md`。
+
 ## 技术栈（硬约束）
 
 - NestJS **12.6.x** + Node 22/24/26 LTS + TypeScript 6.0.x strict + **ESM**（相对导入带 `.js`）+ pnpm 11。

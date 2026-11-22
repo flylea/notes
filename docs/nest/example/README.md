@@ -15,7 +15,7 @@
 | 缓存 | Redis 8 + ioredis 6（可选，未配置自动降级） |
 | 认证 | `@nestjs/jwt` + `@nestjs/passport` + `passport-jwt`，access/refresh 双 token |
 | 文档 | `@nestjs/swagger` 12.1（Swagger UI 挂载在 `/api/docs`） |
-| 校验 | `class-validator` / `class-transformer` + zod 校验环境变量 |
+| 校验 | zod 4（Standard Schema）：参数装饰器挂 `@Body({ schema })`，全局 `StandardSchemaValidationPipe` |
 | 工具链 | TypeScript 6.0、Nest CLI 12、tsx、helmet、`@nestjs/throttler` |
 
 本期示例**不包含自动化测试**：验收方式是 `pnpm build`、`pnpm typecheck` 与真实 HTTP 请求（见文末命令）。
@@ -102,7 +102,7 @@ example/
 │   ├── migrations/             # db:plan / db:migrate 产物
 │   └── seed.ts                 # 演示数据（tsx 运行）
 ├── src/
-│   ├── main.ts                 # 全局前缀、helmet、CORS、ValidationPipe、Swagger
+│   ├── main.ts                 # 全局前缀、helmet、CORS、StandardSchemaValidationPipe、Swagger
 │   ├── app.module.ts           # 全局守卫/拦截器/过滤器装配
 │   ├── generated/prisma8/      # db:emit 产物（contract.json / contract.d.ts）
 │   ├── config/                 # zod 环境变量校验 + 分层配置 + loadEnvFiles
@@ -110,7 +110,7 @@ example/
 │   ├── redis/                  # 可选 Redis 客户端与降级封装
 │   ├── common/
 │   │   ├── decorators/         # @Public @Roles @CurrentUser
-│   │   ├── dto/                # 分页 DTO/通用分页结果
+│   │   ├── dto/                # 分页 schema/通用分页结果
 │   │   ├── enums.ts            # 与契约枚举一一对应的运行时取值
 │   │   ├── filters/            # 统一异常响应
 │   │   ├── guards/             # JwtAuthGuard / RolesGuard
@@ -230,7 +230,8 @@ curl -s -X POST http://localhost:3000/api/auth/register \
 - **JWT 双 token**：access 15m、refresh 7d（可由 `.env` 调整），payload 中 `type` 区分用途，refresh token 不能当 access token 用。
 - **refresh rotation**：刷新时签发新 token，并把旧 `jti` 写入 Redis 黑名单直至过期。Redis 不可用时退化为“旧 token 到期才失效”（见「已知限制」）。
 - **RBAC**：全局 `JwtAuthGuard` + `RolesGuard`，路由用 `@Public()` / `@Roles(Role.ADMIN)` 声明。
-- **ValidationPipe**：`whitelist: true`、`transform: true`；未声明字段会被剔除。
+- **StandardSchemaValidationPipe**：请求体/查询参数用 zod schema 校验，未声明字段会被剔除；
+  校验失败返回 400，`message` 是带字段路径的字符串数组。
 - **Throttler**：默认每 60s 每 IP 100 次，可通过 `THROTTLE_TTL`/`THROTTLE_LIMIT` 调整。
 - **helmet + CORS 白名单**：CORS 来源由 `CORS_ORIGINS` 控制，默认允许本地 5173/4173/3000。
 - **密码**：bcryptjs，cost 10；接口响应中永不返回 `passwordHash`。

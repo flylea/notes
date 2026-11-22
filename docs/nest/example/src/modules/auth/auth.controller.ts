@@ -1,14 +1,19 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
+import { wrappedSchema } from '../../common/dto/pagination.schema.js';
 import type { AuthUser } from '../../common/types/auth-user.js';
 import { AuthService } from './auth.service.js';
-import { AuthResponseDto } from './dto/auth-response.dto.js';
-import { LoginDto } from './dto/login.dto.js';
-import { LogoutDto } from './dto/logout.dto.js';
-import { RefreshTokenDto } from './dto/refresh-token.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
+import * as authResponse from './dto/auth-response.schema.js';
+import { type LoginInput, loginSchema } from './dto/login.schema.js';
+import { type LogoutInput, logoutSchema } from './dto/logout.schema.js';
+import { type RefreshTokenInput, refreshTokenSchema } from './dto/refresh-token.schema.js';
+import { type RegisterInput, registerSchema } from './dto/register.schema.js';
+
+const authResponseDoc = wrappedSchema(authResponse.authResponseSchema);
+const logoutResponseDoc = wrappedSchema(z.object({ success: z.boolean() }));
 
 @ApiTags('auth')
 @Controller('auth')
@@ -18,7 +23,8 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: '注册并直接返回 access/refresh token' })
-  register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
+  @ApiOkResponse({ standardSchema: authResponseDoc })
+  register(@Body({ schema: registerSchema }) dto: RegisterInput) {
     return this.authService.register(dto);
   }
 
@@ -26,7 +32,8 @@ export class AuthController {
   @HttpCode(200)
   @Post('login')
   @ApiOperation({ summary: '邮箱密码登录' })
-  login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
+  @ApiOkResponse({ standardSchema: authResponseDoc })
+  login(@Body({ schema: loginSchema }) dto: LoginInput) {
     return this.authService.login(dto);
   }
 
@@ -34,7 +41,8 @@ export class AuthController {
   @HttpCode(200)
   @Post('refresh')
   @ApiOperation({ summary: '用 refresh token 换新的一对 token（rotation）' })
-  refresh(@Body() dto: RefreshTokenDto): Promise<AuthResponseDto> {
+  @ApiOkResponse({ standardSchema: authResponseDoc })
+  refresh(@Body({ schema: refreshTokenSchema }) dto: RefreshTokenInput) {
     return this.authService.refresh(dto);
   }
 
@@ -42,7 +50,11 @@ export class AuthController {
   @HttpCode(200)
   @Post('logout')
   @ApiOperation({ summary: '登出，并撤销传入的 refresh token' })
-  logout(@CurrentUser() user: AuthUser, @Body() dto: LogoutDto) {
+  @ApiOkResponse({ standardSchema: logoutResponseDoc })
+  logout(
+    @CurrentUser() user: AuthUser,
+    @Body({ schema: logoutSchema }) dto: LogoutInput,
+  ) {
     return this.authService.logout(user.id, dto.refreshToken);
   }
 }

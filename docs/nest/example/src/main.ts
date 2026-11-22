@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, StandardSchemaValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -26,13 +26,8 @@ const bootstrap = async (): Promise<void> => {
     exposedHeaders: ['x-request-id'],
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: false },
-    }),
-  );
+  // zod schema 挂在参数装饰器上（@Body({ schema }) 等），由内置管道统一校验/转换。
+  app.useGlobalPipes(new StandardSchemaValidationPipe());
   app.enableShutdownHooks();
 
   const swaggerConfig = new DocumentBuilder()
