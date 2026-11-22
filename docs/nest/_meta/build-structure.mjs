@@ -46,6 +46,26 @@ const sections = sectionRows.map((r) => ({
 const chDirOf = (ch) => sections.find((s) => s.ch === ch).file.split('/').slice(0, 2).join('/');
 const chDirName = (ch) => chDirOf(ch).split('/')[1];
 const isWritten = (s) => s.status === '已写' && existsSync(join(root, s.file));
+
+// BOOK-OUTLINE 的「已写」列是派生数据：以 chapters.tsv 的实际状态为准，自动回写，避免两表漂移。
+{
+  const writtenOf = (ch) => sections.filter((s) => s.ch === ch && isWritten(s)).length;
+  let changed = false;
+  for (const c of chapters) {
+    const n = writtenOf(c.ch);
+    if (c.written !== n) {
+      c.written = n;
+      changed = true;
+    }
+  }
+  if (changed) {
+    const header = readTsv('BOOK-OUTLINE.tsv')[0];
+    const lines = chapters.map((c) =>
+      [c.part, c.partTitle, c.ch, c.title, c.count, c.written, c.source, c.goal, c.outcome, c.hours].join('\t'),
+    );
+    writeFileSync(join(root, '_meta', 'BOOK-OUTLINE.tsv'), [header.join('\t'), ...lines].join('\n') + '\n');
+  }
+}
 const sectionsOf = (ch) => sections.filter((s) => s.ch === ch);
 
 const parts = [...new Set(chapters.map((c) => c.part))].map((no) => ({
