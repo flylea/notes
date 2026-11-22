@@ -106,7 +106,7 @@ section	chapter	chapter_title	part	file	title	slug	domains	project	status
 10.08	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.08-Nginx的全部配置.md	Nginx的全部配置	ch-10-08	DevOps	-	已写
 10.09	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.09-基于Redis实现分布式session.md	基于Redis实现分布式session	ch-10-09	数据库	-	已写
 10.10	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.10-Redis+高德地图，实现附近的充电宝.md	Redis+高德地图，实现附近的充电宝	ch-10-10	数据库	-	已写
-10.11	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.11-基于Redis实现王者荣耀段位排行榜.md	基于Redis实现王者荣耀段位排行榜	ch-10-11	数据库	-	待写
+10.11	10	配置、Compose 与 Nginx	part-02	book/ch-10-配置与部署/10.11-基于Redis实现王者荣耀段位排行榜.md	基于Redis实现王者荣耀段位排行榜	ch-10-11	数据库	-	已写
 11.01	11	工程化设施	part-02	book/ch-11-工程化/11.01-用Swagger自动生成api文档.md	用Swagger自动生成api文档	ch-11-01	HTTP	-	待写
 11.02	11	工程化设施	part-02	book/ch-11-工程化/11.02-用Scalar、Redoc美化API文档与契约交付.md	用Scalar、Redoc美化API文档与契约交付	ch-11-02	HTTP	-	待写
 11.03	11	工程化设施	part-02	book/ch-11-工程化/11.03-使用compodoc生成文档.md	使用compodoc生成文档	ch-11-03	工程化设施	-	待写
