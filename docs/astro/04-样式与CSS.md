@@ -1,8 +1,8 @@
-## 第四章：样式与 CSS
+# 第 4 章 样式与 CSS
 
-### 4.1 组件作用域样式（Scoped Styles）
+## 4.1 作用域样式
 
-Astro 中所有 `<style>` 标签**默认自动作用域隔离**，样式只对当前组件生效，不会泄漏到其他组件。
+`.astro` 文件里的 `<style>` 默认只作用于当前组件，不会泄漏到别处。
 
 ```astro
 ---
@@ -18,16 +18,10 @@ Astro 中所有 `<style>` 标签**默认自动作用域隔离**，样式只对�
 </header>
 
 <style>
-  /* 这些样式仅对当前 Header 组件生效 */
   header {
     background: #333;
     color: white;
     padding: 1rem;
-  }
-
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
   }
 
   nav a {
@@ -42,62 +36,64 @@ Astro 中所有 `<style>` 标签**默认自动作用域隔离**，样式只对�
 </style>
 ```
 
-**编译后效果**：Astro 会给每个元素添加唯一的 `data-astro-cid-*` 属性，实现 CSS 隔离：
+实现方式不是 Shadow DOM，是属性选择器。编译后每个元素多一个 `data-astro-cid-*` 属性，选择器被改写成这样：
 
 ```html
 <header data-astro-cid-jpvhi6sc>
   <h1 data-astro-cid-jpvhi6sc>网站标题</h1>
-  ...
 </header>
 <style>
-  h1[data-astro-cid-jpvhi6sc] { margin: 0; font-size: 1.5rem; }
+  header[data-astro-cid-jpvhi6sc] { background: #333; }
 </style>
 ```
 
-#### 作用域样式策略
+由此带出三条限制：
+
+- 子组件内部的元素拿不到父组件的 scoped 样式，需要 `:global()` 或把样式写进子组件。
+- 通过 `set:html` 注入的 HTML 不带 `data-astro-cid`，作用域样式对它无效。
+- 选择器特异性增加了一个属性，比纯 class 选择器高一级。覆盖这类样式时权重需要算清楚。
+
+### 4.1.1 作用域策略
 
 ```js
-// astro.config.mjs
 export default defineConfig({
-  scopedStyleStrategy: 'attribute',  // 默认：使用 data-astro-cid 属性
-  // scopedStyleStrategy: 'class',   // 使用 CSS class 代替属性
-  // scopedStyleStrategy: 'where',   // 使用 :where() 降低特异性
+  scopedStyleStrategy: 'attribute', // 默认，用 data-astro-cid 属性
+  // scopedStyleStrategy: 'class',   // 用生成的 class
+  // scopedStyleStrategy: 'where',   // 包在 :where() 里，特异性为 0
 });
 ```
 
-### 4.2 全局样式
+三者的差别在特异性：
 
-#### 方式一：`<style is:global>`
+| 策略 | 产物 | 特异性 | 适用 |
+|---|---|---|---|
+| `attribute` | `h1[data-astro-cid-x]` | 0-1-1 | 默认，够用 |
+| `class` | `h1.astro-x` | 0-1-1 | 需要给元素加 class 时 |
+| `where` | `:where(h1[data-astro-cid-x])` | 0-0-0 | 组件库，方便外部覆盖 |
 
-```astro
-<style is:global>
-  /* 完全取消作用域，样式全局生效 */
-  body {
-    font-family: 'Segoe UI', sans-serif;
-    margin: 0;
-    padding: 0;
-  }
+做组件库时选 `where`，使用者能用一条普通 class 覆盖你的样式。应用内部用默认值，避免样式互相踩。
 
-  * {
-    box-sizing: border-box;
-  }
-</style>
-```
+## 4.2 全局样式
 
-#### 方式二：`:global()` 选择器
+三种方式，用途不同。
 
-在一个作用域样式中混合使用局部和全局样式：
+局部样式里要影响子内容，用 `:global()`：
 
 ```astro
-<!-- BlogPost.astro -->
+---
+// BlogPost.astro
+---
+
+<article class="article">
+  <slot />
+</article>
+
 <style>
-  /* 局部样式（仅当前组件） */
   .article {
     max-width: 800px;
     margin: 0 auto;
   }
 
-  /* 全局选择器：影响 .article 内部所有 h1（包括子组件内容） */
   .article :global(h1) {
     color: #2563eb;
     border-bottom: 2px solid #e5e7eb;
@@ -106,22 +102,15 @@ export default defineConfig({
   .article :global(p) {
     line-height: 1.8;
   }
-
-  .article :global(pre) {
-    background: #1e1e1e;
-    color: #d4d4d4;
-    padding: 1rem;
-    border-radius: 8px;
-    overflow-x: auto;
-  }
 </style>
 ```
 
-#### 方式三：导入全局 CSS 文件
+`:global(h1)` 只对 `.article` 内部生效，`.article` 本身仍然带作用域。写 `:global(.article h1)` 就彻底放开，影响全站所有 `.article h1`，这两种写法效果差很多。
+
+全站基础样式用 `<style is:global>` 或直接导入 CSS 文件：
 
 ```astro
 ---
-// 在组件脚本中导入
 import '../styles/global.css';
 ---
 ```
@@ -134,15 +123,22 @@ import '../styles/global.css';
   --color-bg: #ffffff;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
+  margin: 0;
   color: var(--color-text);
   background: var(--color-bg);
 }
 ```
 
-### 4.3 CSS 变量与 `define:vars`
+导入的 CSS 是全局的。放在布局组件里导入一次，全站生效。放在某个普通组件里导入，只有这个组件被渲染时才加载，但样式作用范围仍是全局。
 
-将组件脚本中的 JavaScript 变量传入 CSS：
+## 4.3 从脚本传值给 CSS
+
+`define:vars` 把脚本段的值变成 CSS 变量：
 
 ```astro
 ---
@@ -158,14 +154,19 @@ const paddingSize = "1rem";
     color: var(--foregroundColor);
     background-color: var(--backgroundColor);
     padding: var(--paddingSize);
-    border-radius: 8px;
   }
 </style>
 ```
 
-### 4.4 `class:list` 动态类名
+`define:vars` 的实现是把变量名加上 `--` 写成内联 `style` 属性，所以：
 
-`class:list` 是 Astro 模板指令，用于动态组合 class 属性：
+- 值必须是字符串或能序列化的数字，传对象会变成 `[object Object]`。
+- 变量名区分大小写，`var(--foregroundcolor)` 取不到值，颜色会回退到继承值，页面不报错。
+- 每个组件实例都会输出一份内联样式，列表里循环 100 次就有 100 份，这类场景改用 `style` 属性或 class。
+
+## 4.4 class:list
+
+`class:list` 用来按条件拼接 class，接受数组、对象或混合：
 
 ```astro
 ---
@@ -174,37 +175,20 @@ const type = 'primary';
 const hasError = false;
 ---
 
-<!-- 数组语法 -->
 <div class:list={['base-class', isActive && 'active', `type-${type}`]}>
-  动态 class
+  数组写法
 </div>
 
-<!-- 对象语法 -->
-<div class:list={{
-  'base-class': true,
-  'is-active': isActive,
-  'has-error': hasError,
-  [type]: true,
-}}>
-  条件 class
+<div class:list={{ 'base-class': true, 'is-active': isActive, 'has-error': hasError }}>
+  对象写法
 </div>
-
-<!-- 混合语法 -->
-<button class:list={[
-  'btn',
-  {
-    'btn-primary': type === 'primary',
-    'btn-secondary': type === 'secondary',
-    'btn-disabled': isDisabled,
-  },
-]}>
-  按钮
-</button>
 ```
 
-### 4.5 外部样式方案
+值为 `false`、`null`、`undefined`、空字符串的项会被丢掉，不用自己写三元。`class` 和 `class:list` 同时出现时，`class` 优先，`class:list` 被忽略。
 
-#### CSS Modules
+## 4.5 CSS Modules 与外部样式表
+
+CSS Modules 把类名编译成局部名字：
 
 ```astro
 ---
@@ -216,144 +200,95 @@ import styles from '../styles/Button.module.css';
 </button>
 ```
 
-#### 导入样式文件
-
-```astro
----
-// 在脚本中导入 CSS 文件
-import '../styles/reset.css';
----
-```
-
-#### 外部样式表（link标签）
+外部样式表用 `<link>`：
 
 ```astro
 <link rel="stylesheet" href="/styles/normalize.css" />
-<link rel="stylesheet" href="https://cdn.example.com/framework.css" />
 ```
 
-### 4.6 CSS 预处理器
+`/styles/...` 指向 `public/` 里的文件。要被打包、压缩、加哈希的样式放 `src/` 里用 `import`，需要固定 URL 的放 `public/`。
 
-#### Sass / SCSS
+## 4.6 预处理器
+
+Sass 和 Less 需要装对应包，Astro 检测到 `lang` 属性后用 Vite 的预处理器处理：
 
 ```bash
-npm install sass
+npm install -D sass
 ```
 
 ```astro
 <style lang="scss">
   $primary: #2563eb;
-  $spacing: 1rem;
 
   .container {
     max-width: 1200px;
-    margin: 0 auto;
-    padding: $spacing;
 
     h1 {
       color: $primary;
-
-      &:hover {
-        opacity: 0.8;
-      }
     }
   }
 </style>
 ```
 
-#### Less
+Less 装 `less`，Stylus 装 `stylus`，`lang` 分别写 `less`、`styl`。装错包时构建报：
 
-```bash
-npm install less
+```
+Preprocessor dependency "sass" not found. Did you install it?
 ```
 
-```astro
-<style lang="less">
-  @primary: #2563eb;
+Sass 的每个 `<style lang="scss">` 都是独立编译单元。要共享变量，用一个 `_variables.scss` 并 `@use` 进去，不能依赖上层的变量。
 
-  .btn {
-    background: @primary;
-    &.large {
-      padding: 1rem 2rem;
-    }
-  }
-</style>
-```
+## 4.7 Tailwind CSS
 
-#### Stylus
-
-```bash
-npm install stylus
-```
-
-### 4.7 CSS 框架集成
-
-#### Tailwind CSS
+Astro 5.2 之后，`astro add tailwind` 装的是 Tailwind 4 加 Vite 插件，不再是 Astro 集成：
 
 ```bash
 npx astro add tailwind
 ```
 
-该命令会自动：
-1. 安装 `@astrojs/tailwind` 和 `tailwindcss`
-2. 更新 `astro.config.mjs`
-3. 创建 `tailwind.config.mjs`
+命令做三件事：装 `tailwindcss` 与 `@tailwindcss/vite`，在 `astro.config.mjs` 里注册 `tailwindcss()` 插件，生成 `src/styles/global.css` 并写入 `@import "tailwindcss";`。Tailwind 4 没有 `tailwind.config.mjs`，配置写在 CSS 里：
+
+```css
+/* src/styles/global.css */
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #2563eb;
+  --font-sans: "Inter", sans-serif;
+}
+```
+
+然后在布局里导入这个文件，类名即可使用：
 
 ```astro
 ---
-// 安装后直接使用 Tailwind 类
+import '../styles/global.css';
 ---
 
 <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-  <div class="container mx-auto px-4 py-8">
-    <h1 class="text-4xl font-bold text-gray-900 dark:text-white
-               hover:text-blue-600 transition-colors">
-      欢迎使用 Tailwind + Astro
-    </h1>
-
-    <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold">卡片 1</h2>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold">卡片 2</h2>
-      </div>
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold">卡片 3</h2>
-      </div>
-    </div>
-  </div>
+  <h1 class="text-4xl font-bold hover:text-brand">标题</h1>
 </div>
 ```
 
-#### UnoCSS
+在组件的 `<style>` 里用 `@apply` 会失败，Tailwind 4 的编译单元是隔离的：
 
-```bash
-npm install unocss
+```
+Error: Cannot apply unknown utility class `flex`.
 ```
 
-```astro
----
-import 'uno.css';
----
+修法是在 `<style>` 顶部加一行 `@reference "../styles/global.css";`。更好的做法是少用 `@apply`，直接在模板里写类名。
 
-<div class="p-4 bg-blue-500 text-white rounded-lg">
-  UnoCSS 样式
-</div>
-```
+老项目里可能见到 `@astrojs/tailwind` 集成和 `tailwind.config.mjs`，那是 Tailwind 3 的装法，官方目前仍支持但属于遗留方案。判断方法看依赖：有 `@astrojs/tailwind` 就是 Tailwind 3。
 
-### 4.8 主题与暗色模式
+## 4.8 暗色模式
 
-Astro 天然支持多种暗色模式方案。
-
-#### CSS 自定义属性方案
+用 CSS 变量做两套取值，切换时只改根元素的 class：
 
 ```css
 /* src/styles/theme.css */
 :root {
   --color-bg: #ffffff;
   --color-text: #1a1a1a;
-  --color-primary: #2563eb;
   --color-card: #f3f4f6;
   --color-border: #e5e7eb;
 }
@@ -361,46 +296,21 @@ Astro 天然支持多种暗色模式方案。
 html.dark {
   --color-bg: #111827;
   --color-text: #f3f4f6;
-  --color-primary: #3b82f6;
   --color-card: #1f2937;
   --color-border: #374151;
 }
 
-/* 跟随系统偏好 */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     --color-bg: #111827;
     --color-text: #f3f4f6;
-    --color-primary: #3b82f6;
     --color-card: #1f2937;
     --color-border: #374151;
   }
 }
 ```
 
-#### 使用主题变量
-
-```astro
----
-import '../styles/theme.css';
----
-
-<style>
-  body {
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
-
-  .card {
-    background: var(--color-card);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 1rem;
-  }
-</style>
-```
-
-#### 主题切换组件
+切换组件需要在首帧前读到用户的主题偏好，否则会闪白：
 
 ```astro
 ---
@@ -408,115 +318,83 @@ import '../styles/theme.css';
 ---
 
 <button id="theme-toggle" aria-label="切换主题">
-  <span class="light-icon">☀️</span>
-  <span class="dark-icon">🌙</span>
+  <span class="light-label">浅色</span>
+  <span class="dark-label">深色</span>
 </button>
 
-<script>
-  const toggle = document.getElementById('theme-toggle');
+<script is:inline>
   const root = document.documentElement;
-
-  // 初始化
   const saved = localStorage.getItem('theme');
-  if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+  if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
     root.classList.add('dark');
   }
 
-  // 切换
-  toggle.addEventListener('click', () => {
+  document.getElementById('theme-toggle').addEventListener('click', () => {
     root.classList.toggle('dark');
     localStorage.setItem('theme', root.classList.contains('dark') ? 'dark' : 'light');
   });
 </script>
 
 <style>
-  html:not(.dark) .dark-icon { display: none; }
-  html.dark .light-icon { display: none; }
+  html:not(.dark) .dark-label { display: none; }
+  html.dark .light-label { display: none; }
 </style>
 ```
 
-### 4.9 PostCSS 集成
+这段脚本必须用 `is:inline`，理由有两个。它要抢在首帧渲染前执行，走打包会把脚本推到模块加载之后；另外主题 class 要在 CSS 生效前就加上，否则页面先以浅色渲染再切深色。
 
-Astro 内建 PostCSS 支持。创建 `postcss.config.cjs` 即可：
+## 4.9 PostCSS
+
+需要浏览器前缀或压缩时，加 `postcss.config.cjs`：
 
 ```js
-// postcss.config.cjs
 module.exports = {
-  plugins: [
-    require('autoprefixer'),
-    require('cssnano')({
-      preset: 'default',
-    }),
-  ],
+  plugins: {
+    autoprefixer: {},
+    cssnano: { preset: 'default' },
+  },
 };
 ```
 
-### 4.10 样式最佳实践
+对象写法比数组写法更常用，插件顺序由对象键顺序决定。`cssnano` 在开发模式下也会跑，改样式后的热更新会变慢，建议只给构建开启：
 
-1. **优先使用作用域样式**：避免全局污染，样式内聚性好
-2. **全局样式集中管理**：在 `src/styles/global.css` 中管理全局样式
-3. **使用 CSS 变量做主题**：便于暗色模式和多主题切换
-4. **图片使用 `astro:assets`**：自动优化，比 CSS `background-image` 更好
-5. **生产环境压缩**：通过 PostCSS cssnano 或框架自带
+```js
+const isProd = process.env.NODE_ENV === 'production';
 
-```astro
----
-// 🌟 完整组件示例：样式整合
-import '../styles/theme.css';
-
-const variant = 'primary';
----
-
-<div class="component-wrapper">
-  <h2 class="title">样式示例</h2>
-  <button class:list={['btn', `btn-${variant}`]}>操作按钮</button>
-</div>
-
-<style>
-  .component-wrapper {
-    padding: 2rem;
-    border-radius: 12px;
-  }
-
-  .title {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-primary {
-    background: var(--color-primary);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-  }
-
-  .btn-secondary {
-    background: var(--color-card);
-    color: var(--color-text);
-    border: 1px solid var(--color-border);
-  }
-</style>
+module.exports = {
+  plugins: {
+    autoprefixer: {},
+    ...(isProd ? { cssnano: { preset: 'default' } } : {}),
+  },
+};
 ```
 
-### 本章小结
+## 4.10 有约束的几条实践
 
-- **作用域样式**是 Astro 的默认行为，实现组件级样式隔离
-- **全局样式**通过 `is:global`、`:global()` 选择器或全局 CSS 文件实现
-- **`class:list`** 提供强大的动态类名组合能力
-- **Sass / Less** 开箱可用，只需安装依赖
-- **Tailwind CSS** 通过 `npx astro add tailwind` 一键集成
-- **CSS 变量 + `define:vars`** 实现 JS 到 CSS 的数据传递
-- **暗色模式**可用 CSS 变量轻松实现，无需额外依赖
+- 组件内部样式写在组件的 `<style>` 里。样式和模板离得近，删组件时不会留下孤儿 CSS。
+- 全局只放三样东西：reset、CSS 变量、排版基线。其余都收进组件。
+- 主题用 CSS 变量，不要在组件里判断 `prefers-color-scheme`，判断集中在一处。
+- 覆盖第三方组件样式时，先确认对方用的是 `attribute` 还是 `where` 策略。后者一条 class 就够，前者要提特异性。
+- 图片用 `<Image />` 而不是 `background-image`，构建期能做尺寸和格式优化，见第 6 章。
 
-下一章学习 Astro 的内容集合系统——类型安全的内容管理。
+## 4.11 什么时候别这么写
+
+上面这些是默认路径，不是唯一路径。下面几种情况绕开它们更省事：
+
+- **设计系统级别的视觉规范**：把颜色、间距、字号全部写成 CSS 变量，再用一个全局样式表统一入口。散在几十个组件里各自定义变量，比集中管理难维护得多。
+- **覆盖第三方组件的内部结构**：不要靠提高特异性去赢，`.wrapper .inner .btn` 这种写法的维护成本远超收益。要么让第三方组件接受类名参数，要么包一层自己的组件。
+- **大量 `:global()`**：`:global()` 用多了说明组件边界没划清。出现超过三处，就该考虑把这段样式提成一个独立组件，而不是继续在全局放规则。
+- **`define:vars` 传大对象**：它把值序列化后内联进 `<style>`，对象越大 HTML 越大，而且每次渲染都要序列化一次。需要多个动态值时，改成写 CSS 变量。
+- **严格 CSP 的项目**：`security.csp` 打开后，内联样式要带 hash 才能执行，`define:vars` 生成的内联样式会被拦。这类项目里用 CSS 变量，别用内联样式。
+- **极小的静态页**：一个页面只用到五十行 CSS，还在为它引 Tailwind，构建产物反而更大。这种情况直接写 CSS 更快。
+
+## 4.12 本章小结
+
+- `<style>` 默认作用域，实现是 `data-astro-cid` 属性选择器。
+- 作用域样式管不到子组件和 `set:html` 的内容。
+- `:global()` 只放开选择器的一部分，写位置不同影响范围不同。
+- `define:vars` 是内联样式，别在循环里用。
+- Tailwind 4 走 Vite 插件，配置写在 CSS 的 `@theme` 里，`@apply` 需要 `@reference`。
+- 暗色模式切换脚本要 `is:inline`，否则首帧会闪。
+
+下一章讲内容集合：Markdown 怎么声明 schema、怎么查询、怎么渲染。

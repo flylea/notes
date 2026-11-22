@@ -1,81 +1,80 @@
-## 第二章：Astro 组件详解
+# 第 2 章 组件与模板语法
 
-### 2.1 组件结构
+## 2.1 组件由两段组成
 
-Astro 组件（`.astro` 文件）由两部分组成，用 `---` 代码围栏分隔：
+`.astro` 文件的格式固定：`---` 围栏之间是脚本段，之后是模板。
 
 ```astro
 ---
-// 第一部分：组件脚本（Component Script）
-// 在服务端执行，永远不会发送到浏览器
 import Header from '../components/Header.astro';
 const name = "Astro";
 ---
 
-<!-- 第二部分：组件模板（Component Template） -->
-<!-- 纯 HTML + JSX 风格表达式 -->
 <Header />
 <main>
-  <h1>你好，{name}！</h1>
+  <h1>你好，{name}。</h1>
   <p>欢迎学习组件语法。</p>
 </main>
 ```
 
-**两部分的关键区别**：
+两段的分工决定了写法：
 
-| 部分 | 执行位置 | 能做什么 |
+| 部分 | 在哪执行 | 能做什么 |
 |---|---|---|
-| **组件脚本** (`---`) | 服务端（构建时或请求时） | 导入模块、获取数据、定义变量、访问 `Astro.props` |
-| **组件模板** | 编译为 HTML | 渲染 HTML、使用表达式、展示数据 |
+| 脚本段（`---` 内） | 服务端，构建时或请求时 | `import`、读文件、查数据库、调用接口、定义变量 |
+| 模板 | 编译成 HTML 字符串 | 输出 HTML、执行 `{}` 表达式、引用脚本段里的变量 |
 
-### 2.2 组件脚本（Component Script）
+关键点：两段都在服务端执行，模板里的表达式不会变成浏览器里的 JS。构建完成后，`{name}` 的位置已经是字符串 `Astro`，不是等待赋值的占位符。
 
-位于 `---` 围栏之间的 TypeScript/JavaScript 代码永远不会到达浏览器，你可以安全地执行敏感操作。
-
-#### 可以做的事
+这带来一个常见误解。下面这样写，`count` 不会在浏览器里自增：
 
 ```astro
 ---
-// 1. 导入 Astro 组件
-import SomeComponent from '../components/SomeComponent.astro';
+let count = 0;
+---
 
-// 2. 导入 UI 框架组件
-import Counter from '../components/Counter.tsx';
-import HelloWorld from '../components/HelloWorld.vue';
+<p>{count}</p>
+<button>加一</button>
+```
 
-// 3. 导入数据文件
+页面每次刷新都是 0。要在浏览器里改状态，得用 `<script>` 或者客户端框架组件，见 2.8 节。
+
+## 2.2 脚本段
+
+脚本段顶部可以放 import、接口定义、变量、顶层 `await`。
+
+```astro
+---
 import products from '../data/products.json';
 
-// 4. 从 API 或数据库获取内容
 const response = await fetch('https://api.example.com/users');
 const users = await response.json();
 
-// 5. 定义模板中使用的变量
 const isLoggedIn = true;
-const pageName = "首页";
 const today = new Date().toLocaleDateString('zh-CN');
 ---
 
-<h1>{pageName}</h1>
-<p>今天是 {today}</p>
-
-{isLoggedIn ? <UserGreeting /> : <LoginButton />}
+{isLoggedIn ? <p>今天是 {today}</p> : <a href="/login">登录</a>}
 
 <ul>
-  {users.map(user => <li>{user.name}</li>)}
+  {users.map((user) => <li>{user.name}</li>)}
 </ul>
 ```
 
-#### 注意事项
+在 `static` 输出下，这段代码在构建时执行一次。接口在构建时不可用，页面就构建失败。需要每次请求都取数据，得改成按需渲染，见第 8 章。
 
-- 组件脚本中不能使用浏览器 API（`document`、`window`、`localStorage` 等）
-- 需要浏览器环境的功能请放在 `<script>` 标签中（见 2.8 节）
+不能做的事：碰浏览器 API。脚本段没有 `document` 和 `window`，写了会直接报错：
 
-### 2.3 组件模板语法
+```
+ReferenceError: document is not defined
+    at src/pages/index.astro:5:1
+```
 
-模版中的 JavaScript 表达式用 `{ }` 包裹。
+同样的错在 SSR 请求时也会出现。判断方法很简单：这段代码需要用户点击、滚动、读取本地存储才能运行吗？需要就放到 `<script>` 里。
 
-#### 基本表达式
+## 2.3 模板表达式
+
+`{}` 里写 JavaScript 表达式，可以是变量、运算、三元、调用、`map`。
 
 ```astro
 ---
@@ -85,124 +84,74 @@ const items = ["苹果", "香蕉", "橙子"];
 const isVisible = true;
 ---
 
-<!-- 文本插值 -->
 <p>框架名称：{name}</p>
-
-<!-- 属性表达式 -->
-<a href={`/product/${id}`}>查看详情</a>
-
-<!-- 条件渲染 -->
-{isVisible && <div>这个元素会显示</div>}
-
-<!-- 三元表达式 -->
-{isVisible ? <p>可见</p> : <p>隐藏</p>}
-
-<!-- 列表渲染 -->
-<ul>
-  {items.map(item => (
-    <li key={item}>{item}</li>
-  ))}
-</ul>
-
-<!-- 数字计算 -->
 <p>含税价格：¥{price * 1.13}</p>
 
-<!-- 方法调用 -->
-<p>{name.toUpperCase()}</p>
+{isVisible && <div>这段会渲染</div>}
+{isVisible ? <p>可见</p> : <p>隐藏</p>}
+
+<ul>
+  {items.map((item) => <li>{item}</li>)}
+</ul>
 ```
 
-#### 模板中的注释
+几个边界：
+
+- 只能放表达式，不能放语句。`{ if (x) {} }` 不合法，要在脚本段里算好再输出。
+- `{}` 的值是 `null`、`undefined`、`false` 时不渲染内容，不报错。
+- 列表不需要 React 的 `key`。写了 `key={item}` 会作为普通属性出现在 HTML 里，没有任何作用。
+
+注释有两种，行为不同：
 
 ```astro
-<!-- HTML 注释：会出现在构建产物中 -->
-
-{/* JSX 风格注释：不会出现在构建产物中 */}
+<!-- 这种注释会输出到 HTML -->
+{/* 这种注释是 JSX 语法，编译后被删掉 */}
 ```
 
-#### HTML 属性
+暴露在 HTML 注释里的内容会被人看到，调试信息、内网地址不要写在这类注释里。
 
-```astro
----
-const id = "main-content";
-const isActive = true;
----
+## 2.4 Props
 
-<!-- 静态属性 -->
-<div class="container"></div>
-
-<!-- 动态属性 -->
-<div id={id}></div>
-
-<!-- 布尔属性 -->
-<button disabled={isActive}>按钮</button>
-
-<!-- 展开属性（多个属性一次性传递）-->
-<input {...attrs} />
-
-<!-- HTML 直出（仅信任源使用！） -->
-<article set:html={trustedHtmlContent} />
-```
-
-### 2.4 Props（组件属性）
-
-Props 是父组件向子组件传递数据的方式。
-
-#### 定义和接收 Props
+父组件通过属性传值，子组件用 `Astro.props` 接收。
 
 ```astro
 ---
-// Greeting.astro — 子组件
+// Greeting.astro
 export interface Props {
   name: string;
-  greeting?: string;       // 可选属性
+  greeting?: string;
   age?: number;
-  children?: any;          // 接收插槽内容
 }
 
 const { name, greeting = "你好", age } = Astro.props;
 ---
 
 <div class="greeting">
-  <p>{greeting}，{name}！</p>
+  <p>{greeting}，{name}。</p>
   {age && <p>年龄：{age} 岁</p>}
 </div>
 ```
 
 ```astro
 ---
-// 父组件中使用
 import Greeting from '../components/Greeting.astro';
 ---
 
 <Greeting name="小明" greeting="早上好" age={25} />
-<Greeting name="小红" />  <!-- 使用默认 greeting -->
+<Greeting name="小红" />
 ```
 
-#### Props 类型定义方式
+导出 `Props` 接口后，编辑器会检查传入值。类型不匹配时 `astro check` 报错：
 
-```astro
----
-// 方式一：interface
-export interface Props {
-  title: string;
-  count: number;
-}
-
-// 方式二：type（推荐用于复杂类型）
-export type Props = {
-  variant: 'primary' | 'secondary';
-  onClick?: () => void;
-  items: { id: string; name: string }[];
-};
-
-const props = Astro.props;
+```
+Argument of type 'string' is not assignable to parameter of type 'number'.
 ```
 
-### 2.5 插槽（Slots）
+Props 的另一条边界和序列化有关。`<Greeting>` 是 Astro 组件，传函数没问题。如果 `Greeting` 换成客户端组件 `<ReactCounter client:load fn={...} />`，函数过不了序列化，浏览器里拿到的是 `undefined`。给客户端组件传的 props 必须是 JSON 能表示的值：字符串、数字、布尔、数组、普通对象、`null`。
 
-插槽允许父组件向子组件注入 HTML 内容。类似 React 的 `children` 但更强大。
+## 2.5 插槽
 
-#### 默认插槽
+插槽把父组件的 HTML 注入子组件。
 
 ```astro
 ---
@@ -210,18 +159,22 @@ const props = Astro.props;
 ---
 
 <div class="card">
-  <slot />  <!-- 默认插槽，父组件的内容注入此处 -->
+  <slot />
 </div>
 ```
 
 ```astro
+---
+import Card from '../components/Card.astro';
+---
+
 <Card>
   <h2>卡片标题</h2>
-  <p>卡片内容可以包含任意 HTML。</p>
+  <p>卡片内容。</p>
 </Card>
 ```
 
-#### 具名插槽
+具名插槽用 `slot` 属性对号入座：
 
 ```astro
 ---
@@ -233,10 +186,10 @@ const props = Astro.props;
     <slot name="header" />
   </header>
   <main>
-    <slot />     <!-- 默认插槽 -->
+    <slot />
   </main>
   <footer>
-    <slot name="footer">默认页脚文字</slot>  <!-- 具名插槽 + 后备内容 -->
+    <slot name="footer">默认页脚</slot>
   </footer>
 </div>
 ```
@@ -244,36 +197,22 @@ const props = Astro.props;
 ```astro
 <Layout>
   <h1 slot="header">网站标题</h1>
-  <!-- 以下内容自动进入默认插槽 -->
-  <p>正文内容...</p>
+  <p>正文进入默认插槽。</p>
   <div slot="footer">© 2026 My Site</div>
 </Layout>
 ```
 
-#### 插槽中的回退内容
+`<slot>` 里的内容是有默认值时的后备内容，父组件不传就用它。注意具名插槽不会落进默认插槽，把 `slot="header"` 拼错成 `slot="Header"` 时，这段内容会直接消失，页面不报错。排查时先看 HTML 里有没有这段内容。
 
-当父组件不提供对应插槽内容时，显示后备内容：
+## 2.6 组件嵌套
 
-```astro
----
-// Button.astro
----
-
-<button>
-  <slot>点击这里</slot>  <!-- 如果父组件没传内容，显示"点击这里" -->
-</button>
-```
-
-### 2.6 组件嵌套与引用
-
-#### 组件导入
+组件可以任意嵌套，组件之间的数据传递只有两条路：Props 向下，插槽注入 HTML。
 
 ```astro
 ---
-// 支持多种导入方式
 import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
-import { Card, Button } from '../components/ui/index.astro';
+import Card from '../components/Card.astro';
+import Button from '../components/Button.astro';
 ---
 
 <Header />
@@ -282,39 +221,30 @@ import { Card, Button } from '../components/ui/index.astro';
     <Button>了解更多</Button>
   </Card>
 </main>
-<Footer />
 ```
 
-#### 组件目录索引文件
+目录按职责分就行，`components/` 下的文件不会自动变成路由。只有 `src/pages/` 下的文件才是页面。
 
-```
-components/
-├── index.astro    ← 统一导出
-└── ui/
-    ├── Card.astro
-    ├── Button.astro
-    └── Input.astro
-```
+## 2.7 条件与列表
 
-### 2.7 条件渲染与列表渲染
-
-#### 条件渲染
+条件用短路或三元：
 
 ```astro
 ---
 const user = null;
 const role = 'admin';
-const status = 'active';
 ---
 
-<!-- 短路求值 -->
 {user && <UserProfile user={user} />}
-
-<!-- 三元表达式 -->
 {role === 'admin' ? <AdminPanel /> : <UserPanel />}
+```
 
-<!-- if-else 逻辑（在脚本中提前计算） -->
+多个分支在脚本段里算好再输出，比在模板里嵌套三元好读：
+
+```astro
 ---
+const status = 'loading';
+
 let content;
 if (status === 'loading') {
   content = <Loading />;
@@ -324,140 +254,103 @@ if (status === 'loading') {
   content = <DataView />;
 }
 ---
+
 {content}
 ```
 
-#### 列表渲染
+列表用 `map`。需要包裹多个元素时用 `<>...</>`，Astro 内置 `Fragment`，不需要装包：
 
 ```astro
 ---
-const posts = [
-  { id: 1, title: '文章一', slug: 'post-1' },
-  { id: 2, title: '文章二', slug: 'post-2' },
-  { id: 3, title: '文章三', slug: 'post-3' },
+const terms = [
+  { term: "SSR", definition: "服务端渲染" },
+  { term: "MPA", definition: "多页应用" },
 ];
-
-// 筛选 + 排序
-const published = posts.filter(p => p.id > 1);
 ---
 
-<ul>
-  {posts.map(post => (
-    <li>
-      <a href={`/blog/${post.slug}`}>{post.title}</a>
-    </li>
+<dl>
+  {terms.map((item) => (
+    <>
+      <dt>{item.term}</dt>
+      <dd>{item.definition}</dd>
+    </>
   ))}
-</ul>
-
-<!-- 使用 Fragment 包裹多个元素 -->
-{posts.map(post => (
-  <>
-    <h2>{post.title}</h2>
-    <p>ID: {post.id}</p>
-  </>
-))}
+</dl>
 ```
 
-#### 使用 Astro 内置 Fragment
+## 2.8 script 与客户端 JavaScript
 
-```astro
----
-import Fragment from 'astro-fragment';
----
-
-{items.map(item => (
-  <Fragment>
-    <dt>{item.term}</dt>
-    <dd>{item.definition}</dd>
-  </Fragment>
-))}
-```
-
-### 2.8 Script 与客户端 JavaScript
-
-组件模板中的 `<script>` 标签用于客户端交互。
-
-#### 基本脚本
+模板里的 `<script>` 是唯一能在浏览器执行代码的地方。
 
 ```astro
 <script>
-  // 在浏览器中执行
   const button = document.querySelector('#my-button');
-  button.addEventListener('click', () => {
-    alert('按钮被点击了！');
+  button?.addEventListener('click', () => {
+    console.log('按钮被点击了');
   });
 </script>
 ```
 
-#### 脚本处理方式
+默认的 `<script>` 会被 Vite 处理：打包、压缩、转成 ESM，放在构建产物里，按模块加载（等同于 `defer`）。同一次构建里，内容完全相同的多个 `<script>` 只会打包一份。
 
-| 属性 | 效果 |
-|---|---|
-| 默认（无属性） | 打包、处理、作用域隔离、使用 ESM |
-| `is:inline` | 不打包、不处理、直接输出原文 |
-| `hoist` | 提升到 `<head>` 中，去重 |
-| `src` | 引用外部脚本文件 |
+`is:inline` 关掉这套处理：
 
-```astro
-<!-- 打包处理的脚本（默认） -->
-<script>
-  console.log('这个脚本会被 Vite 打包处理');
-</script>
+| 写法 | 处理方式 | 什么时候用 |
+|---|---|---|
+| `<script>` | 打包、压缩、ESM、去重 | 默认，业务代码 |
+| `<script is:inline>` | 原样输出，不打包不去重 | 需要 `var`、需要调用外部全局、代码必须出现在原位置 |
+| `<script hoist>` | 提到 `<head>` 并去重 | 需要在 DOM 解析前执行 |
+| `<script src="...">` | 引用外部文件 | 第三方脚本 |
 
-<!-- 内联脚本（不处理） -->
-<script is:inline>
-  console.log('这个脚本保持原样');
-</script>
+代价要说清：`is:inline` 的脚本不会被 TypeScript 检查和压缩，也不会去重。同一个组件在页面里用 5 次，`is:inline` 脚本就输出 5 份。引第三方脚本时必须加 `is:inline`，否则 Astro 会尝试解析这个路径并在构建时报错：
 
-<!-- 提升到 head 中 -->
-<script hoist>
-  // 该脚本去重后放入 <head>
-</script>
-
-<!-- 外部脚本 -->
-<script src="/scripts/custom.js"></script>
+```
+Failed to resolve import "/scripts/analytics.js" from "src/pages/index.astro".
 ```
 
-#### TypeScript 客户端脚本
-
-```astro
-<script>
-  // 需要设置 tsconfig 或使用 .ts 文件
-  interface User {
-    name: string;
-    age: number;
-  }
-
-  const user: User = { name: 'Alice', age: 30 };
-  console.log(user.name);
-</script>
-```
-
-### 2.9 动态组件与标签
-
-#### 动态标签名
+另外，`<script>` 里的代码是独立模块，拿不到脚本段里的变量：
 
 ```astro
 ---
-const Element = 'h2';  // 变量作为标签名
+const userId = "u_123";
+---
+
+<script>
+  // ReferenceError: userId is not defined
+  console.log(userId);
+</script>
+```
+
+需要把服务端数据交给浏览器，用 `data-` 属性或 `define:vars`：
+
+```astro
+<script define:vars={{ userId }}>
+  console.log(userId);
+</script>
+```
+
+`define:vars` 的实现是把变量序列化后拼进内联脚本，等价于 `is:inline`，所以它同样不打包、不去重，只适合少量配置值。
+
+## 2.9 动态组件与标签
+
+标签名可以是变量：
+
+```astro
+---
+const Element = 'h2';
 ---
 
 <Element>动态标签内容</Element>
-<!-- 等价于 <h2>动态标签内容</h2> -->
 ```
 
-#### 动态组件
+也可以在脚本段里选组件：
 
 ```astro
 ---
 import PostLayout from '../layouts/PostLayout.astro';
 import PageLayout from '../layouts/PageLayout.astro';
 
-const layouts = {
-  post: PostLayout,
-  page: PageLayout,
-} as const;
-
+const layouts = { post: PostLayout, page: PageLayout };
 const type = 'post';
 const Layout = layouts[type];
 ---
@@ -467,46 +360,46 @@ const Layout = layouts[type];
 </Layout>
 ```
 
-### 2.10 内置全局对象 `Astro`
+`Layout` 是 `undefined` 时 Astro 直接报 `TypeError: Layout is not a function`。外部输入决定组件类型时，先校验再取值。
 
-`Astro` 是可以在任何 `.astro` 文件的组件脚本中使用的全局对象。
+## 2.10 全局对象 Astro
 
-| 属性/方法 | 说明 | 可用场景 |
+脚本段可以访问 `Astro` 对象。
+
+| 属性 | 说明 | 可用场景 |
 |---|---|---|
-| `Astro.props` | 组件接收的属性 | 所有组件 |
-| `Astro.params` | URL 路由参数 | 页面组件 |
-| `Astro.request` | 请求对象 | SSR 页面 |
-| `Astro.url` | 请求 URL | SSR 页面 |
-| `Astro.cookies` | Cookie 对象 | SSR 页面 |
-| `Astro.locals` | 中间件传递的数据 | 所有组件 |
-| `Astro.redirect(path)` | 重定向 | 页面组件 |
-| `Astro.site` | 配置中的 `site` 值 | 所有组件 |
-| `Astro.generator` | Astro 版本标识 | 所有组件 |
-| `Astro.session` | 会话对象 | SSR 页面 |
+| `Astro.props` | 组件收到的属性 | 所有组件 |
+| `Astro.params` | 动态路由参数 | 页面 |
+| `Astro.url` | 当前 URL | 所有组件 |
+| `Astro.request` | 原始请求 | 按需渲染 |
+| `Astro.cookies` | Cookie 读写 | 按需渲染 |
+| `Astro.locals` | 中间件写入的数据 | 有中间件时 |
+| `Astro.session` | 会话，需配置驱动 | 按需渲染 |
+| `Astro.redirect(path)` | 返回重定向响应 | 页面 |
+| `Astro.site` | 配置里的 `site` | 所有组件 |
+| `Astro.generator` | 生成器标识 | 所有组件 |
 
 ```astro
 ---
-// 访问当前页面路由参数
-const { slug } = Astro.params;
-
-// 获取请求中的查询参数（SSR 模式）
+const { id } = Astro.params;
 const url = new URL(Astro.request.url);
-const search = url.searchParams.get('q');
+const q = url.searchParams.get('q');
 
-// 服务端重定向
 if (!isLoggedIn) {
   return Astro.redirect('/login');
 }
 ---
 ```
 
-### 本章小结
+在 `static` 输出下访问 `Astro.request`，拿到的是构建时的占位请求，`url` 是页面自身路径。用它判断登录态永远不会成立，这类逻辑必须放到按需渲染的页面或中间件里。
 
-- `.astro` 组件由**服务端脚本**（`---`）和**HTML 模板**两部分组成
-- 模板用 `{ }` 支持 JavaScript 表达式，包括条件、循环、方法调用
-- **Props** 支持 TypeScript 类型定义，让编辑器智能提示生效
-- **插槽**分默认插槽和具名插槽，支持后备内容
-- **客户端脚本**默认打包处理，可通过 `is:inline`、`hoist` 等属性控制
-- **Astro 全局对象**提供了丰富的运行时 API
+## 2.11 本章小结
 
-下一章我们学习路由与导航系统。
+- 组件分脚本段与模板，两段都在服务端执行，模板表达式不会变成客户端代码。
+- 模板表达式只能放表达式，列表不需要 `key`。
+- Props 用 `Props` 接口约束；传给客户端组件的值必须可序列化。
+- 具名插槽拼错时不报错，内容会消失。
+- `<script>` 默认打包去重，`is:inline` 原样输出，`define:vars` 用于传少量服务端数据。
+- `Astro.request` 只在按需渲染时有真实请求。
+
+下一章讲路由：文件如何映射到 URL，动态路由怎么取参数，以及静态与按需渲染下 `getStaticPaths` 的差别。

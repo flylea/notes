@@ -1,235 +1,210 @@
-# Astro 从入门到进阶教程
+# 第 1 章 Astro 简介与安装
 
-## 第一章：Astro 简介与安装
+## 1.1 Astro 解决什么问题
 
-### 1.1 什么是 Astro？
+内容型站点（博客、文档、营销页、商品页）的主要工作是展示文字和图片。用单页应用做这类站点，浏览器先下载一份 JS，再在客户端拼出页面。内容没变，成本却每次都付。
 
-Astro 是专为构建**内容驱动型网站**（博客、营销网站、电商网站、文档站等）而设计的现代化 Web 框架。它的核心理念是：**默认零 JavaScript，仅在必要时发送代码到浏览器**。
+Astro 的做法相反：先在服务端把页面渲染成 HTML，直接发给浏览器。只有需要交互的组件才附带 JS，这些组件在静态页面里各自水合（hydrate），像海面上的岛屿。这就是群岛架构。
 
-Astro 由五大设计原则驱动：
+它带来的取舍很具体：
 
-| 原则 | 说明 |
-|---|---|
-| **内容驱动** | 专为展示丰富内容的网站设计，而非 Web 应用 |
-| **服务端优先** | 采用 MPA（多页应用）架构，渲染在服务端完成 |
-| **默认极速** | 比 React 同类框架快 40%，JavaScript 减少 90% |
-| **易于使用** | `.astro` 语法是 HTML 超集，无需学习框架特有概念 |
-| **开发者友好** | 出色的 CLI、VS Code 扩展、14 种语言文档、活跃 Discord |
+- 首屏 HTML 里就有内容，不需要等 JS 执行完才能看到文字。
+- 导航默认是整页刷新，浏览器会重建文档。需要无刷新跳转时，加 `<ClientRouter />`，见第 7 章。
+- 交互组件仍然要下载对应框架的运行时。一个页面放三个 React 岛屿，React 只加载一次，但水合成本随岛屿数量增加。
 
-### 1.2 为什么选择 Astro？
+判断一个项目适不适合用 Astro，看两条：
 
-**七大核心功能亮点**：
-
-1. **群岛架构**：独创的组件渲染策略，静态 HTML 海洋中嵌入交互岛屿
-2. **UI 框架无关**：支持 React、Preact、Svelte、Vue、SolidJS、Alpine.js、HTMX、Web Components
-3. **服务端优先渲染**：将重型计算从用户设备移走
-4. **默认零 JavaScript**：输出纯 HTML/CSS，仅交互组件加载 JS
-5. **内容集合系统**：类型安全的 Markdown 内容管理，Zod Schema 验证
-6. **视图过渡动画**：无需前端框架即可实现 SPA 级页面过渡
-7. **Astro DB**：专为 Astro 设计的全托管 SQL 数据库
-
-**与主流框架的对比**：
-
-| 对比维度 | Astro | Next.js / Nuxt / SvelteKit |
+| 判断项 | 偏向 Astro | 偏向 SPA 框架 |
 |---|---|---|
-| 定位 | 内容驱动网站 | Web 应用程序 |
-| 架构 | MPA（多页应用） | SPA（单页应用） |
-| 渲染策略 | 服务端优先，默认零 JS | 客户端渲染为主 |
-| JavaScript 负载 | 极低（减少 ~90%） | 较高 |
-| 学习曲线 | 低（HTML 超集） | 中高 |
-| 适用场景 | 博客、文档、营销站、电商 | 仪表盘、SaaS、复杂交互 |
+| 页面主要内容 | 已发布的文字、图片、商品信息 | 登录后的实时数据、复杂表单流程 |
+| 单页交互密度 | 少量控件（搜索、点赞、购物车角标） | 大部分区域都在响应状态变化 |
+| 数据来源 | 构建时可取（CMS、Markdown、接口快照） | 几乎全部要登录态和请求时取 |
 
-> 数据支撑：每快 100ms，转化率增加 1%。Astro 网站平均加载速度比 React 框架快 40%。
+两条都偏左，用 Astro 省事。都偏右，用 Remix、Next.js 这类框架更直接。
 
-### 1.3 环境要求
+三种情况要把 Astro 排除掉：
 
-安装 Astro 前，你的电脑需要：
+- 团队只有 React 经验，项目又是一个重交互的后台系统。硬上 Astro 等于同时学两套心智模型，收益为负。
+- 需要大量登录后的实时协作界面、复杂表单流程、客户端状态机。这些是 SPA 的强项，Astro 的岛屿模型反而碍事。
+- 依赖某个只在 React 生态里存在的组件库，且它必须整页接管。嵌进 Astro 只能当孤岛用，还得处理样式和路由的断裂。
 
-- **Node.js**：`v18.20.8` 或更高版本（推荐 v22.12.0+）
-- **包管理器**：推荐 `pnpm`，也支持 `npm` 和 `yarn`
-- **文本编辑器**：推荐 VS Code + 官方 Astro 扩展
+反过来说，Astro 的生态比 React 小得多，遇到问题能搜到的答案也少。选它之前先想清楚：要解决的问题是"内容展示得快"，还是"应用交互复杂"。前者是 Astro 的主场，后者不是。
 
-```bash
-# 检查 Node.js 版本
-node --version
+## 1.2 版本基线
 
-# 检查 npm 版本
-npm --version
-```
+本书代码按下面这套环境核对：
 
-### 1.4 创建第一个 Astro 项目
-
-#### 方式一：使用 CLI 创建（推荐）
-
-```bash
-# npm
-npm create astro@latest
-
-# pnpm（推荐）
-pnpm create astro@latest
-
-# yarn
-yarn create astro
-```
-
-CLI 向导会依次询问：
-
-1. **项目名称**：输入目录名称（如 `my-astro-site`）
-2. **模板选择**：
-   - `a` — 基础空白模板
-   - `b` — 博客模板（含内容集合和 RSS）
-   - `c` — 文档模板
-   - `d` — 端口（Portfolio）模板
-3. **TypeScript**：推荐选择 `Yes`（严格模式）
-4. **初始化 Git**：推荐 `Yes`
-5. **安装依赖**：选择 `Yes`
-6. **添加集成**：可跳过，后续用 `npx astro add` 添加
-
-#### CLI 标志速查
-
-```bash
-# 跳过动画快速安装
-npm create astro@latest -- --skip-houston
-
-# 指定模板安装
-npm create astro@latest -- --template blog
-
-# 回答所有问题为 yes
-npm create astro@latest -- --yes
-
-# 创建时直接添加集成
-npm create astro@latest -- --add tailwind --add react
-
-# 空目录强制安装
-npm create astro@latest -- --force
-```
-
-#### 方式二：手动安装
-
-如果想在现有项目中添加 Astro：
-
-```bash
-# 1. 创建目录
-mkdir my-project && cd my-project
-
-# 2. 初始化 package.json
-npm init -y
-
-# 3. 本地安装 Astro
-npm install astro
-
-# 4. 添加 npm scripts
-# 在 package.json 的 scripts 中添加：
-# "dev": "astro dev",
-# "start": "astro dev",
-# "build": "astro build",
-# "preview": "astro preview"
-
-# 5. 创建首页
-mkdir -p src/pages
-echo "<html><body><h1>Hello, Astro!</h1></body></html>" > src/pages/index.astro
-
-# 6. 启动开发服务器
-npm run dev
-```
-
-### 1.5 项目结构详解
-
-```
-my-astro-site/
-├── src/
-│   ├── pages/              ← 页面路由（文件即路由）
-│   │   ├── index.astro     → /
-│   │   ├── about.astro     → /about
-│   │   └── blog/
-│   │       └── [slug].astro → /blog/任意文章
-│   ├── components/         ← 可复用组件
-│   │   ├── Header.astro
-│   │   ├── Footer.astro
-│   │   └── Card.astro
-│   ├── layouts/            ← 页面布局
-│   │   └── BaseLayout.astro
-│   ├── content/            ← 内容集合
-│   │   ├── blog/
-│   │   │   └── post-1.md
-│   │   └── config.ts
-│   ├── assets/             ← 需要优化的资源（图片等）
-│   │   └── hero.jpg
-│   ├── styles/             ← 全局样式
-│   │   └── global.css
-│   └── middleware.ts       ← 请求中间件（可选）
-├── public/                 ← 原样复制的静态文件
-│   ├── favicon.ico
-│   └── robots.txt
-├── db/                     ← Astro DB 数据库定义（可选）
-│   ├── config.ts
-│   └── seed.ts
-├── astro.config.mjs        ← Astro 核心配置
-├── tsconfig.json           ← TypeScript 配置
-└── package.json
-```
-
-**各目录职责**：
-
-| 路径 | 作用 | 特点 |
+| 项目 | 版本 | 说明 |
 |---|---|---|
-| `src/pages/` | 网站页面 | 自动成为路由，支持 `.astro`/`.md`/`.mdx` |
-| `src/components/` | 可复用组件 | 不自动成为页面 |
-| `src/layouts/` | 页面布局 | 定义页面外壳和公共结构 |
-| `src/content/` | 内容集合 | 类型安全的 Markdown/JSON/YAML 管理 |
-| `src/assets/` | 需优化的静态资源 | 图片会自动优化，可导入使用 |
-| `public/` | 原始静态文件 | 直接复制到构建产物，不做处理 |
+| Astro | 7.4.x | 2026 年 11 月核对 |
+| Node.js | ≥ 22.23.4 | `astro@7` 的 `engines` 要求，低于此版本装不上 |
+| 包管理器 | pnpm 10 或 npm 11 | 命令示例以 pnpm 为主，npm 等价 |
 
-### 1.6 开发与构建命令
+Astro 的主版本变化很快。v5 换了内容集合的入口文件，v6 把 Font API 转正，v7 移除了 `output: 'hybrid'`。网上大量教程还停留在 v4，看到 `entry.slug`、`entry.render()`、`<ViewTransitions />` 这类写法，先确认它对应的版本。
+
+查当前版本：
 
 ```bash
-# 启动开发服务器
-npm run dev            # 默认 http://localhost:4321
-
-# 自定义端口和主机
-npm run dev -- --port 3000 --host
-
-# 构建生产版本
-npm run build          # 默认输出到 dist/
-
-# 预览构建结果（本地服务器）
-npm run preview
-
-# 同步内容集合类型（手动触发）
-npx astro sync
-
-# 添加集成
-npx astro add tailwind
-npx astro add react
-npx astro add vue
-
-# 检查 Astro 版本
+pnpm view astro version
 npx astro --version
 ```
 
-### 1.7 编辑器配置
+## 1.3 环境准备
 
-安装 **Astro VS Code 扩展**（ID: `astro-build.astro-vscode`），获得：
+安装前确认 Node 版本：
 
-- `.astro` 文件语法高亮
-- TypeScript 智能提示和自动补全
-- 内建 Prettier 格式化
-- 错误诊断和悬停提示
+```bash
+node --version
+# v22.23.4 或更高
+```
+
+版本不够时，`npm create astro@latest` 会在安装依赖阶段失败，报错大意是 `Astro requires Node.js v22.23.4 or higher`。用 nvm 或 fnm 切换版本：
+
+```bash
+fnm install 22
+fnm use 22
+```
+
+编辑器推荐 VS Code 加官方 Astro 扩展，扩展 ID 是 `astro-build.astro-vscode`：
 
 ```bash
 code --install-extension astro-build.astro-vscode
 ```
 
-### 1.8 快速上手：你的第一个页面
+扩展提供 `.astro` 语法高亮、TypeScript 提示、诊断和格式化。没有扩展也能开发，只是模板里的表达式报错要等 `astro check` 才看得到。
 
-创建 `src/pages/index.astro`：
+## 1.4 创建项目
+
+### 1.4.1 用 CLI 创建
+
+```bash
+pnpm create astro@latest
+```
+
+向导依次问六件事：
+
+1. 项目目录名，例如 `my-astro-site`。
+2. 模板：空白、博客、文档、作品集。博客模板自带内容集合和 RSS。
+3. 是否使用 TypeScript，建议选是。
+4. 是否初始化 Git。
+5. 是否安装依赖。
+6. 是否现在添加集成，可以先跳过。
+
+常用标志：
+
+```bash
+# 跳过 Houston 动画
+pnpm create astro@latest -- --skip-houston
+
+# 指定模板
+pnpm create astro@latest -- --template blog
+
+# 全部使用默认答案
+pnpm create astro@latest -- --yes
+
+# 创建时加集成
+pnpm create astro@latest -- --add tailwind --add react
+
+# 目录非空时强制创建
+pnpm create astro@latest -- --force
+```
+
+### 1.4.2 手动安装
+
+在已有项目里加 Astro：
+
+```bash
+mkdir my-project && cd my-project
+npm init -y
+npm install astro
+```
+
+在 `package.json` 里加脚本：
+
+```json
+{
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  }
+}
+```
+
+建一个首页：
+
+```bash
+mkdir -p src/pages
+cat > src/pages/index.astro <<'EOF'
+<html>
+  <body>
+    <h1>Hello, Astro!</h1>
+  </body>
+</html>
+EOF
+npm run dev
+```
+
+这里容易出两个问题。第一，`src/pages` 目录不存在时 `astro dev` 直接报 `No pages found`，不会自动建目录。第二，`package.json` 里没有 `"type": "module"` 也能跑，但一旦自己写 `.mjs` 配置，缺少它会报 `Cannot use import statement outside a module`。
+
+## 1.5 项目结构
+
+```
+my-astro-site/
+├── src/
+│   ├── pages/                  ← 文件即路由
+│   │   ├── index.astro         → /
+│   │   ├── about.astro         → /about
+│   │   └── blog/
+│   │       └── [id].astro      → /blog/任意 id
+│   ├── components/             ← 可复用组件
+│   ├── layouts/                ← 页面外壳
+│   ├── content/                ← Markdown、JSON 内容
+│   ├── content.config.ts       ← 内容集合定义
+│   ├── assets/                 ← 需要优化的图片
+│   ├── styles/                 ← 全局样式
+│   └── middleware.ts           ← 中间件，可选
+├── public/                     ← 原样复制到产物
+├── astro.config.mjs            ← 框架配置
+├── tsconfig.json
+└── package.json
+```
+
+| 路径 | 作用 | 构建时怎么处理 |
+|---|---|---|
+| `src/pages/` | 页面，自动成为路由 | 编译成 HTML |
+| `src/components/` | 可复用组件 | 不进路由，被引用时编译 |
+| `src/layouts/` | 页面外壳 | 同组件 |
+| `src/content/` | Markdown、JSON 等数据 | 由 `content.config.ts` 里的 loader 读取 |
+| `src/assets/` | 需要处理的图片 | 构建时优化、加内容哈希 |
+| `public/` | 文件名固定的文件 | 原样复制，不加哈希 |
+
+`src/content/config.ts` 是 v4 的位置，v5 起改到 `src/content.config.ts`。两个位置放错了不会报错，只是集合定义不生效，`getCollection()` 返回空数组。
+
+## 1.6 常用命令
+
+```bash
+pnpm dev                    # 开发服务器，默认 http://localhost:4321
+pnpm dev --port 3000 --host # 自定义端口，并监听局域网
+pnpm build                  # 构建到 dist/
+pnpm preview                # 预览构建结果
+npx astro sync              # 生成内容集合类型
+npx astro check             # 类型检查
+npx astro add react         # 添加集成
+```
+
+`astro sync` 生成两类产物：`.astro/types.d.ts` 和 `.astro/collections/<集合名>.schema.json`。编辑器提示消失、`getCollection()` 返回值变成 `any`，多半是没跑过它。
+
+`astro check` 需要单独安装 `@astrojs/check` 和 `typescript`，否则提示 `astro check is not available in this project`。
+
+## 1.7 第一个页面
+
+建 `src/pages/index.astro`：
 
 ```astro
 ---
-// --- 代码围栏中的代码在服务端执行 ---
-const pageTitle = "我的 Astro 网站"
-const greeting = "Hello, World!"
-const items = ["Astro", "React", "Vue", "Svelte"]
+const pageTitle = "我的 Astro 网站";
+const items = ["Astro", "React", "Vue", "Svelte"];
 ---
 
 <html lang="zh-CN">
@@ -240,28 +215,25 @@ const items = ["Astro", "React", "Vue", "Svelte"]
   </head>
   <body>
     <main>
-      <h1>{greeting}</h1>
-      <p>欢迎来到我的第一个 Astro 网站。</p>
+      <h1>Hello, World!</h1>
       <ul>
-        {items.map(item => <li>{item}</li>)}
+        {items.map((item) => <li>{item}</li>)}
       </ul>
     </main>
   </body>
 </html>
 ```
 
-```bash
-# 启动并查看效果
-npm run dev
-# 打开浏览器访问 http://localhost:4321
-```
+`---` 之间的代码在构建时（或开启 SSR 后请求时）执行一次，不会进入浏览器。模板里的 `{}` 表达式也在同一侧求值。这段代码执行的时机决定了它能做什么：能读文件、查数据库、调用内部接口，不能碰 `window` 和 `document`。
 
-### 本章小结
+打开 http://localhost:4321，看到的 HTML 里已经有 `<li>` 列表。查看源代码可以确认这一点，这是 Astro 与客户端渲染框架最直观的区别。
 
-- Astro 是**服务端优先、默认零 JS**的内容驱动框架
-- 安装只需 `npm create astro@latest`，不到 1 分钟
-- 项目结构清晰，`src/pages/` 即路由，`src/components/` 即组件
-- VS Code 扩展提供一流的开发体验
-- 适合博客、文档站、营销网站、电商等场景
+## 1.8 本章小结
 
-下一章我们将深入学习 Astro 组件的完整语法。
+- Astro 面向内容和展示，默认输出 HTML，交互组件按需水合。
+- 适用判断看两条：内容是否已发布、单页交互密度是否低。
+- 版本基线是 Astro 7.4.x 与 Node ≥ 22.23.4，版本不符时装不上。
+- 内容集合定义放在 `src/content.config.ts`，不是 `src/content/config.ts`。
+- `.astro` 文件的脚本段在服务端执行，模板表达式同侧求值。
+
+下一章讲组件语法：模板表达式、Props、插槽，以及脚本在什么时候执行。
